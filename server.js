@@ -3206,8 +3206,19 @@ async function ensureSchemaCompatibility() {
       await ensureMonitorReferenceColumnType("monitor_checks", "monitor_id", targetMonitorIdColumnType);
       await ensureMonitorReferenceColumnType("monitor_daily_stats", "monitor_id", targetMonitorIdColumnType);
       await ensureMonitorReferenceColumnType("monitor_daily_error_codes", "monitor_id", targetMonitorIdColumnType);
+      await ensureMonitorReferenceColumnType("maintenances", "monitor_id", targetMonitorIdColumnType);
     } catch (error) {
       console.warn("Could not align monitor reference column types automatically:", error.code || error.message);
+    }
+  }
+
+  const userIdColumn = await getColumnMetadata("users", "id");
+  if (userIdColumn?.column_type) {
+    const targetUserIdColumnType = String(userIdColumn.column_type).trim();
+    try {
+      await ensureMonitorReferenceColumnType("maintenances", "user_id", targetUserIdColumnType);
+    } catch (error) {
+      console.warn("Could not align user reference column types automatically:", error.code || error.message);
     }
   }
 
@@ -3229,6 +3240,19 @@ async function ensureSchemaCompatibility() {
     FROM monitor_daily_error_codes de
     LEFT JOIN monitors m ON m.id = de.monitor_id
     WHERE m.id IS NULL
+  `);
+
+  await pool.query(`
+    DELETE mt
+    FROM maintenances mt
+    LEFT JOIN monitors m ON m.id = mt.monitor_id
+    WHERE m.id IS NULL
+  `);
+  await pool.query(`
+    DELETE mt
+    FROM maintenances mt
+    LEFT JOIN users u ON u.id = mt.user_id
+    WHERE u.id IS NULL
   `);
 
   if (!(await hasForeignKeyReference("monitor_checks", "monitor_id", "monitors", "id"))) {
