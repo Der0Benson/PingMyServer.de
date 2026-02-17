@@ -67,6 +67,7 @@ const maintenanceNoteInput = document.getElementById("maintenance-note");
 const maintenanceFormMessageEl = document.getElementById("maintenance-form-message");
 const maintenanceListEl = document.getElementById("maintenance-list");
 const maintenanceCreateButton = document.getElementById("maintenance-create");
+const maintenanceVerifyLinkEl = document.getElementById("maintenance-verify-link");
 
 let user = null;
 let monitors = [];
@@ -93,6 +94,23 @@ function setMaintenanceMessage(message, variant = "") {
   maintenanceFormMessageEl.textContent = String(message || "");
   maintenanceFormMessageEl.classList.toggle("success", variant === "success");
   maintenanceFormMessageEl.classList.toggle("error", variant === "error");
+}
+
+function hideMaintenanceVerifyLink() {
+  if (!maintenanceVerifyLinkEl) return;
+  maintenanceVerifyLinkEl.hidden = true;
+  maintenanceVerifyLinkEl.removeAttribute("data-hostname");
+  maintenanceVerifyLinkEl.href = "/connections#domain-verification";
+}
+
+function showMaintenanceVerifyLink(hostname) {
+  if (!maintenanceVerifyLinkEl) return;
+  const clean = String(hostname || "").trim();
+  maintenanceVerifyLinkEl.href = clean
+    ? `/connections?domain=${encodeURIComponent(clean)}#domain-verification`
+    : "/connections#domain-verification";
+  maintenanceVerifyLinkEl.hidden = false;
+  if (clean) maintenanceVerifyLinkEl.dataset.hostname = clean;
 }
 
 function markAssertionsDirty() {
@@ -316,6 +334,7 @@ function renderMaintenances(maintenances) {
 
 function resetMaintenanceForm(shouldFillDefaults = false) {
   setMaintenanceMessage("");
+  hideMaintenanceVerifyLink();
   if (maintenanceTitleInput) maintenanceTitleInput.value = "";
   if (maintenanceNoteInput) maintenanceNoteInput.value = "";
 
@@ -354,6 +373,7 @@ async function createMaintenance() {
   if (!activeMonitorId) return;
   if (!maintenanceForm) return;
 
+  hideMaintenanceVerifyLink();
   const startsAtMs = parseDateTimeLocalInput(maintenanceStartInput?.value);
   const endsAtMs = parseDateTimeLocalInput(maintenanceEndInput?.value);
   if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) {
@@ -383,20 +403,21 @@ async function createMaintenance() {
       return;
     }
 
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.ok) {
-      const errorCode = String(payload?.error || "").toLowerCase();
-      if (response.status === 403 && errorCode === "domain not verified") {
-        const hostname = String(payload?.hostname || "").trim();
-         setMaintenanceMessage(
-           `Domain${hostname ? ` (${hostname})` : ""} ist nicht verifiziert. Bitte unter Connections -> Domain-Verifizierung verifizieren.`,
-           "error"
-         );
-       } else if (response.status === 403 && errorCode === "forbidden") {
-         setMaintenanceMessage(
-           "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen.",
-           "error"
-         );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        const errorCode = String(payload?.error || "").toLowerCase();
+        if (response.status === 403 && errorCode === "domain not verified") {
+          const hostname = String(payload?.hostname || "").trim();
+          setMaintenanceMessage(
+            `Domain${hostname ? ` (${hostname})` : ""} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.`,
+            "error"
+          );
+          showMaintenanceVerifyLink(hostname);
+        } else if (response.status === 403 && errorCode === "forbidden") {
+          setMaintenanceMessage(
+            "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen.",
+            "error"
+          );
        } else if (response.status === 400 && errorCode === "invalid target") {
          setMaintenanceMessage(
            "Monitor-Ziel ist ungültig (z.B. IP/localhost) und kann nicht per Domain-Verifizierung freigeschaltet werden.",
@@ -456,6 +477,7 @@ async function cancelMaintenance(id) {
   const numericId = Number(id);
   if (!Number.isFinite(numericId) || numericId <= 0) return;
 
+  hideMaintenanceVerifyLink();
   setMaintenanceMessage("Wartung wird abgebrochen ...");
 
   try {
@@ -1600,6 +1622,7 @@ async function init() {
   for (const el of [maintenanceTitleInput, maintenanceStartInput, maintenanceEndInput, maintenanceNoteInput].filter(Boolean)) {
     el.addEventListener("input", () => {
       setMaintenanceMessage("");
+      hideMaintenanceVerifyLink();
     });
   }
 

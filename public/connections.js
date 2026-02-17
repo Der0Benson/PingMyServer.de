@@ -1006,6 +1006,19 @@ async function init() {
   if (!authenticated) return;
   applyCredentialModeUi();
   await syncPublicStatusLinks();
+
+  const prefillDomain = String(new URLSearchParams(window.location.search).get("domain") || "").trim();
+  if (prefillDomain && domainInputEl) {
+    domainInputEl.value = prefillDomain;
+    domainInputEl.focus();
+  }
+  if (prefillDomain || window.location.hash === "#domain-verification") {
+    const section = document.getElementById("domain-verification");
+    if (section && typeof section.scrollIntoView === "function") {
+      section.scrollIntoView({ block: "start" });
+    }
+  }
+
   bindEvents();
   await Promise.all([loadAppConnections(), loadDomains(), loadSessions()]);
 }
