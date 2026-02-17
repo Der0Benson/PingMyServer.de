@@ -11,6 +11,11 @@ const sessionsListEl = document.getElementById("sessions-list");
 const appConnectionsSummaryEl = document.getElementById("app-connections-summary");
 const appConnectionsMessageEl = document.getElementById("app-connections-message");
 const appConnectionsListEl = document.getElementById("app-connections-list");
+const domainsSummaryEl = document.getElementById("domains-summary");
+const domainsMessageEl = document.getElementById("domains-message");
+const domainsListEl = document.getElementById("domain-list");
+const domainForm = document.getElementById("domain-form");
+const domainInputEl = document.getElementById("domain-input");
 
 const passwordForm = document.getElementById("password-form");
 const currentPasswordEl = document.getElementById("current-password");
@@ -29,9 +34,11 @@ const PASSWORD_MAX_LENGTH = 72;
 
 let sessions = [];
 let appConnections = [];
+let domains = [];
 let user = null;
 let loadingSessions = false;
 let loadingAppConnections = false;
+let loadingDomains = false;
 let canUsePasswordlessAccountActions = false;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 
@@ -87,6 +94,11 @@ function setSessionsSummary(text) {
 function setAppConnectionsSummary(text) {
   if (!appConnectionsSummaryEl) return;
   appConnectionsSummaryEl.textContent = text || "";
+}
+
+function setDomainsSummary(text) {
+  if (!domainsSummaryEl) return;
+  domainsSummaryEl.textContent = text || "";
 }
 
 function applyCredentialModeUi() {
@@ -187,6 +199,98 @@ function renderEmptyAppConnections(title, text) {
       <div class="muted">${escapeHtml(text)}</div>
     </div>
   `;
+}
+
+function renderEmptyDomains(title, text) {
+  if (!domainsListEl) return;
+  domainsListEl.innerHTML = `
+    <div class="empty-state">
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="muted">${escapeHtml(text)}</div>
+    </div>
+  `;
+}
+
+function formatDomainSubtitle(item) {
+  const verifiedAt = Number(item?.verifiedAt);
+  if (Number.isFinite(verifiedAt) && verifiedAt > 0) {
+    return `Verifiziert am ${formatDateTime(verifiedAt)}.`;
+  }
+
+  const lastCheckedAt = Number(item?.lastCheckedAt);
+  const lastError = String(item?.lastCheckError || "").trim();
+  if (Number.isFinite(lastCheckedAt) && lastCheckedAt > 0) {
+    const base = `Letzter Check: ${formatDateTime(lastCheckedAt)} (${formatRelative(lastCheckedAt)})`;
+    return lastError ? `${base} · ${lastError}` : `${base}.`;
+  }
+
+  return "TXT Record setzen und dann verifizieren.";
+}
+
+function renderDomains() {
+  if (!domainsListEl) return;
+  const list = Array.isArray(domains) ? domains : [];
+
+  if (!list.length) {
+    renderEmptyDomains("Keine Domains.", "Wenn du eine Domain hinzufügst, erscheint sie hier.");
+    setDomainsSummary("0 Domains");
+    return;
+  }
+
+  domainsListEl.innerHTML = "";
+  const verifiedCount = list.filter((entry) => Number.isFinite(Number(entry?.verifiedAt)) && Number(entry.verifiedAt) > 0).length;
+  setDomainsSummary(`${verifiedCount} von ${list.length} Domains verifiziert`);
+
+  for (const item of list) {
+    const id = Number(item?.id);
+    const domain = String(item?.domain || "").trim();
+    if (!Number.isFinite(id) || id <= 0 || !domain) continue;
+
+    const verified = Number.isFinite(Number(item?.verifiedAt)) && Number(item.verifiedAt) > 0;
+    const badgeClass = verified ? " verified" : " pending";
+    const badgeText = verified ? "Verifiziert" : "Ausstehend";
+
+    const recordName = String(item?.recordName || "").trim() || `_pingmyserver-challenge.${domain}`;
+    const recordValue = String(item?.recordValue || "").trim();
+
+    const row = document.createElement("article");
+    row.className = "domain-item";
+    row.innerHTML = `
+      <div class="domain-head">
+        <div>
+          <div class="domain-title">${escapeHtml(domain)}</div>
+          <div class="domain-subtitle">${escapeHtml(formatDomainSubtitle(item))}</div>
+        </div>
+        <span class="domain-badge${badgeClass}">${escapeHtml(badgeText)}</span>
+      </div>
+
+      <div class="domain-record">
+        <div class="domain-record-row">
+          <div class="domain-record-key">Name/Host</div>
+          <div class="domain-code">${escapeHtml(recordName)}</div>
+        </div>
+        <div class="domain-record-row">
+          <div class="domain-record-key">TXT Wert</div>
+          <div class="domain-code">${escapeHtml(recordValue || "(Token wird geladen...)")}</div>
+        </div>
+        <div class="muted domain-hint">Je nach DNS-Provider reicht als Host auch nur <span class="domain-code">${escapeHtml(
+          "_pingmyserver-challenge"
+        )}</span>.</div>
+      </div>
+
+      <div class="domain-actions">
+        <button class="btn ghost" type="button" data-domain-verify-id="${escapeHtml(String(id))}" ${
+      verified ? "disabled" : ""
+    }>${verified ? "Verifiziert" : "Verifizieren"}</button>
+        <button class="btn ghost" type="button" data-domain-reset-domain="${escapeHtml(domain)}" ${
+      verified ? "disabled" : ""
+    }>Token neu erstellen</button>
+        <button class="btn ghost danger-btn" type="button" data-domain-delete-id="${escapeHtml(String(id))}">Entfernen</button>
+      </div>
+    `;
+
+    domainsListEl.appendChild(row);
+  }
 }
 
 function renderAppConnections() {
@@ -430,6 +534,166 @@ async function loadAppConnections() {
   }
 }
 
+async function loadDomains() {
+  if (loadingDomains) return;
+  loadingDomains = true;
+  setDomainsSummary("Lade Domains...");
+  setPanelMessage(domainsMessageEl, "");
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/domains");
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      domains = [];
+      renderEmptyDomains("Fehler beim Laden.", "Bitte später erneut versuchen.");
+      setDomainsSummary("Fehler beim Laden");
+      return;
+    }
+
+    domains = Array.isArray(payload.data) ? payload.data : [];
+    renderDomains();
+  } catch (error) {
+    domains = [];
+    renderEmptyDomains("Verbindung fehlgeschlagen.", "Bitte später erneut versuchen.");
+    setDomainsSummary("Verbindung fehlgeschlagen");
+  } finally {
+    loadingDomains = false;
+  }
+}
+
+async function createDomainChallenge(domain, options = {}) {
+  const rawDomain = String(domain || "").trim();
+  if (!rawDomain) return;
+
+  const force = options.force === true;
+  setPanelMessage(domainsMessageEl, "DNS-Challenge wird erstellt...");
+
+  if (domainInputEl) domainInputEl.disabled = true;
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/domains", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain: rawDomain, force }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (response.status === 409) {
+      setPanelMessage(domainsMessageEl, "Diese Domain ist bereits in einem anderen Konto verifiziert.", "error");
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(domainsMessageEl, "Challenge konnte nicht erstellt werden. Bitte Eingabe prüfen.", "error");
+      return;
+    }
+
+    const alreadyVerified = !!payload?.alreadyVerified;
+    if (alreadyVerified) {
+      setPanelMessage(domainsMessageEl, "Domain ist bereits verifiziert.", "success");
+    } else {
+      setPanelMessage(domainsMessageEl, "Challenge erstellt. TXT Record setzen und danach verifizieren.", "success");
+    }
+
+    if (domainInputEl) domainInputEl.value = "";
+    await loadDomains();
+  } catch (error) {
+    setPanelMessage(domainsMessageEl, "Challenge konnte nicht erstellt werden.", "error");
+  } finally {
+    if (domainInputEl) domainInputEl.disabled = false;
+  }
+}
+
+async function verifyDomain(id) {
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) return;
+
+  setPanelMessage(domainsMessageEl, "DNS wird geprüft...");
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/domains/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: numericId }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (response.ok && payload?.ok) {
+      setPanelMessage(domainsMessageEl, payload?.alreadyVerified ? "Domain ist bereits verifiziert." : "Domain verifiziert.", "success");
+      await loadDomains();
+      return;
+    }
+
+    const errorCode = String(payload?.error || "").toLowerCase();
+    if (errorCode === "dns not ready") {
+      setPanelMessage(
+        domainsMessageEl,
+        "TXT Record noch nicht gefunden. Bitte 1-5 Minuten warten (oder länger) und erneut verifizieren.",
+        "error"
+      );
+      await loadDomains();
+      return;
+    }
+
+    if (errorCode === "dns lookup failed") {
+      setPanelMessage(domainsMessageEl, "DNS Lookup fehlgeschlagen. Bitte später erneut versuchen.", "error");
+      return;
+    }
+
+    if (response.status === 404) {
+      setPanelMessage(domainsMessageEl, "Domain nicht gefunden.", "error");
+      await loadDomains();
+      return;
+    }
+
+    setPanelMessage(domainsMessageEl, "Verifizierung fehlgeschlagen.", "error");
+  } catch (error) {
+    setPanelMessage(domainsMessageEl, "Verifizierung fehlgeschlagen.", "error");
+  }
+}
+
+async function deleteDomain(id) {
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) return;
+
+  const confirmed = window.confirm("Domain-Verifizierung wirklich entfernen?");
+  if (!confirmed) return;
+
+  setPanelMessage(domainsMessageEl, "Domain wird entfernt...");
+
+  try {
+    const { response, payload } = await fetchJson(`/api/account/domains/${encodeURIComponent(String(numericId))}`, {
+      method: "DELETE",
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(domainsMessageEl, "Domain konnte nicht entfernt werden.", "error");
+      return;
+    }
+
+    setPanelMessage(domainsMessageEl, "Domain entfernt.", "success");
+    await loadDomains();
+  } catch (error) {
+    setPanelMessage(domainsMessageEl, "Domain konnte nicht entfernt werden.", "error");
+  }
+}
+
 async function disconnectSession(sessionId) {
   const id = String(sessionId || "").trim().toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(id)) return;
@@ -493,6 +757,18 @@ async function revokeOtherSessions() {
       revokeOthersButton.disabled = otherCount <= 0;
     }
   }
+}
+
+async function handleDomainSubmit(event) {
+  event.preventDefault();
+
+  const domain = String(domainInputEl?.value || "").trim();
+  if (!domain) {
+    setPanelMessage(domainsMessageEl, "Bitte Domain eingeben.", "error");
+    return;
+  }
+
+  await createDomainChallenge(domain);
 }
 
 async function handlePasswordSubmit(event) {
@@ -652,7 +928,7 @@ function bindEvents() {
 
   if (refreshSessionsButton) {
     refreshSessionsButton.addEventListener("click", () => {
-      Promise.all([loadAppConnections(), loadSessions()]).catch(() => {
+      Promise.all([loadAppConnections(), loadDomains(), loadSessions()]).catch(() => {
         // ignore
       });
     });
@@ -679,6 +955,43 @@ function bindEvents() {
     });
   }
 
+  if (domainForm) {
+    domainForm.addEventListener("submit", handleDomainSubmit);
+  }
+
+  if (domainsListEl) {
+    domainsListEl.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const verifyButton = target.closest("button[data-domain-verify-id]");
+      if (verifyButton) {
+        const id = verifyButton.getAttribute("data-domain-verify-id") || "";
+        verifyDomain(id).catch(() => {
+          // ignore
+        });
+        return;
+      }
+
+      const resetButton = target.closest("button[data-domain-reset-domain]");
+      if (resetButton) {
+        const domain = resetButton.getAttribute("data-domain-reset-domain") || "";
+        createDomainChallenge(domain, { force: true }).catch(() => {
+          // ignore
+        });
+        return;
+      }
+
+      const deleteButton = target.closest("button[data-domain-delete-id]");
+      if (deleteButton) {
+        const id = deleteButton.getAttribute("data-domain-delete-id") || "";
+        deleteDomain(id).catch(() => {
+          // ignore
+        });
+      }
+    });
+  }
+
   if (passwordForm) {
     passwordForm.addEventListener("submit", handlePasswordSubmit);
   }
@@ -694,7 +1007,7 @@ async function init() {
   applyCredentialModeUi();
   await syncPublicStatusLinks();
   bindEvents();
-  await Promise.all([loadAppConnections(), loadSessions()]);
+  await Promise.all([loadAppConnections(), loadDomains(), loadSessions()]);
 }
 
 init();

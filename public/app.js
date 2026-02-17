@@ -44,9 +44,29 @@ const publicStatusLinks = Array.from(document.querySelectorAll('a[href="/status"
 const ownerLinks = Array.from(document.querySelectorAll("[data-owner-link]"));
 const newMonitorButton = document.getElementById("new-monitor-btn");
 const monitorSelect = document.getElementById("monitor-select");
+const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
 const incidentsCard = document.querySelector(".incidents-side-card");
+
+const assertionsForm = document.getElementById("assertions-form");
+const assertionsEnabledInput = document.getElementById("assertions-enabled");
+const assertionsStatusCodesInput = document.getElementById("assertions-status-codes");
+const assertionsFollowRedirectsInput = document.getElementById("assertions-follow-redirects");
+const assertionsMaxRedirectsInput = document.getElementById("assertions-max-redirects");
+const assertionsContentTypeInput = document.getElementById("assertions-content-type");
+const assertionsBodyInput = document.getElementById("assertions-body");
+const assertionsTimeoutInput = document.getElementById("assertions-timeout");
+const assertionsMessageEl = document.getElementById("assertions-message");
+
+const maintenanceForm = document.getElementById("maintenance-form");
+const maintenanceTitleInput = document.getElementById("maintenance-title");
+const maintenanceStartInput = document.getElementById("maintenance-start");
+const maintenanceEndInput = document.getElementById("maintenance-end");
+const maintenanceNoteInput = document.getElementById("maintenance-note");
+const maintenanceFormMessageEl = document.getElementById("maintenance-form-message");
+const maintenanceListEl = document.getElementById("maintenance-list");
+const maintenanceCreateButton = document.getElementById("maintenance-create");
 
 let user = null;
 let monitors = [];
@@ -57,6 +77,501 @@ let lastCheckTime = null;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 const DEFAULT_MONITOR_ICON = "/assets/pingmyserverlogo.png";
 let monitorIconKey = "";
+let assertionsDirty = false;
+let assertionsBoundMonitorId = null;
+let maintenanceBoundMonitorId = null;
+
+function setAssertionsMessage(message, variant = "") {
+  if (!assertionsMessageEl) return;
+  assertionsMessageEl.textContent = String(message || "");
+  assertionsMessageEl.classList.toggle("success", variant === "success");
+  assertionsMessageEl.classList.toggle("error", variant === "error");
+}
+
+function setMaintenanceMessage(message, variant = "") {
+  if (!maintenanceFormMessageEl) return;
+  maintenanceFormMessageEl.textContent = String(message || "");
+  maintenanceFormMessageEl.classList.toggle("success", variant === "success");
+  maintenanceFormMessageEl.classList.toggle("error", variant === "error");
+}
+
+function markAssertionsDirty() {
+  assertionsDirty = true;
+  setAssertionsMessage("");
+}
+
+function applyAssertionsEnabledState() {
+  if (!assertionsForm || !assertionsEnabledInput) return;
+
+  const enabled = !!assertionsEnabledInput.checked;
+  assertionsForm.classList.toggle("is-disabled", !enabled);
+
+  const fields = [
+    assertionsStatusCodesInput,
+    assertionsFollowRedirectsInput,
+    assertionsMaxRedirectsInput,
+    assertionsContentTypeInput,
+    assertionsBodyInput,
+    assertionsTimeoutInput,
+  ].filter(Boolean);
+
+  for (const field of fields) {
+    field.disabled = !enabled;
+  }
+
+  if (assertionsMaxRedirectsInput) {
+    const redirectsEnabled = !!assertionsFollowRedirectsInput?.checked;
+    assertionsMaxRedirectsInput.disabled = !enabled || !redirectsEnabled;
+  }
+}
+
+function syncAssertionsPanel(assertions, options = {}) {
+  const { force = false } = options;
+  if (!assertionsForm) return;
+  if (!force && assertionsDirty) return;
+
+  const normalized = assertions && typeof assertions === "object" ? assertions : null;
+
+  assertionsBoundMonitorId = activeMonitorId;
+
+  if (!normalized) {
+    if (assertionsEnabledInput) assertionsEnabledInput.checked = false;
+    if (assertionsStatusCodesInput) assertionsStatusCodesInput.value = "";
+    if (assertionsFollowRedirectsInput) assertionsFollowRedirectsInput.checked = true;
+    if (assertionsMaxRedirectsInput) assertionsMaxRedirectsInput.value = "5";
+    if (assertionsContentTypeInput) assertionsContentTypeInput.value = "";
+    if (assertionsBodyInput) assertionsBodyInput.value = "";
+    if (assertionsTimeoutInput) assertionsTimeoutInput.value = "0";
+    applyAssertionsEnabledState();
+    return;
+  }
+
+  if (assertionsEnabledInput) assertionsEnabledInput.checked = !!normalized.enabled;
+  if (assertionsStatusCodesInput) assertionsStatusCodesInput.value = String(normalized.expectedStatusCodes || "");
+  if (assertionsFollowRedirectsInput) assertionsFollowRedirectsInput.checked = normalized.followRedirects !== false;
+  if (assertionsMaxRedirectsInput) {
+    const maxRedirects = Number.isFinite(Number(normalized.maxRedirects)) ? Number(normalized.maxRedirects) : 5;
+    assertionsMaxRedirectsInput.value = String(maxRedirects);
+  }
+  if (assertionsContentTypeInput) assertionsContentTypeInput.value = String(normalized.contentTypeContains || "");
+  if (assertionsBodyInput) assertionsBodyInput.value = String(normalized.bodyContains || "");
+  if (assertionsTimeoutInput) {
+    const timeoutMs = Number.isFinite(Number(normalized.timeoutMs)) ? Number(normalized.timeoutMs) : 0;
+    assertionsTimeoutInput.value = String(timeoutMs);
+  }
+
+  applyAssertionsEnabledState();
+}
+
+function readAssertionsPayload() {
+  return {
+    enabled: !!assertionsEnabledInput?.checked,
+    expectedStatusCodes: String(assertionsStatusCodesInput?.value || "").trim(),
+    contentTypeContains: String(assertionsContentTypeInput?.value || "").trim(),
+    bodyContains: String(assertionsBodyInput?.value || "").trim(),
+    followRedirects: !!assertionsFollowRedirectsInput?.checked,
+    maxRedirects: Number(assertionsMaxRedirectsInput?.value),
+    timeoutMs: Number(assertionsTimeoutInput?.value),
+  };
+}
+
+function parseDateTimeLocalInput(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  if (![year, month, day, hour, minute].every((v) => Number.isFinite(v))) return null;
+  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const ms = date.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function toDateTimeLocalValue(timestampMs) {
+  const ms = Number(timestampMs);
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  const date = new Date(ms);
+  const pad = (value) => String(value).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hour = pad(date.getHours());
+  const minute = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+function formatDateTime(ts) {
+  if (!Number.isFinite(ts)) return "-";
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(ts));
+}
+
+function getMaintenanceStatusBadge(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "active") return { label: "läuft", cls: "active" };
+  if (normalized === "scheduled") return { label: "geplant", cls: "scheduled" };
+  if (normalized === "completed") return { label: "beendet", cls: "completed" };
+  if (normalized === "cancelled") return { label: "abgebrochen", cls: "cancelled" };
+  return { label: "unbekannt", cls: "" };
+}
+
+function renderMaintenances(maintenances) {
+  if (!maintenanceListEl) return;
+
+  if (!maintenances || typeof maintenances !== "object") {
+    maintenanceListEl.innerHTML = `
+      <div class="empty-state">
+        <div class="title">Wartungen sind noch nicht aktiv.</div>
+        <div class="muted">Dein Server liefert noch keine Wartungs-Daten (Backend-Update/Restart fehlt).</div>
+      </div>
+    `;
+    return;
+  }
+
+  const payload = maintenances;
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+
+  if (!items.length) {
+    maintenanceListEl.innerHTML = `
+      <div class="empty-state">
+        <div class="title">Keine Wartungen.</div>
+        <div class="muted">Sobald du eine Wartung planst, erscheint sie hier.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const prio = (entry) => {
+    const status = String(entry?.status || "").toLowerCase();
+    if (status === "active") return 0;
+    if (status === "scheduled") return 1;
+    if (status === "completed") return 2;
+    if (status === "cancelled") return 3;
+    return 4;
+  };
+
+  const ordered = items.slice().sort((a, b) => {
+    const pa = prio(a);
+    const pb = prio(b);
+    if (pa !== pb) return pa - pb;
+    return Number(a?.startsAt || 0) - Number(b?.startsAt || 0);
+  });
+
+  maintenanceListEl.innerHTML = "";
+
+  for (const entry of ordered) {
+    const id = Number(entry?.id);
+    if (!Number.isFinite(id) || id <= 0) continue;
+
+    const status = String(entry?.status || "").toLowerCase();
+    const startsAt = Number(entry?.startsAt);
+    const endsAt = Number(entry?.endsAt);
+    const title = String(entry?.title || "Wartung").trim() || "Wartung";
+    const note = String(entry?.message || "").trim();
+    const badge = getMaintenanceStatusBadge(status);
+
+    const range = `${formatDateTime(startsAt)} – ${formatDateTime(endsAt)}`;
+    const metaSuffix =
+      status === "scheduled" && Number.isFinite(startsAt)
+        ? ` (startet in ${formatRelative(Math.max(0, startsAt - Date.now()))})`
+        : status === "active" && Number.isFinite(endsAt)
+        ? ` (endet in ${formatRelative(Math.max(0, endsAt - Date.now()))})`
+        : "";
+
+    const canCancel = status === "scheduled" || status === "active";
+
+    const card = document.createElement("article");
+    card.className = "maintenance-item";
+    card.innerHTML = `
+      <div class="maintenance-item-head">
+        <div>
+          <div class="maintenance-item-title">${escapeHtml(title)}</div>
+          <div class="maintenance-item-subtitle">${escapeHtml(range + metaSuffix)}</div>
+        </div>
+        <span class="maintenance-item-badge ${escapeHtml(badge.cls)}">${escapeHtml(badge.label)}</span>
+      </div>
+      ${note ? `<div class="maintenance-item-note">${escapeHtml(note)}</div>` : ""}
+      <div class="maintenance-item-actions">
+        ${
+          canCancel
+            ? `<button class="btn ghost" type="button" data-maintenance-cancel-id="${escapeHtml(
+                String(id)
+              )}">Abbrechen</button>`
+            : ""
+        }
+      </div>
+    `;
+
+    maintenanceListEl.appendChild(card);
+  }
+}
+
+function resetMaintenanceForm(shouldFillDefaults = false) {
+  setMaintenanceMessage("");
+  if (maintenanceTitleInput) maintenanceTitleInput.value = "";
+  if (maintenanceNoteInput) maintenanceNoteInput.value = "";
+
+  if (!shouldFillDefaults) return;
+  if (maintenanceStartInput) maintenanceStartInput.value = "";
+  if (maintenanceEndInput) maintenanceEndInput.value = "";
+  if (!maintenanceStartInput || !maintenanceEndInput) return;
+
+  const now = Date.now();
+  const fiveMin = 5 * 60 * 1000;
+  const start = Math.ceil((now + 10 * 60 * 1000) / fiveMin) * fiveMin;
+  const end = start + 30 * 60 * 1000;
+  maintenanceStartInput.value = toDateTimeLocalValue(start);
+  maintenanceEndInput.value = toDateTimeLocalValue(end);
+}
+
+function syncMaintenancePanel(maintenances) {
+  if (maintenanceBoundMonitorId !== activeMonitorId) {
+    maintenanceBoundMonitorId = activeMonitorId;
+    resetMaintenanceForm(true);
+  }
+  renderMaintenances(maintenances);
+}
+
+function setMaintenanceFormDisabled(disabled) {
+  const state = !!disabled;
+  for (const el of [maintenanceTitleInput, maintenanceStartInput, maintenanceEndInput, maintenanceNoteInput].filter(Boolean)) {
+    el.disabled = state;
+  }
+  if (maintenanceCreateButton) {
+    maintenanceCreateButton.disabled = state;
+  }
+}
+
+async function createMaintenance() {
+  if (!activeMonitorId) return;
+  if (!maintenanceForm) return;
+
+  const startsAtMs = parseDateTimeLocalInput(maintenanceStartInput?.value);
+  const endsAtMs = parseDateTimeLocalInput(maintenanceEndInput?.value);
+  if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) {
+    setMaintenanceMessage("Bitte Start und Ende setzen.", "error");
+    return;
+  }
+  if (endsAtMs <= startsAtMs) {
+    setMaintenanceMessage("Ende muss nach dem Start liegen.", "error");
+    return;
+  }
+
+  const title = String(maintenanceTitleInput?.value || "").trim();
+  const message = String(maintenanceNoteInput?.value || "").trim();
+
+  setMaintenanceMessage("Wartung wird geplant ...");
+  setMaintenanceFormDisabled(true);
+
+  try {
+    const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/maintenances`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, message, startsAt: startsAtMs, endsAt: endsAtMs }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      const errorCode = String(payload?.error || "").toLowerCase();
+      if (response.status === 403 && errorCode === "domain not verified") {
+        const hostname = String(payload?.hostname || "").trim();
+         setMaintenanceMessage(
+           `Domain${hostname ? ` (${hostname})` : ""} ist nicht verifiziert. Bitte unter Connections -> Domain-Verifizierung verifizieren.`,
+           "error"
+         );
+       } else if (response.status === 403 && errorCode === "forbidden") {
+         setMaintenanceMessage(
+           "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen.",
+           "error"
+         );
+       } else if (response.status === 400 && errorCode === "invalid target") {
+         setMaintenanceMessage(
+           "Monitor-Ziel ist ungültig (z.B. IP/localhost) und kann nicht per Domain-Verifizierung freigeschaltet werden.",
+           "error"
+         );
+       } else if (response.status === 400 && errorCode === "starts in past") {
+         setMaintenanceMessage(
+           "Startzeit liegt in der Vergangenheit. Bitte eine zukünftige Zeit wählen (oder bei laufender Wartung: Ende in die Zukunft setzen).",
+           "error"
+         );
+      } else if (response.status === 400 && errorCode === "starts too far") {
+        setMaintenanceMessage("Startzeit liegt zu weit in der Zukunft. Bitte einen näheren Zeitpunkt wählen.", "error");
+      } else if (response.status === 400 && errorCode === "duration too short") {
+        setMaintenanceMessage("Wartung ist zu kurz. Mindestdauer sind 5 Minuten.", "error");
+      } else if (response.status === 400 && errorCode === "duration too long") {
+        setMaintenanceMessage("Wartung ist zu lang. Maximal sind 30 Tage erlaubt.", "error");
+      } else if (response.status === 400 && (errorCode === "ends before start" || errorCode === "invalid input")) {
+        setMaintenanceMessage("Bitte Eingaben prüfen: Ende muss nach dem Start liegen.", "error");
+      } else if (response.status === 400 && (errorCode === "invalid start" || errorCode === "invalid startsat")) {
+        setMaintenanceMessage("Start ist ungültig. Bitte Datum/Uhrzeit neu setzen.", "error");
+      } else if (response.status === 400 && (errorCode === "invalid end" || errorCode === "invalid endsat")) {
+        setMaintenanceMessage("Ende ist ungültig. Bitte Datum/Uhrzeit neu setzen.", "error");
+      } else if (response.status === 404 && !payload) {
+        setMaintenanceMessage(
+          "Endpoint nicht gefunden (HTTP 404). Das Feature ist auf dem Server vermutlich noch nicht deployed oder der Node-Prozess läuft noch mit altem Code.",
+          "error"
+        );
+      } else if (!payload) {
+        setMaintenanceMessage(`Wartung konnte nicht geplant werden. (HTTP ${response.status})`, "error");
+      } else {
+        setMaintenanceMessage(
+          `Wartung konnte nicht geplant werden. (${payload?.error || `HTTP ${response.status}`})`,
+          "error"
+        );
+      }
+      return;
+    }
+
+    setMaintenanceMessage("Wartung geplant.", "success");
+    if (maintenanceTitleInput) maintenanceTitleInput.value = "";
+    if (maintenanceNoteInput) maintenanceNoteInput.value = "";
+    await loadMetrics();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error || "").trim();
+    setMaintenanceMessage(
+      `Wartung konnte nicht geplant werden.${detail ? ` (Netzwerkfehler: ${detail})` : ""}`,
+      "error"
+    );
+    console.error("maintenance_create_request_failed", error);
+  } finally {
+    setMaintenanceFormDisabled(false);
+  }
+}
+
+async function cancelMaintenance(id) {
+  if (!activeMonitorId) return;
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) return;
+
+  setMaintenanceMessage("Wartung wird abgebrochen ...");
+
+  try {
+    const response = await fetch(
+      `/api/monitors/${encodeURIComponent(activeMonitorId)}/maintenances/${encodeURIComponent(String(numericId))}/cancel`,
+      { method: "POST" }
+    );
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      setMaintenanceMessage("Wartung konnte nicht abgebrochen werden.", "error");
+      return;
+    }
+
+    setMaintenanceMessage("Wartung abgebrochen.", "success");
+    await loadMetrics();
+  } catch (error) {
+    setMaintenanceMessage("Wartung konnte nicht abgebrochen werden.", "error");
+  }
+}
+
+const INTERVAL_OPTIONS_MS = [30000, 60000, 120000, 300000, 600000, 900000, 1800000, 3600000];
+let intervalPickerValue = null;
+let intervalPickerSuppressChange = false;
+
+function renderIntervalPicker(selectedMs) {
+  if (!intervalSelect) return;
+
+  const selected = Number.isFinite(Number(selectedMs)) ? Math.round(Number(selectedMs)) : null;
+  intervalSelect.innerHTML = "";
+
+  const base = INTERVAL_OPTIONS_MS.slice();
+  const needsCustom = selected !== null && !base.includes(selected);
+  const options = needsCustom ? [selected, ...base] : base;
+
+  options.forEach((ms, index) => {
+    const option = document.createElement("option");
+    option.value = String(ms);
+    option.textContent = needsCustom && index === 0 ? `Custom (${formatInterval(ms)})` : formatInterval(ms);
+    intervalSelect.appendChild(option);
+  });
+
+  const fallback = base.includes(60000) ? 60000 : base[0];
+  intervalPickerSuppressChange = true;
+  intervalSelect.value = String(selected !== null ? selected : fallback);
+  intervalPickerSuppressChange = false;
+}
+
+function syncIntervalPicker(intervalMs) {
+  if (!intervalSelect) return;
+
+  const numeric = Number(intervalMs);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    if (intervalPickerValue !== null) {
+      intervalPickerValue = null;
+      renderIntervalPicker(null);
+    }
+    intervalSelect.disabled = true;
+    return;
+  }
+
+  const next = Math.round(numeric);
+  intervalSelect.disabled = false;
+  if (intervalPickerValue === next && intervalSelect.value === String(next)) return;
+
+  intervalPickerValue = next;
+  renderIntervalPicker(next);
+}
+
+async function updateMonitorInterval(nextIntervalMs) {
+  if (!intervalSelect) return;
+  if (!activeMonitorId) return;
+
+  const desired = Math.round(Number(nextIntervalMs));
+  if (!Number.isFinite(desired) || desired <= 0) return;
+
+  intervalSelect.disabled = true;
+
+  try {
+    const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/interval`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intervalMs: desired }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      syncIntervalPicker(latestMetrics?.intervalMs);
+      return;
+    }
+
+    const stored = Number(payload?.data?.intervalMs);
+    const intervalMs = Number.isFinite(stored) && stored > 0 ? stored : desired;
+    if (latestMetrics) {
+      latestMetrics.intervalMs = intervalMs;
+      updateStatus(latestMetrics);
+    }
+    syncIntervalPicker(intervalMs);
+  } catch (error) {
+    syncIntervalPicker(latestMetrics?.intervalMs);
+  } finally {
+    if (intervalSelect && activeMonitorId) {
+      intervalSelect.disabled = false;
+    }
+  }
+}
 
 function parseMonitorIdFromPath(pathname = window.location.pathname) {
   const match = pathname.match(/^\/app\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/?$/);
@@ -225,9 +740,28 @@ function renderMonitorList() {
       item.classList.add("active");
     }
 
+    const head = document.createElement("span");
+    head.className = "monitor-nav-item-head";
+
+    const icon = document.createElement("img");
+    icon.className = "monitor-nav-item-icon";
+    icon.alt = "";
+    icon.decoding = "async";
+    icon.loading = "lazy";
+    icon.dataset.fallback = "0";
+    icon.src = `/api/monitors/${encodeURIComponent(String(monitor.id))}/favicon`;
+    icon.addEventListener("error", () => {
+      if (icon.dataset.fallback === "1") return;
+      icon.dataset.fallback = "1";
+      icon.src = DEFAULT_MONITOR_ICON;
+    });
+
     const title = document.createElement("span");
     title.className = "monitor-nav-item-title";
     title.textContent = getMonitorDisplayName(monitor);
+
+    head.appendChild(icon);
+    head.appendChild(title);
 
     const meta = document.createElement("span");
     meta.className = "monitor-nav-item-meta";
@@ -236,7 +770,7 @@ function renderMonitorList() {
       : "noch kein Check";
     meta.textContent = `${monitorStatusLabel(monitor.last_status)} · ${lastCheckLabel}`;
 
-    item.appendChild(title);
+    item.appendChild(head);
     item.appendChild(meta);
     item.addEventListener("click", () => {
       setActiveMonitor(monitor.id, { pushHistory: true }).catch(() => {
@@ -340,6 +874,13 @@ async function setActiveMonitor(monitorId, options = {}) {
   if (!monitor) return;
 
   activeMonitorId = String(monitor.id);
+  assertionsDirty = false;
+  assertionsBoundMonitorId = null;
+  setAssertionsMessage("");
+  intervalPickerValue = null;
+  if (intervalSelect) {
+    intervalSelect.disabled = true;
+  }
   setMonitorIcon(activeMonitorId, getMonitorTargetUrl(monitor));
   writeStoredMonitorId(activeMonitorId);
   renderMonitorControls();
@@ -446,6 +987,9 @@ async function loadMetrics() {
     updateMap(data.location, data.network);
     updateDomainSslCard(data.domainSsl);
     updateIncidents(data.incidents);
+    syncIntervalPicker(data.intervalMs);
+    syncAssertionsPanel(data.assertions);
+    syncMaintenancePanel(data.maintenances);
   } catch (error) {
     // ignore
   }
@@ -994,6 +1538,93 @@ async function init() {
   const authenticated = await ensureAuthenticated();
   if (!authenticated) return;
 
+  if (assertionsEnabledInput) {
+    assertionsEnabledInput.addEventListener("change", () => {
+      markAssertionsDirty();
+      applyAssertionsEnabledState();
+    });
+  }
+
+  if (assertionsFollowRedirectsInput) {
+    assertionsFollowRedirectsInput.addEventListener("change", () => {
+      markAssertionsDirty();
+      applyAssertionsEnabledState();
+    });
+  }
+
+  for (const el of [
+    assertionsStatusCodesInput,
+    assertionsMaxRedirectsInput,
+    assertionsContentTypeInput,
+    assertionsBodyInput,
+    assertionsTimeoutInput,
+  ].filter(Boolean)) {
+    el.addEventListener("input", () => {
+      markAssertionsDirty();
+    });
+  }
+
+  if (assertionsForm) {
+    assertionsForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!activeMonitorId) return;
+
+      setAssertionsMessage("Speichern ...");
+      try {
+        const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/assertions`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(readAssertionsPayload()),
+        });
+
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.ok) {
+          setAssertionsMessage("Speichern fehlgeschlagen.", "error");
+          return;
+        }
+
+        assertionsDirty = false;
+        setAssertionsMessage("Gespeichert.", "success");
+        syncAssertionsPanel(payload.data, { force: true });
+      } catch (error) {
+        setAssertionsMessage("Speichern fehlgeschlagen.", "error");
+      }
+    });
+  }
+
+  for (const el of [maintenanceTitleInput, maintenanceStartInput, maintenanceEndInput, maintenanceNoteInput].filter(Boolean)) {
+    el.addEventListener("input", () => {
+      setMaintenanceMessage("");
+    });
+  }
+
+  if (maintenanceForm) {
+    maintenanceForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await createMaintenance();
+    });
+  }
+
+  if (maintenanceListEl) {
+    maintenanceListEl.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("button[data-maintenance-cancel-id]");
+      if (!button) return;
+      const id = button.getAttribute("data-maintenance-cancel-id") || "";
+      cancelMaintenance(id).catch(() => {
+        // ignore
+      });
+    });
+  }
+
+  applyAssertionsEnabledState();
+
   if (monitorIconEl) {
     monitorIconEl.addEventListener("error", () => {
       if (monitorIconEl.dataset.fallback === "1") return;
@@ -1020,6 +1651,18 @@ async function init() {
       const selected = String(monitorSelect.value || "").trim();
       if (!selected) return;
       setActiveMonitor(selected, { pushHistory: true }).catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (intervalSelect) {
+    renderIntervalPicker(60000);
+    intervalSelect.disabled = true;
+    intervalSelect.addEventListener("change", () => {
+      if (intervalPickerSuppressChange) return;
+      const selected = Number(intervalSelect.value);
+      if (!Number.isFinite(selected)) return;
+      updateMonitorInterval(selected).catch(() => {
         // ignore
       });
     });

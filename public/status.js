@@ -14,6 +14,12 @@ const uptimePercent = document.getElementById("uptime-percent");
 const incidentsList = document.getElementById("incidents-list");
 const updatedAt = document.getElementById("updated-at");
 
+const maintenanceBanner = document.getElementById("maintenance-banner");
+const maintenanceBannerTitle = document.getElementById("maintenance-banner-title");
+const maintenanceBadge = document.getElementById("maintenance-badge");
+const maintenanceBannerMeta = document.getElementById("maintenance-banner-meta");
+const maintenanceBannerNote = document.getElementById("maintenance-banner-note");
+
 const range7Uptime = document.getElementById("range-7-uptime");
 const range7Meta = document.getElementById("range-7-meta");
 const range30Uptime = document.getElementById("range-30-uptime");
@@ -75,6 +81,7 @@ async function loadMetrics() {
 
     updateHeader(data);
     updateStatus(data);
+    updateMaintenance(data.maintenances);
     updateUptimeBars(data.last24h);
     updateRangeSummaries(data.ranges);
     updateIncidents(data.incidents);
@@ -91,22 +98,31 @@ function updateHeader(data) {
 
 function updateStatus(data) {
   if (!data) return;
+  const maintenanceActive = data?.maintenances?.active;
+  const maintenance = maintenanceActive && typeof maintenanceActive === "object" ? maintenanceActive : null;
   const online = data.status === "online";
 
   if (statusPill) {
-    statusPill.classList.toggle("offline", !online);
+    statusPill.classList.toggle("offline", !maintenance && !online);
+    statusPill.classList.toggle("maintenance", !!maintenance);
   }
   if (statusLabel) {
-    statusLabel.textContent = online ? "Alle Systeme funktionsfähig" : "Störung erkannt";
+    statusLabel.textContent = maintenance ? "Wartung läuft" : online ? "Alle Systeme funktionsfähig" : "Störung erkannt";
   }
   if (statusState) {
-    statusState.textContent = online ? "Online" : "Offline";
-    statusState.classList.toggle("offline", !online);
+    statusState.textContent = maintenance ? "Wartung" : online ? "Online" : "Offline";
+    statusState.classList.toggle("offline", !maintenance && !online);
+    statusState.classList.toggle("maintenance", !!maintenance);
   }
   if (statusDuration) {
-    const prefix = online ? "Aktiv seit" : "Offline seit";
-    const since = data.statusSince || statusSince;
-    statusDuration.textContent = `${prefix} ${formatDuration(Date.now() - since)}`;
+    if (maintenance && Number.isFinite(maintenance.endsAt)) {
+      const endsInMs = Math.max(0, Number(maintenance.endsAt) - Date.now());
+      statusDuration.textContent = `Wartung bis ${formatDateTime(maintenance.endsAt)} (noch ${formatRelative(endsInMs)})`;
+    } else {
+      const prefix = online ? "Aktiv seit" : "Offline seit";
+      const since = data.statusSince || statusSince;
+      statusDuration.textContent = `${prefix} ${formatDuration(Date.now() - since)}`;
+    }
   }
   if (lastCheck) {
     const stamp = data.lastCheckAt || lastCheckTime;
@@ -117,6 +133,54 @@ function updateStatus(data) {
       ? `Prüfintervall: ${formatInterval(data.intervalMs)}`
       : "";
   }
+}
+
+function updateMaintenance(maintenances) {
+  if (!maintenanceBanner) return;
+
+  const active = maintenances?.active && typeof maintenances.active === "object" ? maintenances.active : null;
+  const upcomingList = Array.isArray(maintenances?.upcoming) ? maintenances.upcoming : [];
+  const upcoming = upcomingList.length && typeof upcomingList[0] === "object" ? upcomingList[0] : null;
+
+  const entry = active || upcoming;
+  if (!entry) {
+    maintenanceBanner.hidden = true;
+    return;
+  }
+
+  const isActive = !!active;
+  if (maintenanceBannerTitle) {
+    maintenanceBannerTitle.textContent = String(entry.title || "Wartung");
+  }
+  if (maintenanceBadge) {
+    maintenanceBadge.textContent = isActive ? "Wartung läuft" : "Geplant";
+    maintenanceBadge.classList.toggle("active", isActive);
+  }
+
+  const startsAt = Number(entry.startsAt);
+  const endsAt = Number(entry.endsAt);
+  const startLabel = Number.isFinite(startsAt) ? formatDateTime(startsAt) : "-";
+  const endLabel = Number.isFinite(endsAt) ? formatDateTime(endsAt) : "-";
+
+  if (maintenanceBannerMeta) {
+    if (isActive && Number.isFinite(endsAt)) {
+      const endsInMs = Math.max(0, endsAt - Date.now());
+      maintenanceBannerMeta.textContent = `${startLabel} – ${endLabel} · endet in ${formatRelative(endsInMs)}`;
+    } else if (!isActive && Number.isFinite(startsAt)) {
+      const startsInMs = Math.max(0, startsAt - Date.now());
+      maintenanceBannerMeta.textContent = `${startLabel} – ${endLabel} · startet in ${formatRelative(startsInMs)}`;
+    } else {
+      maintenanceBannerMeta.textContent = `${startLabel} – ${endLabel}`;
+    }
+  }
+
+  const note = String(entry.message || "").trim();
+  if (maintenanceBannerNote) {
+    maintenanceBannerNote.textContent = note;
+    maintenanceBannerNote.hidden = !note;
+  }
+
+  maintenanceBanner.hidden = false;
 }
 
 function updateUptimeBars(last24h) {
@@ -234,6 +298,17 @@ function formatInterval(ms) {
   return `${Math.round(ms / 3600000)} Std.`;
 }
 
+function formatDateTime(ts) {
+  if (!Number.isFinite(ts)) return "-";
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(ts));
+}
+
 function formatRelative(ms) {
   if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))} Sek.`;
   if (ms < 3600000) return `${Math.round(ms / 60000)} Min.`;
@@ -288,5 +363,6 @@ setInterval(loadMetrics, pollIntervalMs);
 setInterval(() => {
   if (latestMetrics) {
     updateStatus(latestMetrics);
+    updateMaintenance(latestMetrics.maintenances);
   }
 }, 1000);

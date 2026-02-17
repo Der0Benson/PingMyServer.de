@@ -104,6 +104,64 @@ body {
   background: var(--down);
 }
 
+.status-pill.maintenance .status-dot {
+  background: var(--warn);
+}
+
+.maintenance-banner {
+  margin: 0 0 22px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(244, 180, 90, 0.35);
+  background: linear-gradient(160deg, rgba(244, 180, 90, 0.18), rgba(255, 255, 255, 0.02));
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 8px;
+}
+
+.maintenance-banner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.maintenance-banner-title {
+  font-family: "Syne", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.maintenance-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 180, 90, 0.55);
+  background: rgba(244, 180, 90, 0.18);
+  color: var(--warn);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex: 0 0 auto;
+}
+
+.maintenance-badge.active {
+  border-color: rgba(244, 180, 90, 0.8);
+  background: rgba(244, 180, 90, 0.26);
+}
+
+.maintenance-banner-meta {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.maintenance-banner-note {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .status-hero {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -146,6 +204,10 @@ body {
 
 .hero-status.offline {
   color: #ff7b7b;
+}
+
+.hero-status.maintenance {
+  color: var(--warn);
 }
 
 .hero-meta {

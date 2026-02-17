@@ -58,7 +58,7 @@
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
                 <div class="title">Connections & Sicherheit</div>
-                <div class="subtitle">Aktive Sitzungen verwalten und Passwort ändern</div>
+                <div class="subtitle">Aktive Sitzungen verwalten, Domains verifizieren und Passwort ändern</div>
               </div>
             </div>
             <div class="top-actions">
@@ -73,6 +73,27 @@
               <p class="muted sessions-summary" id="app-connections-summary">Lade App Connections...</p>
               <p class="panel-message" id="app-connections-message"></p>
               <div class="app-connections-list" id="app-connections-list">
+                <div class="empty-state">
+                  <div class="title">Lade Daten...</div>
+                  <div class="muted">Bitte kurz warten.</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card wide">
+              <div class="card-title">Domain-Verifizierung</div>
+              <p class="muted sessions-summary" id="domains-summary">Lade Domains...</p>
+              <p class="panel-message" id="domains-message"></p>
+              <form id="domain-form" class="domain-form" novalidate autocomplete="off">
+                <label for="domain-input">
+                  <span>Domain</span>
+                  <input id="domain-input" type="text" placeholder="example.com" inputmode="url" required />
+                </label>
+                <div class="password-actions domain-form-actions">
+                  <button class="btn primary" type="submit">DNS-Challenge erstellen</button>
+                </div>
+              </form>
+              <div class="domain-list" id="domain-list">
                 <div class="empty-state">
                   <div class="title">Lade Daten...</div>
                   <div class="muted">Bitte kurz warten.</div>

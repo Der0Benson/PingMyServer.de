@@ -6,7 +6,7 @@ const os = require("os");
 const dns = require("dns").promises;
 const net = require("net");
 const tls = require("tls");
-const { URL } = require("url");
+const { URL, domainToASCII } = require("url");
 const { performance } = require("perf_hooks");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
@@ -290,6 +290,11 @@ function requireEnvStatusCodeList(name) {
 
 const PORT = requireEnvNumber("PORT", { integer: true, min: 1, max: 65535 });
 const DEFAULT_MONITOR_INTERVAL_MS = requireEnvNumber("CHECK_INTERVAL_MS", { integer: true, min: 1000 });
+const MONITOR_INTERVAL_MIN_MS = readEnvNumber("MONITOR_INTERVAL_MIN_MS", 30000, { integer: true, min: 1000 });
+const MONITOR_INTERVAL_MAX_MS = readEnvNumber("MONITOR_INTERVAL_MAX_MS", 3600000, {
+  integer: true,
+  min: MONITOR_INTERVAL_MIN_MS,
+});
 const CHECK_TIMEOUT_MS = requireEnvNumber("TIMEOUT_MS", { integer: true, min: 100, max: 120000 });
 const CHECK_CONCURRENCY = requireEnvNumber("CHECK_CONCURRENCY", { integer: true, min: 1, max: 1000 });
 const CHECK_SCHEDULER_MS = requireEnvNumber("CHECK_SCHEDULER_MS", { integer: true, min: 100 });
@@ -996,7 +1001,7 @@ function applySecurityHeaders(res) {
 
 function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.writeHead(statusCode, {
-    "Content-Type": "application/json",
+    "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     ...extraHeaders,
   });
@@ -2024,10 +2029,93 @@ function getMonitorUrl(monitor) {
   return String(monitor.url || monitor.target_url || "").trim();
 }
 
+function normalizeMonitorIntervalMs(value, fallback = DEFAULT_MONITOR_INTERVAL_MS) {
+  const fallbackValue = Number(fallback);
+  let fallbackMs = Number.isFinite(fallbackValue) ? Math.round(fallbackValue) : 60000;
+  if (fallbackMs < MONITOR_INTERVAL_MIN_MS) fallbackMs = MONITOR_INTERVAL_MIN_MS;
+  if (fallbackMs > MONITOR_INTERVAL_MAX_MS) fallbackMs = MONITOR_INTERVAL_MAX_MS;
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallbackMs;
+  const rounded = Math.round(numeric);
+  if (rounded < MONITOR_INTERVAL_MIN_MS) return MONITOR_INTERVAL_MIN_MS;
+  if (rounded > MONITOR_INTERVAL_MAX_MS) return MONITOR_INTERVAL_MAX_MS;
+  return rounded;
+}
+
 function getMonitorIntervalMs(monitor) {
   const value = Number(monitor.interval_ms);
-  if (!Number.isFinite(value) || value <= 0) return DEFAULT_MONITOR_INTERVAL_MS;
-  return value;
+  if (!Number.isFinite(value) || value <= 0) return normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
+  return normalizeMonitorIntervalMs(value, DEFAULT_MONITOR_INTERVAL_MS);
+}
+
+function normalizeMonitorHttpAssertionString(value, maxLen) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const normalized = text.replace(/\s+/g, " ");
+  if (normalized.length <= maxLen) return normalized;
+  return normalized.slice(0, maxLen);
+}
+
+function normalizeMonitorHttpAssertionStatusCodes(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const normalized = raw
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .join(",");
+  if (!normalized) return "";
+  const parsed = parseStatusCodes(normalized);
+  if (!parsed || !parsed.length) return null;
+  return normalized;
+}
+
+function clampMonitorHttpAssertionNumber(value, options = {}) {
+  const { min = 0, max = 120000, fallback = 0 } = options;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  const rounded = Math.round(numeric);
+  if (rounded < min) return min;
+  if (rounded > max) return max;
+  return rounded;
+}
+
+function getMonitorHttpAssertionsConfig(monitor) {
+  const enabled = !!monitor?.http_assertions_enabled;
+  const expectedStatusCodesRaw = String(monitor?.http_expected_status_codes || "").trim();
+  const expectedStatusCodesParsed = expectedStatusCodesRaw ? parseStatusCodes(expectedStatusCodesRaw) : null;
+
+  const followRedirects = monitor?.http_follow_redirects === undefined ? true : !!monitor.http_follow_redirects;
+  const maxRedirects = clampMonitorHttpAssertionNumber(monitor?.http_max_redirects, { min: 0, max: 10, fallback: 5 });
+  const timeoutMs = clampMonitorHttpAssertionNumber(monitor?.http_timeout_ms, { min: 0, max: 120000, fallback: 0 });
+
+  const contentTypeContains = normalizeMonitorHttpAssertionString(monitor?.http_content_type_contains, 128);
+  const bodyContains = normalizeMonitorHttpAssertionString(monitor?.http_body_contains, 512);
+
+  return {
+    enabled,
+    expectedStatusCodesRaw: expectedStatusCodesRaw || "",
+    expectedStatusCodes: Array.isArray(expectedStatusCodesParsed) ? expectedStatusCodesParsed : [],
+    contentTypeContains,
+    bodyContains,
+    followRedirects,
+    maxRedirects,
+    timeoutMs,
+  };
+}
+
+function serializeMonitorHttpAssertionsConfig(monitor) {
+  const config = getMonitorHttpAssertionsConfig(monitor);
+  return {
+    enabled: config.enabled,
+    expectedStatusCodes: config.expectedStatusCodesRaw,
+    contentTypeContains: config.contentTypeContains,
+    bodyContains: config.bodyContains,
+    followRedirects: config.followRedirects,
+    maxRedirects: config.maxRedirects,
+    timeoutMs: config.timeoutMs,
+  };
 }
 
 function getMonitorLastCheckMs(monitor) {
@@ -2963,6 +3051,41 @@ async function ensureSchemaCompatibility() {
       "ALTER TABLE monitors ADD COLUMN interval_ms INT NOT NULL DEFAULT 60000 AFTER target_url"
     );
   }
+  if (!(await hasColumn("monitors", "http_assertions_enabled"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_assertions_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER interval_ms"
+    );
+  }
+  if (!(await hasColumn("monitors", "http_expected_status_codes"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_expected_status_codes VARCHAR(128) NULL AFTER http_assertions_enabled"
+    );
+  }
+  if (!(await hasColumn("monitors", "http_content_type_contains"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_content_type_contains VARCHAR(128) NULL AFTER http_expected_status_codes"
+    );
+  }
+  if (!(await hasColumn("monitors", "http_body_contains"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_body_contains VARCHAR(512) NULL AFTER http_content_type_contains"
+    );
+  }
+  if (!(await hasColumn("monitors", "http_follow_redirects"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_follow_redirects TINYINT(1) NOT NULL DEFAULT 1 AFTER http_body_contains"
+    );
+  }
+  if (!(await hasColumn("monitors", "http_max_redirects"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_max_redirects INT NOT NULL DEFAULT 5 AFTER http_follow_redirects"
+    );
+  }
+  if (!(await hasColumn("monitors", "http_timeout_ms"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN http_timeout_ms INT NOT NULL DEFAULT 0 AFTER http_max_redirects"
+    );
+  }
   if (!(await hasColumn("monitors", "is_paused"))) {
     await pool.query("ALTER TABLE monitors ADD COLUMN is_paused TINYINT(1) NOT NULL DEFAULT 0 AFTER interval_ms");
   }
@@ -3007,10 +3130,19 @@ async function ensureSchemaCompatibility() {
   await pool.query(
     "UPDATE monitors SET target_url = url WHERE (target_url IS NULL OR target_url = '') AND url IS NOT NULL"
   );
+  const safeDefaultIntervalMs = normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
   await pool.query(
     "UPDATE monitors SET interval_ms = ? WHERE interval_ms IS NULL OR interval_ms <= 0",
-    [DEFAULT_MONITOR_INTERVAL_MS]
+    [safeDefaultIntervalMs]
   );
+  await pool.query("UPDATE monitors SET interval_ms = ? WHERE interval_ms < ?", [
+    MONITOR_INTERVAL_MIN_MS,
+    MONITOR_INTERVAL_MIN_MS,
+  ]);
+  await pool.query("UPDATE monitors SET interval_ms = ? WHERE interval_ms > ?", [
+    MONITOR_INTERVAL_MAX_MS,
+    MONITOR_INTERVAL_MAX_MS,
+  ]);
   await pool.query("UPDATE monitors SET is_paused = 0 WHERE is_paused IS NULL");
   await pool.query(
     "UPDATE monitors SET name = LEFT(COALESCE(url, target_url, CONCAT('Monitor-', id)), 255) WHERE name IS NULL OR name = ''"
@@ -3128,6 +3260,26 @@ async function ensureSchemaCompatibility() {
       console.warn("Could not add fk_daily_error_monitor automatically:", error.code || error.message);
     }
   }
+
+  if (!(await hasForeignKeyReference("maintenances", "user_id", "users", "id"))) {
+    try {
+      await pool.query(
+        "ALTER TABLE maintenances ADD CONSTRAINT fk_maint_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+      );
+    } catch (error) {
+      console.warn("Could not add fk_maint_user automatically:", error.code || error.message);
+    }
+  }
+
+  if (!(await hasForeignKeyReference("maintenances", "monitor_id", "monitors", "id"))) {
+    try {
+      await pool.query(
+        "ALTER TABLE maintenances ADD CONSTRAINT fk_maint_monitor FOREIGN KEY (monitor_id) REFERENCES monitors(id) ON DELETE CASCADE"
+      );
+    } catch (error) {
+      console.warn("Could not add fk_maint_monitor automatically:", error.code || error.message);
+    }
+  }
 }
 
 async function initDb() {
@@ -3178,6 +3330,24 @@ async function initDb() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS domain_verifications (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT NOT NULL,
+      domain VARCHAR(253) NOT NULL UNIQUE,
+      token CHAR(32) NOT NULL,
+      verified_at DATETIME NULL,
+      last_checked_at DATETIME NULL,
+      last_check_error VARCHAR(64) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_domain_user_id (user_id),
+      CONSTRAINT fk_domain_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS monitors (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       public_id CHAR(12) NOT NULL UNIQUE,
@@ -3186,6 +3356,13 @@ async function initDb() {
       url VARCHAR(2048) NOT NULL,
       target_url VARCHAR(2048) NULL,
       interval_ms INT NOT NULL DEFAULT 60000,
+      http_assertions_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      http_expected_status_codes VARCHAR(128) NULL,
+      http_content_type_contains VARCHAR(128) NULL,
+      http_body_contains VARCHAR(512) NULL,
+      http_follow_redirects TINYINT(1) NOT NULL DEFAULT 1,
+      http_max_redirects INT NOT NULL DEFAULT 5,
+      http_timeout_ms INT NOT NULL DEFAULT 0,
       is_paused TINYINT(1) NOT NULL DEFAULT 0,
       last_status ENUM('online','offline') NOT NULL DEFAULT 'online',
       status_since DATETIME(3) NULL,
@@ -3198,6 +3375,23 @@ async function initDb() {
       CONSTRAINT fk_monitors_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS maintenances (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT NOT NULL,
+      monitor_id BIGINT NOT NULL,
+      title VARCHAR(120) NOT NULL,
+      message VARCHAR(500) NULL,
+      starts_at DATETIME(3) NOT NULL,
+      ends_at DATETIME(3) NOT NULL,
+      cancelled_at DATETIME(3) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_maint_monitor_time (monitor_id, starts_at),
+      INDEX idx_maint_user_time (user_id, starts_at)
     )
   `);
 
@@ -3708,6 +3902,13 @@ async function getLatestMonitorForUser(userId) {
         url,
         target_url,
         interval_ms,
+        http_assertions_enabled,
+        http_expected_status_codes,
+        http_content_type_contains,
+        http_body_contains,
+        http_follow_redirects,
+        http_max_redirects,
+        http_timeout_ms,
         is_paused,
         last_status,
         status_since,
@@ -3742,6 +3943,13 @@ async function getMonitorByIdForUser(userId, monitorId) {
         url,
         target_url,
         interval_ms,
+        http_assertions_enabled,
+        http_expected_status_codes,
+        http_content_type_contains,
+        http_body_contains,
+        http_follow_redirects,
+        http_max_redirects,
+        http_timeout_ms,
         is_paused,
         last_status,
         status_since,
@@ -3776,6 +3984,13 @@ async function getLatestPublicMonitor() {
         url,
         target_url,
         interval_ms,
+        http_assertions_enabled,
+        http_expected_status_codes,
+        http_content_type_contains,
+        http_body_contains,
+        http_follow_redirects,
+        http_max_redirects,
+        http_timeout_ms,
         is_paused,
         last_status,
         status_since,
@@ -3813,6 +4028,13 @@ async function getPublicMonitorByIdentifier(monitorId) {
         url,
         target_url,
         interval_ms,
+        http_assertions_enabled,
+        http_expected_status_codes,
+        http_content_type_contains,
+        http_body_contains,
+        http_follow_redirects,
+        http_max_redirects,
+        http_timeout_ms,
         is_paused,
         last_status,
         status_since,
@@ -4438,6 +4660,394 @@ async function handleAccountConnectionsList(req, res) {
     sendJson(res, 200, { ok: true, data: providers });
   } catch (error) {
     console.error("account_connections_list_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+const DOMAIN_VERIFICATION_DNS_PREFIX = "_pingmyserver-challenge";
+const DOMAIN_VERIFICATION_TXT_PREFIX = "pingmyserver-verification=";
+
+function normalizeDomainForVerification(rawInput) {
+  const input = String(rawInput || "").trim();
+  if (!input) return null;
+
+  let hostname = input;
+
+  const tryParseAsUrl = (value) => {
+    try {
+      return new URL(value).hostname;
+    } catch (error) {
+      return "";
+    }
+  };
+
+  if (input.includes("://")) {
+    hostname = tryParseAsUrl(input);
+  } else if (/[\/?#]/.test(input)) {
+    hostname = tryParseAsUrl(`https://${input}`);
+  }
+
+  hostname = String(hostname || "").trim();
+  if (!hostname) return null;
+
+  hostname = hostname.replace(/^\[|\]$/g, "");
+  hostname = hostname.replace(/\.+$/, "");
+
+  if (hostname.includes(":")) {
+    const match = hostname.match(/^(.+):(\d{1,5})$/);
+    if (match) hostname = match[1];
+  }
+
+  const lowered = hostname.toLowerCase();
+  if (!lowered || lowered.length > 253) return null;
+  if (lowered === "localhost") return null;
+  if (net.isIP(lowered)) return null;
+
+  const ascii = domainToASCII(lowered);
+  if (!ascii) return null;
+
+  const normalized = String(ascii || "").trim().toLowerCase();
+  if (!normalized || normalized.length > 253) return null;
+  if (normalized === "localhost") return null;
+  if (net.isIP(normalized)) return null;
+
+  const labels = normalized.split(".");
+  if (labels.length < 2) return null;
+  const labelRegex = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+  for (const label of labels) {
+    if (!label || label.length > 63) return null;
+    if (!labelRegex.test(label)) return null;
+  }
+
+  return normalized;
+}
+
+function createDomainVerificationToken() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function getDomainVerificationDnsName(domain) {
+  return `${DOMAIN_VERIFICATION_DNS_PREFIX}.${domain}`;
+}
+
+function getDomainVerificationTxtValue(token) {
+  return `${DOMAIN_VERIFICATION_TXT_PREFIX}${token}`;
+}
+
+function serializeDomainVerificationRow(row) {
+  if (!row) return null;
+  const id = Number(row.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const domain = String(row.domain || "").trim();
+  const token = String(row.token || "").trim();
+  if (!domain || !token) return null;
+
+  return {
+    id,
+    domain,
+    token,
+    recordName: getDomainVerificationDnsName(domain),
+    recordValue: getDomainVerificationTxtValue(token),
+    verifiedAt: toTimestampMs(row.verified_at),
+    lastCheckedAt: toTimestampMs(row.last_checked_at),
+    lastCheckError: String(row.last_check_error || "").trim() || null,
+    createdAt: toTimestampMs(row.created_at),
+    updatedAt: toTimestampMs(row.updated_at),
+  };
+}
+
+async function listDomainVerificationsForUser(userId) {
+  const [rows] = await pool.query(
+    `
+      SELECT id, user_id, domain, token, verified_at, last_checked_at, last_check_error, created_at, updated_at
+      FROM domain_verifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC, id DESC
+    `,
+    [userId]
+  );
+  return rows.map(serializeDomainVerificationRow).filter(Boolean);
+}
+
+async function getDomainVerificationById(id) {
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) return null;
+  const [rows] = await pool.query(
+    `
+      SELECT id, user_id, domain, token, verified_at, last_checked_at, last_check_error, created_at, updated_at
+      FROM domain_verifications
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [numericId]
+  );
+  return rows[0] || null;
+}
+
+async function upsertDomainVerificationChallenge(userId, domain, options = {}) {
+  const { force = false } = options;
+  const token = createDomainVerificationToken();
+
+  const [rows] = await pool.query(
+    "SELECT id, user_id, verified_at FROM domain_verifications WHERE domain = ? LIMIT 1",
+    [domain]
+  );
+  const existing = rows[0] || null;
+
+  if (existing && Number(existing.user_id) !== Number(userId)) {
+    const error = new Error("domain_taken");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  if (existing) {
+    const alreadyVerified = !!existing.verified_at;
+    if (alreadyVerified && !force) {
+      return { row: await getDomainVerificationById(existing.id), created: false, reset: false, alreadyVerified: true };
+    }
+
+    await pool.query(
+      `
+        UPDATE domain_verifications
+        SET token = ?, verified_at = NULL, last_checked_at = NULL, last_check_error = NULL
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+      `,
+      [token, existing.id, userId]
+    );
+
+    return { row: await getDomainVerificationById(existing.id), created: false, reset: true, alreadyVerified: false };
+  }
+
+  const [result] = await pool.query("INSERT INTO domain_verifications (user_id, domain, token) VALUES (?, ?, ?)", [
+    userId,
+    domain,
+    token,
+  ]);
+
+  return { row: await getDomainVerificationById(result.insertId), created: true, reset: false, alreadyVerified: false };
+}
+
+function normalizeTxtLookupResult(records) {
+  const list = Array.isArray(records) ? records : [];
+  return list
+    .map((entry) => {
+      if (Array.isArray(entry)) return entry.join("");
+      return String(entry || "");
+    })
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
+async function lookupDomainVerificationTxt(domain) {
+  const recordName = getDomainVerificationDnsName(domain);
+  let timeoutHandle = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error("dns_lookup_timeout")), MONITOR_TARGET_RESOLVE_TIMEOUT_MS);
+  });
+
+  try {
+    const resolved = await Promise.race([dns.resolveTxt(recordName), timeoutPromise]);
+    return normalizeTxtLookupResult(resolved);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
+async function verifyDomainVerification(userId, id) {
+  const row = await getDomainVerificationById(id);
+  if (!row || Number(row.user_id) !== Number(userId)) {
+    const error = new Error("not_found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (row.verified_at) {
+    return { row, matched: true, alreadyVerified: true, records: [] };
+  }
+
+  const domain = String(row.domain || "").trim();
+  const token = String(row.token || "").trim();
+  const expected = getDomainVerificationTxtValue(token).toLowerCase();
+
+  let records = [];
+  let lookupErrorCode = "";
+
+  try {
+    records = await lookupDomainVerificationTxt(domain);
+  } catch (error) {
+    const code = String(error?.code || "").trim().toUpperCase();
+    if (code === "ENOTFOUND" || code === "ENODATA") {
+      records = [];
+    } else {
+      lookupErrorCode = String(error?.code || error?.message || "dns_lookup_failed").slice(0, 64);
+    }
+  }
+
+  if (!records.length && lookupErrorCode) {
+    await pool.query(
+      `
+        UPDATE domain_verifications
+        SET last_checked_at = UTC_TIMESTAMP(), last_check_error = ?
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+      `,
+      [lookupErrorCode, row.id, userId]
+    );
+
+    const error = new Error("dns_lookup_failed");
+    error.statusCode = 502;
+    error.details = { code: lookupErrorCode };
+    throw error;
+  }
+
+  const normalizedRecords = records.map((entry) => String(entry || "").trim().toLowerCase()).filter(Boolean);
+  const matched = normalizedRecords.some(
+    (entry) => entry === expected || entry === token.toLowerCase() || entry.includes(expected)
+  );
+
+  if (!matched) {
+    await pool.query(
+      `
+        UPDATE domain_verifications
+        SET last_checked_at = UTC_TIMESTAMP(), last_check_error = ?
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+      `,
+      [records.length ? "dns_no_match" : "dns_no_records", row.id, userId]
+    );
+    return { row, matched: false, alreadyVerified: false, records: records.slice(0, 12) };
+  }
+
+  await pool.query(
+    `
+      UPDATE domain_verifications
+      SET verified_at = UTC_TIMESTAMP(), last_checked_at = UTC_TIMESTAMP(), last_check_error = NULL
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+    `,
+    [row.id, userId]
+  );
+
+  return { row: await getDomainVerificationById(row.id), matched: true, alreadyVerified: false, records: [] };
+}
+
+async function handleAccountDomainsList(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const domains = await listDomainVerificationsForUser(user.id);
+    sendJson(res, 200, { ok: true, data: domains });
+  } catch (error) {
+    console.error("account_domains_list_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountDomainChallengeCreate(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = null;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const domain = normalizeDomainForVerification(body?.domain);
+  const force = body?.force === true;
+  if (!domain) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const result = await upsertDomainVerificationChallenge(user.id, domain, { force });
+    const payload = serializeDomainVerificationRow(result.row);
+    if (!payload) {
+      sendJson(res, 500, { ok: false, error: "internal error" });
+      return;
+    }
+    sendJson(res, 200, { ok: true, data: payload, created: result.created, reset: result.reset, alreadyVerified: result.alreadyVerified });
+  } catch (error) {
+    if (error?.message === "domain_taken" || error?.code === "ER_DUP_ENTRY") {
+      sendJson(res, 409, { ok: false, error: "domain taken" });
+      return;
+    }
+    console.error("account_domain_challenge_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountDomainVerify(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = null;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const id = Number(body?.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const result = await verifyDomainVerification(user.id, id);
+    const payload = serializeDomainVerificationRow(result.row);
+    if (!payload) {
+      sendJson(res, 500, { ok: false, error: "internal error" });
+      return;
+    }
+    if (!result.matched) {
+      sendJson(res, 400, { ok: false, error: "dns not ready", data: payload, records: result.records });
+      return;
+    }
+    sendJson(res, 200, { ok: true, data: payload, alreadyVerified: result.alreadyVerified });
+  } catch (error) {
+    if (error?.message === "not_found") {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+    if (error?.message === "dns_lookup_failed") {
+      sendJson(res, 502, { ok: false, error: "dns lookup failed", code: error?.details?.code || "" });
+      return;
+    }
+    console.error("account_domain_verify_failed", error);
+    sendJson(res, error.statusCode || 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountDomainDelete(req, res, id) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const [result] = await pool.query("DELETE FROM domain_verifications WHERE id = ? AND user_id = ? LIMIT 1", [
+      numericId,
+      user.id,
+    ]);
+    if (!result?.affectedRows) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("account_domain_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -6084,7 +6694,18 @@ async function handleCreateMonitor(req, res) {
   const bodyRawName = typeof body?.name === "string" ? body.name.trim() : "";
   const requestedName = bodyRawName || decodedName || queryNameRaw || decodedQueryName || decodedPathName;
   const monitorName = (requestedName || getDefaultMonitorName(normalizedUrl)).slice(0, 255);
-  const intervalMs = DEFAULT_MONITOR_INTERVAL_MS;
+  const safeDefaultIntervalMs = normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
+  let intervalMs = safeDefaultIntervalMs;
+
+  if (Object.prototype.hasOwnProperty.call(body, "intervalMs") || Object.prototype.hasOwnProperty.call(body, "interval_ms")) {
+    const rawInterval = Object.prototype.hasOwnProperty.call(body, "intervalMs") ? body.intervalMs : body.interval_ms;
+    const numeric = Number(rawInterval);
+    if (!Number.isFinite(numeric)) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    intervalMs = normalizeMonitorIntervalMs(numeric, safeDefaultIntervalMs);
+  }
 
   try {
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -6172,6 +6793,553 @@ async function handleDeleteMonitor(req, res, monitorId) {
       connection.release();
     }
     console.error("delete_monitor_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleMonitorHttpAssertionsGet(req, res, monitorId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorId);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  sendJson(res, 200, { ok: true, data: serializeMonitorHttpAssertionsConfig(monitor) });
+}
+
+async function handleMonitorHttpAssertionsUpdate(req, res, monitorId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorId);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  const current = getMonitorHttpAssertionsConfig(monitor);
+
+  let enabled = current.enabled;
+  if (Object.prototype.hasOwnProperty.call(body, "enabled")) {
+    if (typeof body.enabled !== "boolean") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    enabled = body.enabled;
+  }
+
+  let followRedirects = current.followRedirects;
+  if (Object.prototype.hasOwnProperty.call(body, "followRedirects")) {
+    if (typeof body.followRedirects !== "boolean") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    followRedirects = body.followRedirects;
+  }
+
+  let maxRedirects = current.maxRedirects;
+  if (Object.prototype.hasOwnProperty.call(body, "maxRedirects")) {
+    maxRedirects = clampMonitorHttpAssertionNumber(body.maxRedirects, { min: 0, max: 10, fallback: current.maxRedirects });
+  }
+
+  let timeoutMs = current.timeoutMs;
+  if (Object.prototype.hasOwnProperty.call(body, "timeoutMs")) {
+    timeoutMs = clampMonitorHttpAssertionNumber(body.timeoutMs, { min: 0, max: 120000, fallback: current.timeoutMs });
+  }
+
+  let expectedStatusCodes = current.expectedStatusCodesRaw;
+  if (Object.prototype.hasOwnProperty.call(body, "expectedStatusCodes")) {
+    if (typeof body.expectedStatusCodes !== "string") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    const normalized = normalizeMonitorHttpAssertionStatusCodes(body.expectedStatusCodes);
+    if (normalized === null) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    expectedStatusCodes = normalized;
+  }
+
+  let contentTypeContains = current.contentTypeContains;
+  if (Object.prototype.hasOwnProperty.call(body, "contentTypeContains")) {
+    if (typeof body.contentTypeContains !== "string") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    contentTypeContains = normalizeMonitorHttpAssertionString(body.contentTypeContains, 128);
+  }
+
+  let bodyContains = current.bodyContains;
+  if (Object.prototype.hasOwnProperty.call(body, "bodyContains")) {
+    if (typeof body.bodyContains !== "string") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    bodyContains = normalizeMonitorHttpAssertionString(body.bodyContains, 512);
+  }
+
+  await pool.query(
+    `
+      UPDATE monitors
+      SET
+        http_assertions_enabled = ?,
+        http_expected_status_codes = ?,
+        http_content_type_contains = ?,
+        http_body_contains = ?,
+        http_follow_redirects = ?,
+        http_max_redirects = ?,
+        http_timeout_ms = ?
+      WHERE id = ?
+        AND user_id = ?
+      LIMIT 1
+    `,
+    [
+      enabled ? 1 : 0,
+      expectedStatusCodes || null,
+      contentTypeContains || null,
+      bodyContains || null,
+      followRedirects ? 1 : 0,
+      maxRedirects,
+      timeoutMs,
+      monitor.id,
+      user.id,
+    ]
+  );
+
+  const updatedMonitor = {
+    ...monitor,
+    http_assertions_enabled: enabled ? 1 : 0,
+    http_expected_status_codes: expectedStatusCodes || null,
+    http_content_type_contains: contentTypeContains || null,
+    http_body_contains: bodyContains || null,
+    http_follow_redirects: followRedirects ? 1 : 0,
+    http_max_redirects: maxRedirects,
+    http_timeout_ms: timeoutMs,
+  };
+
+  sendJson(res, 200, { ok: true, data: serializeMonitorHttpAssertionsConfig(updatedMonitor) });
+}
+
+async function handleMonitorIntervalUpdate(req, res, monitorId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasIntervalMs = Object.prototype.hasOwnProperty.call(body, "intervalMs");
+  const hasIntervalMsLegacy = Object.prototype.hasOwnProperty.call(body, "interval_ms");
+  if (!hasIntervalMs && !hasIntervalMsLegacy) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const rawInterval = hasIntervalMs ? body.intervalMs : body.interval_ms;
+  const numericInterval = Number(rawInterval);
+  if (!Number.isFinite(numericInterval)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorId);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  const intervalMs = normalizeMonitorIntervalMs(numericInterval, monitor.interval_ms || DEFAULT_MONITOR_INTERVAL_MS);
+  await pool.query("UPDATE monitors SET interval_ms = ? WHERE id = ? AND user_id = ? LIMIT 1", [
+    intervalMs,
+    monitor.id,
+    user.id,
+  ]);
+
+  sendJson(res, 200, { ok: true, data: { intervalMs } });
+}
+
+const MAINTENANCE_LOOKBACK_DAYS = 60;
+const MAINTENANCE_LOOKAHEAD_DAYS = 365;
+const MAINTENANCE_MIN_DURATION_MS = 5 * 60 * 1000;
+const MAINTENANCE_MAX_DURATION_MS = 30 * DAY_MS;
+const MAINTENANCE_MAX_PAST_START_MS = 24 * 60 * 60 * 1000;
+
+function normalizeMaintenanceTitle(value) {
+  const text = String(value || "").trim();
+  if (!text) return "Wartung";
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > 120 ? normalized.slice(0, 120) : normalized;
+}
+
+function normalizeMaintenanceMessage(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > 500 ? normalized.slice(0, 500) : normalized;
+}
+
+function parseTimestampInput(value) {
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.round(value) : null;
+  }
+
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) return Math.round(numeric);
+
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function computeMaintenanceStatus(window, nowMs = Date.now()) {
+  if (!window) return "unknown";
+  const cancelledAt = toTimestampMs(window.cancelled_at ?? window.cancelledAt);
+  if (Number.isFinite(cancelledAt) && cancelledAt > 0) return "cancelled";
+  const startsAt = toTimestampMs(window.starts_at ?? window.startsAt);
+  const endsAt = toTimestampMs(window.ends_at ?? window.endsAt);
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt)) return "unknown";
+  if (nowMs < startsAt) return "scheduled";
+  if (nowMs >= startsAt && nowMs < endsAt) return "active";
+  return "completed";
+}
+
+function serializeMaintenanceRow(row, nowMs = Date.now()) {
+  if (!row) return null;
+  const id = Number(row.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const startsAt = toTimestampMs(row.starts_at);
+  const endsAt = toTimestampMs(row.ends_at);
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt)) return null;
+
+  return {
+    id,
+    monitorId: Number(row.monitor_id),
+    title: String(row.title || "").trim() || "Wartung",
+    message: String(row.message || "").trim() || "",
+    startsAt,
+    endsAt,
+    cancelledAt: toTimestampMs(row.cancelled_at),
+    createdAt: toTimestampMs(row.created_at),
+    updatedAt: toTimestampMs(row.updated_at),
+    status: computeMaintenanceStatus(row, nowMs),
+  };
+}
+
+async function listMaintenancesForMonitorId(monitorId, options = {}) {
+  const limit = Math.max(1, Math.min(50, Number(options.limit || 20) || 20));
+  const numericId = Number(monitorId);
+  if (!Number.isFinite(numericId) || numericId <= 0) return [];
+
+  const nowMs = Date.now();
+  const lookbackStart = new Date(nowMs - MAINTENANCE_LOOKBACK_DAYS * DAY_MS);
+  const lookaheadEnd = new Date(nowMs + MAINTENANCE_LOOKAHEAD_DAYS * DAY_MS);
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        user_id,
+        monitor_id,
+        title,
+        message,
+        starts_at,
+        ends_at,
+        cancelled_at,
+        created_at,
+        updated_at
+      FROM maintenances
+      WHERE monitor_id = ?
+        AND starts_at >= ?
+        AND starts_at <= ?
+      ORDER BY starts_at ASC, id ASC
+      LIMIT ?
+    `,
+    [numericId, lookbackStart, lookaheadEnd, limit]
+  );
+
+  return rows.map((row) => serializeMaintenanceRow(row, nowMs)).filter(Boolean);
+}
+
+function buildMaintenancePayload(items, nowMs = Date.now()) {
+  const list = Array.isArray(items) ? items : [];
+  const active = list.find((entry) => entry.status === "active") || null;
+  const upcoming = list.filter((entry) => entry.status === "scheduled").slice(0, 3);
+  return {
+    active,
+    upcoming,
+    items: list,
+  };
+}
+
+function isHostnameCoveredByDomain(hostname, domain) {
+  const host = String(hostname || "").trim().toLowerCase();
+  const verified = String(domain || "").trim().toLowerCase();
+  if (!host || !verified) return false;
+  if (host === verified) return true;
+  return host.endsWith(`.${verified}`);
+}
+
+async function getVerifiedDomainForHostname(userId, hostname) {
+  const normalizedHost = String(hostname || "").trim().toLowerCase();
+  if (!normalizedHost) return null;
+
+  const [rows] = await pool.query(
+    "SELECT domain FROM domain_verifications WHERE user_id = ? AND verified_at IS NOT NULL ORDER BY verified_at DESC",
+    [userId]
+  );
+  for (const row of rows) {
+    const domain = String(row?.domain || "").trim().toLowerCase();
+    if (!domain) continue;
+    if (isHostnameCoveredByDomain(normalizedHost, domain)) {
+      return domain;
+    }
+  }
+  return null;
+}
+
+async function requireVerifiedDomainForMonitor(userId, monitor) {
+  const targetUrl = getMonitorUrl(monitor);
+  const hostname = normalizeDomainForVerification(targetUrl);
+  if (!hostname) {
+    const error = new Error("invalid_target");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const verifiedDomain = await getVerifiedDomainForHostname(userId, hostname);
+  if (!verifiedDomain) {
+    const error = new Error("domain_not_verified");
+    error.statusCode = 403;
+    error.details = { hostname };
+    throw error;
+  }
+
+  return { hostname, verifiedDomain };
+}
+
+async function handleMonitorMaintenancesList(req, res, monitorId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorId);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  try {
+    const items = await listMaintenancesForMonitorId(monitor.id, { limit: 50 });
+    sendJson(res, 200, { ok: true, data: buildMaintenancePayload(items) });
+  } catch (error) {
+    console.error("monitor_maintenances_list_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleMonitorMaintenanceCreate(req, res, monitorId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorId);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  try {
+    await requireVerifiedDomainForMonitor(user.id, monitor);
+  } catch (error) {
+    if (error?.message === "domain_not_verified") {
+      sendJson(res, 403, { ok: false, error: "domain not verified", hostname: error?.details?.hostname || "" });
+      return;
+    }
+    if (error?.message === "invalid_target") {
+      sendJson(res, 400, { ok: false, error: "invalid target" });
+      return;
+    }
+    console.error("maintenance_domain_check_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+    return;
+  }
+
+  const startsAtRaw = Object.prototype.hasOwnProperty.call(body, "startsAt")
+    ? body.startsAt
+    : Object.prototype.hasOwnProperty.call(body, "starts_at")
+    ? body.starts_at
+    : null;
+  const endsAtRaw = Object.prototype.hasOwnProperty.call(body, "endsAt")
+    ? body.endsAt
+    : Object.prototype.hasOwnProperty.call(body, "ends_at")
+    ? body.ends_at
+    : null;
+
+  const startsAtMs = parseTimestampInput(startsAtRaw);
+  const endsAtMs = parseTimestampInput(endsAtRaw);
+  if (!Number.isFinite(startsAtMs)) {
+    sendJson(res, 400, { ok: false, error: "invalid startsAt" });
+    return;
+  }
+  if (!Number.isFinite(endsAtMs)) {
+    sendJson(res, 400, { ok: false, error: "invalid endsAt" });
+    return;
+  }
+
+  const nowMs = Date.now();
+  const durationMs = endsAtMs - startsAtMs;
+  if (durationMs <= 0) {
+    sendJson(res, 400, { ok: false, error: "ends before start" });
+    return;
+  }
+  if (durationMs < MAINTENANCE_MIN_DURATION_MS) {
+    sendJson(res, 400, { ok: false, error: "duration too short", minMs: MAINTENANCE_MIN_DURATION_MS });
+    return;
+  }
+  if (durationMs > MAINTENANCE_MAX_DURATION_MS) {
+    sendJson(res, 400, { ok: false, error: "duration too long", maxMs: MAINTENANCE_MAX_DURATION_MS });
+    return;
+  }
+  if (startsAtMs < nowMs - 5 * 60 * 1000) {
+    const isActive = endsAtMs > nowMs;
+    const withinMaxPast = startsAtMs >= nowMs - MAINTENANCE_MAX_PAST_START_MS;
+    if (!(isActive && withinMaxPast)) {
+      sendJson(res, 400, { ok: false, error: "starts in past" });
+      return;
+    }
+  }
+  if (startsAtMs > nowMs + MAINTENANCE_LOOKAHEAD_DAYS * DAY_MS) {
+    sendJson(res, 400, { ok: false, error: "starts too far" });
+    return;
+  }
+
+  const title = normalizeMaintenanceTitle(body.title);
+  const message = Object.prototype.hasOwnProperty.call(body, "message")
+    ? normalizeMaintenanceMessage(body.message)
+    : Object.prototype.hasOwnProperty.call(body, "note")
+    ? normalizeMaintenanceMessage(body.note)
+    : "";
+
+  try {
+    const [result] = await pool.query(
+      "INSERT INTO maintenances (user_id, monitor_id, title, message, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?)",
+      [user.id, monitor.id, title, message || null, new Date(startsAtMs), new Date(endsAtMs)]
+    );
+
+    const maintenanceId = result?.insertId;
+    const [rows] = await pool.query(
+      `
+        SELECT
+          id,
+          monitor_id,
+          title,
+          message,
+          starts_at,
+          ends_at,
+          cancelled_at,
+          created_at,
+          updated_at
+        FROM maintenances
+        WHERE id = ?
+          AND user_id = ?
+          AND monitor_id = ?
+        LIMIT 1
+      `,
+      [maintenanceId, user.id, monitor.id]
+    );
+
+    const payload = serializeMaintenanceRow(rows[0], Date.now());
+    if (!payload) {
+      sendJson(res, 500, { ok: false, error: "internal error" });
+      return;
+    }
+
+    sendJson(res, 201, { ok: true, data: payload });
+  } catch (error) {
+    console.error("maintenance_create_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleMonitorMaintenanceCancel(req, res, monitorId, maintenanceId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorId);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  const numericId = Number(maintenanceId);
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const [result] = await pool.query(
+      `
+        UPDATE maintenances
+        SET cancelled_at = UTC_TIMESTAMP()
+        WHERE id = ?
+          AND user_id = ?
+          AND monitor_id = ?
+          AND cancelled_at IS NULL
+        LIMIT 1
+      `,
+      [numericId, user.id, monitor.id]
+    );
+
+    if (!result?.affectedRows) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("maintenance_cancel_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -6363,6 +7531,13 @@ async function getDueMonitors() {
         url,
         target_url,
         interval_ms,
+        http_assertions_enabled,
+        http_expected_status_codes,
+        http_content_type_contains,
+        http_body_contains,
+        http_follow_redirects,
+        http_max_redirects,
+        http_timeout_ms,
         is_paused,
         last_status,
         status_since,
@@ -6471,6 +7646,342 @@ async function requestMonitorStatus(targetUrl, options = {}) {
   });
 }
 
+const HTTP_ASSERTION_MAX_BODY_BYTES = 64 * 1024;
+
+function isRedirectStatusCode(statusCode) {
+  if (!Number.isFinite(statusCode)) return false;
+  return statusCode >= 300 && statusCode < 400;
+}
+
+function normalizeHttpHeaderValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry || "").trim()).filter(Boolean).join(", ");
+  }
+  return String(value || "").trim();
+}
+
+async function requestMonitorDetails(targetUrl, options = {}) {
+  const {
+    connectAddress = null,
+    timeoutMs = CHECK_TIMEOUT_MS,
+    collectBody = false,
+    maxBodyBytes = HTTP_ASSERTION_MAX_BODY_BYTES,
+  } = options;
+
+  let parsed;
+  try {
+    parsed = new URL(String(targetUrl || ""));
+  } catch (error) {
+    return {
+      statusCode: null,
+      headers: null,
+      bodyText: "",
+      bodyTruncated: false,
+      timedOut: false,
+      error: truncateErrorMessage(error) || "invalid_url",
+    };
+  }
+
+  const port = parsed.port ? Number(parsed.port) : parsed.protocol === "https:" ? 443 : 80;
+  const requestPath = `${parsed.pathname || "/"}${parsed.search || ""}`;
+  const hostHeader = parsed.host || parsed.hostname;
+  const connectHost = net.isIP(String(connectAddress || "").trim()) ? String(connectAddress).trim() : parsed.hostname;
+  const requestModule = parsed.protocol === "https:" ? https : http;
+
+  const safeTimeoutMs = clampMonitorHttpAssertionNumber(timeoutMs, {
+    min: 100,
+    max: 120000,
+    fallback: CHECK_TIMEOUT_MS,
+  });
+
+  const requestOptions = {
+    protocol: parsed.protocol,
+    hostname: connectHost,
+    port,
+    method: "GET",
+    path: requestPath,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Encoding": "identity",
+      Host: hostHeader,
+    },
+    timeout: safeTimeoutMs,
+    agent: false,
+  };
+  if (parsed.protocol === "https:") {
+    requestOptions.servername = parsed.hostname;
+  }
+
+  const safeMaxBodyBytes = clampMonitorHttpAssertionNumber(maxBodyBytes, {
+    min: 0,
+    max: HTTP_ASSERTION_MAX_BODY_BYTES,
+    fallback: HTTP_ASSERTION_MAX_BODY_BYTES,
+  });
+
+  return await new Promise((resolve) => {
+    let resolved = false;
+    const finish = (result) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(result);
+    };
+
+    const request = requestModule.request(requestOptions, (response) => {
+      const statusCode = Number(response.statusCode || 0) || null;
+      const headers = response.headers || null;
+
+      if (!collectBody || safeMaxBodyBytes <= 0) {
+        response.resume();
+        response.on("end", () => {
+          finish({ statusCode, headers, bodyText: "", bodyTruncated: false, timedOut: false, error: null });
+        });
+        response.on("error", (error) => {
+          finish({
+            statusCode,
+            headers,
+            bodyText: "",
+            bodyTruncated: false,
+            timedOut: false,
+            error: truncateErrorMessage(error) || "response_error",
+          });
+        });
+        return;
+      }
+
+      let size = 0;
+      let truncated = false;
+      const chunks = [];
+
+      response.on("data", (chunk) => {
+        if (resolved) return;
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        if (!buffer.length) return;
+
+        const nextSize = size + buffer.length;
+        if (nextSize <= safeMaxBodyBytes) {
+          chunks.push(buffer);
+          size = nextSize;
+          return;
+        }
+
+        const remaining = safeMaxBodyBytes - size;
+        if (remaining > 0) {
+          chunks.push(buffer.slice(0, remaining));
+          size += remaining;
+        }
+        truncated = true;
+        response.destroy();
+      });
+
+      const finalizeBody = () => {
+        const bodyText = chunks.length ? Buffer.concat(chunks).toString("utf8") : "";
+        return { bodyText, bodyTruncated: truncated };
+      };
+
+      response.on("end", () => {
+        const body = finalizeBody();
+        finish({
+          statusCode,
+          headers,
+          ...body,
+          timedOut: false,
+          error: null,
+        });
+      });
+
+      response.on("close", () => {
+        if (!truncated || resolved) return;
+        const body = finalizeBody();
+        finish({
+          statusCode,
+          headers,
+          ...body,
+          timedOut: false,
+          error: null,
+        });
+      });
+
+      response.on("error", (error) => {
+        const body = finalizeBody();
+        finish({
+          statusCode,
+          headers,
+          ...body,
+          timedOut: false,
+          error: truncateErrorMessage(error) || "response_error",
+        });
+      });
+    });
+
+    request.on("timeout", () => {
+      request.destroy(new Error("request_timeout"));
+    });
+
+    request.on("error", (error) => {
+      const code = String(error?.code || "").trim().toUpperCase();
+      const message = String(error?.message || "").toLowerCase();
+      const timedOut = code === "ETIMEDOUT" || message.includes("request_timeout");
+      finish({
+        statusCode: null,
+        headers: null,
+        bodyText: "",
+        bodyTruncated: false,
+        timedOut,
+        error: truncateErrorMessage(error) || (timedOut ? "timeout" : "request failed"),
+      });
+    });
+
+    request.end();
+  });
+}
+
+async function requestMonitorWithHttpAssertions(targetUrl, initialValidation, assertions) {
+  const followRedirects = !!assertions.followRedirects;
+  const maxRedirects = followRedirects ? assertions.maxRedirects : 0;
+  const timeoutMs = assertions.timeoutMs > 0 ? assertions.timeoutMs : CHECK_TIMEOUT_MS;
+  const needsBody = !!assertions.bodyContains;
+  const visited = new Set();
+
+  let currentUrl = targetUrl;
+  let validation = initialValidation;
+  let lastResult = null;
+
+  for (let step = 0; step <= maxRedirects; step += 1) {
+    if (visited.has(currentUrl)) {
+      return {
+        statusCode: lastResult?.statusCode ?? null,
+        headers: lastResult?.headers ?? null,
+        bodyText: lastResult?.bodyText ?? "",
+        bodyTruncated: !!lastResult?.bodyTruncated,
+        timedOut: false,
+        error: "redirect_loop",
+        blockedReason: "",
+        finalUrl: currentUrl,
+      };
+    }
+    visited.add(currentUrl);
+
+    if (!validation || step > 0) {
+      validation = await validateMonitorTarget(currentUrl, { useCache: true });
+    }
+
+    const normalizedReason = normalizeTargetValidationReasonForTelemetry(validation.reason);
+    const isDnsUnresolved = normalizedReason === "dns_unresolved";
+    if (!validation.allowed && !isDnsUnresolved) {
+      return {
+        statusCode: null,
+        headers: null,
+        bodyText: "",
+        bodyTruncated: false,
+        timedOut: false,
+        error: "target_blocked",
+        blockedReason: normalizedReason,
+        finalUrl: currentUrl,
+      };
+    }
+
+    let requestResult = await requestMonitorDetails(currentUrl, { timeoutMs, collectBody: needsBody });
+
+    if (!Number.isFinite(requestResult.statusCode)) {
+      const connectAddress = getMonitorConnectAddress(validation);
+      if (connectAddress) {
+        const fallbackResult = await requestMonitorDetails(currentUrl, {
+          connectAddress,
+          timeoutMs,
+          collectBody: needsBody,
+        });
+        if (Number.isFinite(fallbackResult.statusCode) || !Number.isFinite(requestResult.statusCode)) {
+          requestResult = fallbackResult;
+        }
+      }
+    }
+
+    lastResult = requestResult;
+
+    if (!followRedirects) {
+      break;
+    }
+
+    if (!isRedirectStatusCode(requestResult.statusCode)) {
+      break;
+    }
+
+    const locationHeader = normalizeHttpHeaderValue(requestResult.headers?.location);
+    if (!locationHeader) {
+      break;
+    }
+
+    let nextUrl = "";
+    try {
+      nextUrl = new URL(locationHeader, currentUrl).toString();
+    } catch (error) {
+      break;
+    }
+
+    if (!nextUrl.startsWith("http://") && !nextUrl.startsWith("https://")) {
+      break;
+    }
+
+    currentUrl = nextUrl;
+    validation = null;
+  }
+
+  if (!lastResult) {
+    return {
+      statusCode: null,
+      headers: null,
+      bodyText: "",
+      bodyTruncated: false,
+      timedOut: false,
+      error: "request_failed",
+      blockedReason: "",
+      finalUrl: currentUrl,
+    };
+  }
+
+  return { ...lastResult, blockedReason: "", finalUrl: currentUrl };
+}
+
+function evaluateHttpAssertionsResult(requestResult, assertions) {
+  const statusCode = requestResult?.statusCode;
+  const headers = requestResult?.headers || {};
+  const bodyText = String(requestResult?.bodyText || "");
+
+  const requestError = String(requestResult?.error || "").trim();
+  if (requestError === "redirect_loop") {
+    return { ok: false, errorMessage: requestError };
+  }
+
+  if (!Number.isFinite(statusCode)) {
+    return { ok: false, errorMessage: requestResult?.error || "no_response" };
+  }
+
+  const expected = Array.isArray(assertions?.expectedStatusCodes) ? assertions.expectedStatusCodes : [];
+  const statusOk = expected.length ? expected.includes(statusCode) : isStatusUp(statusCode);
+  if (!statusOk) {
+    return { ok: false, errorMessage: `unexpected_status:${statusCode}` };
+  }
+
+  const expectedContentType = String(assertions?.contentTypeContains || "").trim();
+  if (expectedContentType) {
+    const responseContentType = normalizeHttpHeaderValue(headers?.["content-type"]).toLowerCase();
+    if (!responseContentType.includes(expectedContentType.toLowerCase())) {
+      return { ok: false, errorMessage: "content_type_mismatch" };
+    }
+  }
+
+  const expectedBody = String(assertions?.bodyContains || "").trim();
+  if (expectedBody) {
+    if (!bodyText.toLowerCase().includes(expectedBody.toLowerCase())) {
+      return { ok: false, errorMessage: "body_mismatch" };
+    }
+  }
+
+  return { ok: true, errorMessage: null };
+}
+
 async function checkSingleMonitor(monitor) {
   const targetUrl = getMonitorUrl(monitor);
   const monitorId = Number(monitor.id);
@@ -6502,26 +8013,54 @@ async function checkSingleMonitor(monitor) {
       const reason = String(targetValidation.reason || "unknown").trim() || "unknown";
       errorMessage = truncateErrorMessage(new Error(`Target blocked by security policy (${reason})`));
     } else {
+      const httpAssertions = getMonitorHttpAssertionsConfig(monitor);
+
       // Use normal hostname request first. The security decision is already enforced
       // by validateMonitorTarget, and this avoids false negatives from direct-IP probing.
-      let requestResult = await requestMonitorStatus(targetUrl);
+      if (httpAssertions.enabled) {
+        const requestResult = await requestMonitorWithHttpAssertions(targetUrl, targetValidation, httpAssertions);
 
-      // Optional fallback: if hostname probing fails without an HTTP status, retry once
-      // with a validated address (prefer IPv4) to reduce transient resolver issues.
-      if (!Number.isFinite(requestResult.statusCode)) {
-        const connectAddress = getMonitorConnectAddress(targetValidation);
-        if (connectAddress) {
-          const fallbackResult = await requestMonitorStatus(targetUrl, { connectAddress });
-          if (Number.isFinite(fallbackResult.statusCode) || !Number.isFinite(requestResult.statusCode)) {
-            requestResult = fallbackResult;
+        if (requestResult.blockedReason) {
+          blockedByPolicy = true;
+          runtimeTelemetry.security.monitorTargetBlocked += 1;
+          incrementCounterMap(runtimeTelemetry.security.monitorTargetBlockReasons, requestResult.blockedReason);
+          ok = false;
+          statusCode = null;
+          timedOut = false;
+          errorMessage = truncateErrorMessage(
+            new Error(`Target blocked by security policy (${requestResult.blockedReason})`)
+          );
+        } else {
+          statusCode = requestResult.statusCode;
+          timedOut = !!requestResult.timedOut;
+          errorMessage = requestResult.error;
+
+          const evaluation = evaluateHttpAssertionsResult(requestResult, httpAssertions);
+          ok = !!evaluation.ok;
+          if (!ok && !errorMessage && evaluation.errorMessage) {
+            errorMessage = evaluation.errorMessage;
           }
         }
-      }
+      } else {
+        let requestResult = await requestMonitorStatus(targetUrl);
 
-      statusCode = requestResult.statusCode;
-      timedOut = !!requestResult.timedOut;
-      errorMessage = requestResult.error;
-      ok = Number.isFinite(statusCode) ? isStatusUp(statusCode) : false;
+        // Optional fallback: if hostname probing fails without an HTTP status, retry once
+        // with a validated address (prefer IPv4) to reduce transient resolver issues.
+        if (!Number.isFinite(requestResult.statusCode)) {
+          const connectAddress = getMonitorConnectAddress(targetValidation);
+          if (connectAddress) {
+            const fallbackResult = await requestMonitorStatus(targetUrl, { connectAddress });
+            if (Number.isFinite(fallbackResult.statusCode) || !Number.isFinite(requestResult.statusCode)) {
+              requestResult = fallbackResult;
+            }
+          }
+        }
+
+        statusCode = requestResult.statusCode;
+        timedOut = !!requestResult.timedOut;
+        errorMessage = requestResult.error;
+        ok = Number.isFinite(statusCode) ? isStatusUp(statusCode) : false;
+      }
 
       if (isDnsUnresolved && !ok && !errorMessage) {
         errorMessage = "dns_unresolved";
@@ -7274,8 +8813,11 @@ async function getMetricsForMonitor(monitor) {
     ? String(monitor.public_id)
     : String(monitor.id);
   const targetUrl = getMonitorUrl(monitor);
+  const httpAssertions = getMonitorHttpAssertionsConfig(monitor);
   const series = await getSeries(monitorId);
   const targetMeta = await getTargetMeta(targetUrl);
+  const maintenanceItems = await listMaintenancesForMonitorId(monitorId, { limit: 50 });
+  const maintenances = buildMaintenancePayload(maintenanceItems);
 
   const [range7, range30, range365] = await Promise.all([
     getRangeSummary(monitorId, 7),
@@ -7296,12 +8838,14 @@ async function getMetricsForMonitor(monitor) {
     name: monitor.name || getDefaultMonitorName(targetUrl),
     target: targetUrl,
     intervalMs: getMonitorIntervalMs(monitor),
-    timeoutMs: CHECK_TIMEOUT_MS,
+    timeoutMs: httpAssertions.enabled && httpAssertions.timeoutMs > 0 ? httpAssertions.timeoutMs : CHECK_TIMEOUT_MS,
     status: monitor.last_status || "online",
     statusSince,
     lastCheckAt,
     lastResponseMs: Number.isFinite(monitor.last_response_ms) ? monitor.last_response_ms : null,
     lastStatusCode: lastRows.length ? lastRows[0].status_code : null,
+    assertions: serializeMonitorHttpAssertionsConfig(monitor),
+    maintenances,
     stats: getStats(series),
     series,
     last24h: await getLast24h(monitorId),
@@ -7427,6 +8971,21 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && pathname === "/api/account/domains") {
+    await handleAccountDomainsList(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/domains") {
+    await handleAccountDomainChallengeCreate(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/domains/verify") {
+    await handleAccountDomainVerify(req, res);
+    return;
+  }
+
   if (method === "GET" && pathname === "/api/account/notifications") {
     await handleAccountNotificationsGet(req, res);
     return;
@@ -7470,6 +9029,12 @@ async function handleRequest(req, res) {
   const accountSessionMatch = pathname.match(/^\/api\/account\/sessions\/([a-f0-9]{64})\/?$/);
   if (method === "DELETE" && accountSessionMatch) {
     await handleAccountSessionRevoke(req, res, accountSessionMatch[1]);
+    return;
+  }
+
+  const accountDomainMatch = pathname.match(/^\/api\/account\/domains\/(\d+)\/?$/);
+  if (method === "DELETE" && accountDomainMatch) {
+    await handleAccountDomainDelete(req, res, accountDomainMatch[1]);
     return;
   }
 
@@ -7609,6 +9174,49 @@ async function handleRequest(req, res) {
     }
 
     await handleMonitorFavicon(req, res, monitor);
+    return;
+  }
+
+  const monitorAssertionsMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/assertions\/?$/);
+  if (monitorAssertionsMatch) {
+    const monitorId = monitorAssertionsMatch[1];
+    if (method === "GET") {
+      await handleMonitorHttpAssertionsGet(req, res, monitorId);
+      return;
+    }
+    if (method === "PUT" || method === "PATCH") {
+      await handleMonitorHttpAssertionsUpdate(req, res, monitorId);
+      return;
+    }
+  }
+
+  const monitorIntervalMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/interval\/?$/);
+  if (monitorIntervalMatch) {
+    const monitorId = monitorIntervalMatch[1];
+    if (method === "PUT" || method === "PATCH") {
+      await handleMonitorIntervalUpdate(req, res, monitorId);
+      return;
+    }
+  }
+
+  const monitorMaintenancesMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/maintenances\/?$/);
+  if (monitorMaintenancesMatch) {
+    const monitorId = monitorMaintenancesMatch[1];
+    if (method === "GET") {
+      await handleMonitorMaintenancesList(req, res, monitorId);
+      return;
+    }
+    if (method === "POST") {
+      await handleMonitorMaintenanceCreate(req, res, monitorId);
+      return;
+    }
+  }
+
+  const monitorMaintenanceCancelMatch = pathname.match(
+    /^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/maintenances\/(\d+)\/cancel\/?$/
+  );
+  if (method === "POST" && monitorMaintenanceCancelMatch) {
+    await handleMonitorMaintenanceCancel(req, res, monitorMaintenanceCancelMatch[1], monitorMaintenanceCancelMatch[2]);
     return;
   }
 

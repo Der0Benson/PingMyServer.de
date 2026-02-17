@@ -64,6 +64,10 @@
                 <label for="monitor-select">Monitor</label>
                 <select id="monitor-select"></select>
               </div>
+              <div class="monitor-picker interval-picker">
+                <label for="interval-select">Intervall</label>
+                <select id="interval-select"></select>
+              </div>
               <button class="btn ghost" id="new-monitor-btn" type="button">Neuer Monitor</button>
               <button class="btn ghost" id="public-status-btn" type="button">Öffentliche Statusseite</button>
             </div>
@@ -203,7 +207,114 @@
                   </div>
                 </div>
               </div>
+
+              
             </aside>
+
+            <details class="card advanced-settings" id="advanced-settings">
+              <summary class="advanced-settings-summary">
+                <span>Mehr Einstellungen</span>
+                <span class="advanced-settings-meta">HTTP-Assertions · Wartungen</span>
+              </summary>
+              <div class="advanced-settings-body">
+                <section class="advanced-settings-section assertions-card">
+                  <div class="card-title">HTTP-Assertions.</div>
+                  <p class="muted card-copy">Optional: prüfe Statuscode, Redirects, Content-Type oder Wörter im Body.</p>
+                  <form class="assertions-form" id="assertions-form" autocomplete="off">
+                    <label class="check-row">
+                      <input id="assertions-enabled" type="checkbox" />
+                      <span>Aktivieren</span>
+                    </label>
+
+                    <label>
+                      <span>Erwartete Statuscodes</span>
+                      <input id="assertions-status-codes" type="text" placeholder="z.B. 200-299,304" />
+                    </label>
+
+                    <div class="assertions-row">
+                      <label class="check-row">
+                        <input id="assertions-follow-redirects" type="checkbox" />
+                        <span>Redirects folgen</span>
+                      </label>
+
+                      <label>
+                        <span>Max Redirects</span>
+                        <input id="assertions-max-redirects" type="number" min="0" max="10" step="1" />
+                      </label>
+                    </div>
+
+                    <label>
+                      <span>Content-Type enthält</span>
+                      <input id="assertions-content-type" type="text" placeholder="z.B. text/html" />
+                    </label>
+
+                    <label>
+                      <span>Body enthält</span>
+                      <input id="assertions-body" type="text" placeholder="z.B. Willkommen" />
+                    </label>
+
+                    <label>
+                      <span>Timeout (ms)</span>
+                      <input id="assertions-timeout" type="number" min="0" max="120000" step="100" />
+                    </label>
+
+                    <div class="assertions-actions">
+                      <button class="btn primary" id="assertions-save" type="submit">Speichern</button>
+                      <span class="assertions-message" id="assertions-message"></span>
+                    </div>
+                  </form>
+                </section>
+
+                <section class="advanced-settings-section maintenance-card">
+                  <div class="card-title">Wartungen.</div>
+                  <p class="muted card-copy">
+                    Plane Wartungen, um Kunden auf der Statusseite vorab zu warnen. Erfordert eine verifizierte Domain.
+                  </p>
+
+                  <form class="maintenance-form" id="maintenance-form" autocomplete="off" novalidate>
+                    <label>
+                      <span>Titel</span>
+                      <input id="maintenance-title" type="text" maxlength="120" placeholder="z.B. Datenbank-Update" />
+                    </label>
+
+                    <div class="maintenance-row">
+                      <label>
+                        <span>Start</span>
+                        <input id="maintenance-start" type="datetime-local" required />
+                      </label>
+
+                      <label>
+                        <span>Ende</span>
+                        <input id="maintenance-end" type="datetime-local" required />
+                      </label>
+                    </div>
+
+                    <label>
+                      <span>Hinweis (optional)</span>
+                      <textarea
+                        id="maintenance-note"
+                        rows="3"
+                        maxlength="500"
+                        placeholder="Kurze Info für Kunden..."
+                      ></textarea>
+                    </label>
+
+                    <div class="maintenance-actions">
+                      <button class="btn primary" id="maintenance-create" type="submit">Wartung planen</button>
+                      <span class="maintenance-message" id="maintenance-form-message"></span>
+                    </div>
+                  </form>
+
+                  <div class="maintenance-list" id="maintenance-list">
+                    <div class="empty-state">
+                      <div class="title">Keine Wartungen.</div>
+                      <div class="muted">Sobald du eine Wartung planst, erscheint sie hier.</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </details>
+
           </main>
 
           <footer class="site-footer">
