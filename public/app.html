@@ -3,7 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Dashboard von PingMyServer für Monitoring, Uptime-Verlauf und Alarmierung." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="googlebot" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <title>Dashboard · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,10 +24,10 @@
   <body>
     <div class="app">
       <aside class="sidebar">
-        <div class="brand">
-          <span class="brand-dot"></span>
-          <span>PingMyServer</span>
-        </div>
+        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+          <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+          <span class="brand-name">PingMyServer.de</span>
+        </a>
         <nav class="side-nav">
           <a class="active" href="/app">Monitoring</a>
           <a href="/incidents">Vorfälle</a>
@@ -47,9 +53,7 @@
           <div class="crumb">Monitoring</div>
           <header class="topbar">
             <div class="title-block">
-              <div class="logo-dot">
-                <span class="logo-inner"></span>
-              </div>
+              <img id="monitor-icon" class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
                 <div class="title" id="monitor-name">Monitor</div>
                 <div class="subtitle" id="monitor-target">HTTPS Monitor</div>

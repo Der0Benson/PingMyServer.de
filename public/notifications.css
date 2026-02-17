@@ -38,6 +38,12 @@
   background: rgba(244, 180, 90, 0.12);
 }
 
+.status-badge.error {
+  color: #f6a9a9;
+  border-color: rgba(242, 107, 107, 0.45);
+  background: rgba(242, 107, 107, 0.12);
+}
+
 .notification-form {
   max-width: 760px;
   display: grid;
@@ -91,6 +97,10 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.billing-actions .btn {
+  min-width: 180px;
 }
 
 .danger-btn {

@@ -214,17 +214,29 @@ body.auth-locked {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: "Syne", sans-serif;
-  font-weight: 700;
-  font-size: 1rem;
 }
 
-.brand-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent-2);
-  box-shadow: 0 0 12px rgba(185, 242, 124, 0.7);
+.brand-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand-logo {
+  display: block;
+  height: 30px;
+  width: auto;
+  max-width: 100%;
+}
+
+.brand-link:hover .brand-logo {
+  filter: brightness(1.05);
+}
+
+.brand-name {
+  font-family: "Syne", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .side-nav {
@@ -373,22 +385,16 @@ body.auth-locked {
   gap: 14px;
 }
 
-.logo-dot {
+.logo-mark {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(76, 201, 240, 0.25), rgba(185, 242, 124, 0.2));
-  display: grid;
-  place-items: center;
-  box-shadow: inset 0 0 0 1px rgba(76, 201, 240, 0.2);
-}
-
-.logo-inner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent-2);
-  box-shadow: 0 0 16px rgba(185, 242, 124, 0.7);
+  object-fit: contain;
+  background: rgba(9, 16, 29, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px;
+  display: block;
+  flex: 0 0 auto;
 }
 
 .title {

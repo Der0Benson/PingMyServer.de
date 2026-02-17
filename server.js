@@ -455,6 +455,20 @@ const TRUSTED_ORIGINS = new Set(
 if (!TRUSTED_ORIGINS.size) {
   failConfig("TRUSTED_ORIGIN_PREFIXES must contain at least one origin");
 }
+
+function getDefaultTrustedOrigin() {
+  const first = TRUSTED_ORIGINS.values().next().value;
+  if (typeof first === "string" && first) return first;
+  return "http://localhost";
+}
+
+function resolveStripeRedirectUrl(rawValue, fallbackPath) {
+  const configured = String(rawValue || "").trim();
+  if (configured) return configured;
+  const origin = getDefaultTrustedOrigin();
+  return `${origin}${fallbackPath}`;
+}
+
 if (SESSION_COOKIE_SAME_SITE === "None" && !SESSION_COOKIE_SECURE) {
   failConfig("SESSION_COOKIE_SECURE must be true when SESSION_COOKIE_SAME_SITE=None");
 }
@@ -575,6 +589,53 @@ const DISCORD_WEBHOOK_TIMEOUT_MS = readEnvNumber("DISCORD_WEBHOOK_TIMEOUT_MS", 8
   min: 1000,
   max: 60000,
 });
+const STRIPE_ENABLED = readEnvBoolean("STRIPE_ENABLED", false);
+const STRIPE_SECRET_KEY = STRIPE_ENABLED
+  ? requireEnvString("STRIPE_SECRET_KEY", { trim: false })
+  : readEnvString("STRIPE_SECRET_KEY", "", { trim: false });
+const STRIPE_PRICE_ID = readEnvString("STRIPE_PRICE_ID", "");
+const STRIPE_PRICE_LOOKUP_KEY = readEnvString("STRIPE_PRICE_LOOKUP_KEY", "");
+const STRIPE_WEBHOOK_SECRET = STRIPE_ENABLED
+  ? requireEnvString("STRIPE_WEBHOOK_SECRET", { trim: false })
+  : readEnvString("STRIPE_WEBHOOK_SECRET", "", { trim: false });
+const STRIPE_SUCCESS_URL = resolveStripeRedirectUrl(
+  readEnvString("STRIPE_SUCCESS_URL", ""),
+  "/notifications?billing=success"
+);
+const STRIPE_CANCEL_URL = resolveStripeRedirectUrl(
+  readEnvString("STRIPE_CANCEL_URL", ""),
+  "/notifications?billing=cancel"
+);
+const STRIPE_PORTAL_RETURN_URL = resolveStripeRedirectUrl(
+  readEnvString("STRIPE_PORTAL_RETURN_URL", ""),
+  "/notifications"
+);
+const STRIPE_API_BASE = readEnvString("STRIPE_API_BASE", "https://api.stripe.com/v1");
+const STRIPE_REQUEST_TIMEOUT_MS = readEnvNumber("STRIPE_REQUEST_TIMEOUT_MS", 15000, {
+  integer: true,
+  min: 1000,
+  max: 120000,
+});
+const STRIPE_WEBHOOK_TOLERANCE_SECONDS = readEnvNumber("STRIPE_WEBHOOK_TOLERANCE_SECONDS", 300, {
+  integer: true,
+  min: 30,
+  max: 3600,
+});
+const STRIPE_WEBHOOK_BODY_LIMIT_BYTES = readEnvNumber("STRIPE_WEBHOOK_BODY_LIMIT_BYTES", 1048576, {
+  integer: true,
+  min: 1024,
+  max: 5242880,
+});
+const STRIPE_TRIAL_PERIOD_DAYS = readEnvNumber("STRIPE_TRIAL_PERIOD_DAYS", 0, {
+  integer: true,
+  min: 0,
+  max: 365,
+});
+const STRIPE_BILLING_CYCLE_ANCHOR_UNIX = readEnvNumber("STRIPE_BILLING_CYCLE_ANCHOR_UNIX", 0, {
+  integer: true,
+  min: 0,
+});
+const STRIPE_AUTOMATIC_TAX_ENABLED = readEnvBoolean("STRIPE_AUTOMATIC_TAX_ENABLED", false);
 if (GITHUB_AUTH_ENABLED) {
   try {
     const callbackUrl = new URL(GITHUB_CALLBACK_URL);
@@ -605,6 +666,40 @@ if (DISCORD_AUTH_ENABLED) {
     failConfig("DISCORD_CALLBACK_URL must be a valid absolute URL");
   }
 }
+if (STRIPE_ENABLED) {
+  const validateStripeUrl = (value, name) => {
+    try {
+      const parsed = new URL(value);
+      if (
+        parsed.protocol !== "https:" &&
+        parsed.hostname !== "localhost" &&
+        parsed.hostname !== "127.0.0.1" &&
+        parsed.hostname !== "::1"
+      ) {
+        failConfig(`${name} must use https unless hostname is localhost`);
+      }
+    } catch (error) {
+      failConfig(`${name} must be a valid absolute URL`);
+    }
+  };
+
+  validateStripeUrl(STRIPE_SUCCESS_URL, "STRIPE_SUCCESS_URL");
+  validateStripeUrl(STRIPE_CANCEL_URL, "STRIPE_CANCEL_URL");
+  validateStripeUrl(STRIPE_PORTAL_RETURN_URL, "STRIPE_PORTAL_RETURN_URL");
+
+  try {
+    const apiBase = new URL(STRIPE_API_BASE);
+    if (apiBase.protocol !== "https:") {
+      failConfig("STRIPE_API_BASE must use https");
+    }
+  } catch (error) {
+    failConfig("STRIPE_API_BASE must be a valid absolute URL");
+  }
+
+  if (!String(STRIPE_PRICE_ID || "").trim() && !String(STRIPE_PRICE_LOOKUP_KEY || "").trim()) {
+    failConfig("STRIPE_PRICE_ID or STRIPE_PRICE_LOOKUP_KEY must be set when STRIPE_ENABLED=true");
+  }
+}
 
 const pool = mysql.createPool({
   host: MYSQL_HOST,
@@ -621,10 +716,17 @@ const authRateLimiter = new Map();
 const oauthStateStore = new Map();
 const targetMetaCache = new Map();
 const monitorTargetValidationCache = new Map();
+const monitorFaviconCache = new Map();
 let monitorChecksInFlight = false;
 let allMonitorsOfflineConsecutiveCount = 0;
 let allMonitorsOfflineShutdownTriggered = false;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MONITOR_FAVICON_CACHE_MAX = 300;
+const MONITOR_FAVICON_CACHE_MS = 30 * 60 * 1000;
+const MONITOR_FAVICON_NEGATIVE_CACHE_MS = 5 * 60 * 1000;
+const MONITOR_FAVICON_FETCH_TIMEOUT_MS = 4500;
+const MONITOR_FAVICON_MAX_BYTES = 64 * 1024;
+const STRIPE_ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 const cpuCoreCount = Math.max(1, Number(os.cpus()?.length || 1));
 const poolInstrumentationMarker = Symbol("instrumented_pool");
 const connectionInstrumentationMarker = Symbol("instrumented_connection");
@@ -914,8 +1016,11 @@ function contentTypeFromPath(filePath) {
   if (ext === ".html") return "text/html; charset=utf-8";
   if (ext === ".css") return "text/css; charset=utf-8";
   if (ext === ".js") return "application/javascript; charset=utf-8";
+  if (ext === ".txt") return "text/plain; charset=utf-8";
+  if (ext === ".xml") return "application/xml; charset=utf-8";
   if (ext === ".svg") return "image/svg+xml";
   if (ext === ".json") return "application/json; charset=utf-8";
+  if (ext === ".webmanifest") return "application/manifest+json; charset=utf-8";
   if (ext === ".png") return "image/png";
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
   if (ext === ".webp") return "image/webp";
@@ -1679,7 +1784,7 @@ function enforceAuthRateLimit(req, res) {
   return true;
 }
 
-async function readJsonBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
+async function readRawBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -1697,25 +1802,29 @@ async function readJsonBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
     });
 
     req.on("end", () => {
-      if (!chunks.length) {
-        resolve({});
-        return;
-      }
-
-      try {
-        const text = Buffer.concat(chunks).toString("utf8");
-        resolve(JSON.parse(text));
-      } catch (error) {
-        const parseError = new Error("invalid_json");
-        parseError.statusCode = 400;
-        reject(parseError);
-      }
+      resolve(chunks.length ? Buffer.concat(chunks) : Buffer.alloc(0));
     });
 
     req.on("error", (error) => {
       reject(error);
     });
   });
+}
+
+async function readJsonBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
+  const rawBody = await readRawBody(req, limitBytes);
+  if (!rawBody.length) {
+    return {};
+  }
+
+  try {
+    const text = rawBody.toString("utf8");
+    return JSON.parse(text);
+  } catch (error) {
+    const parseError = new Error("invalid_json");
+    parseError.statusCode = 400;
+    throw parseError;
+  }
 }
 
 function hashSessionToken(token) {
@@ -2428,6 +2537,192 @@ async function getTargetMeta(targetUrl) {
   return promise;
 }
 
+function getMonitorFaviconCacheKey(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    const hostname = String(parsed.hostname || "").trim().toLowerCase();
+    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+    return `${parsed.protocol}//${hostname}:${port}`;
+  } catch (error) {
+    return String(targetUrl || "");
+  }
+}
+
+function pruneMonitorFaviconCache() {
+  if (monitorFaviconCache.size <= MONITOR_FAVICON_CACHE_MAX) return;
+  const keys = [...monitorFaviconCache.keys()];
+  while (monitorFaviconCache.size > MONITOR_FAVICON_CACHE_MAX && keys.length) {
+    monitorFaviconCache.delete(keys.shift());
+  }
+}
+
+function normalizeImageContentType(rawValue, sourceUrl = "") {
+  const value = String(rawValue || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+  const allowed = new Set([
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "image/png",
+    "image/svg+xml",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+  ]);
+  if (allowed.has(value)) {
+    return value;
+  }
+
+  const lowerSource = String(sourceUrl || "").toLowerCase();
+  if (lowerSource.endsWith(".ico")) return "image/x-icon";
+  if (lowerSource.endsWith(".png")) return "image/png";
+  if (lowerSource.endsWith(".svg")) return "image/svg+xml";
+  if (lowerSource.endsWith(".jpg") || lowerSource.endsWith(".jpeg")) return "image/jpeg";
+  if (lowerSource.endsWith(".webp")) return "image/webp";
+  if (lowerSource.endsWith(".gif")) return "image/gif";
+  return null;
+}
+
+async function fetchImageAsset(url, timeoutMs = MONITOR_FAVICON_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "User-Agent": "PingMyServer/1.0",
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > MONITOR_FAVICON_MAX_BYTES) {
+      return null;
+    }
+
+    const contentType = normalizeImageContentType(response.headers.get("content-type"), url);
+    if (!contentType) return null;
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > MONITOR_FAVICON_MAX_BYTES) return null;
+
+    return {
+      buffer,
+      contentType,
+    };
+  } catch (error) {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildMonitorFaviconCandidates(targetUrl) {
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch (error) {
+    return [];
+  }
+
+  const hostname = String(parsed.hostname || "").trim().toLowerCase();
+  if (!hostname) return [];
+
+  const host = parsed.host;
+  const baseUrls = [`${parsed.protocol}//${host}/favicon.ico`, `${parsed.protocol}//${host}/favicon.png`];
+  if (parsed.protocol === "http:") {
+    baseUrls.push(`https://${host}/favicon.ico`);
+  }
+
+  if (net.isIP(hostname) === 0 && !isLocalHostname(hostname)) {
+    baseUrls.push(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(hostname)}.ico`);
+  }
+
+  return Array.from(new Set(baseUrls));
+}
+
+async function loadMonitorFavicon(targetUrl) {
+  const candidates = buildMonitorFaviconCandidates(targetUrl);
+  for (const candidateUrl of candidates) {
+    const icon = await fetchImageAsset(candidateUrl);
+    if (icon?.buffer?.length) {
+      return icon;
+    }
+  }
+  return null;
+}
+
+async function getMonitorFavicon(targetUrl) {
+  const key = getMonitorFaviconCacheKey(targetUrl);
+  const now = Date.now();
+  const cached = monitorFaviconCache.get(key);
+
+  if (cached?.icon && cached.expiresAt > now) {
+    return cached.icon;
+  }
+  if (cached?.missing && cached.expiresAt > now) {
+    return null;
+  }
+  if (cached?.promise) {
+    return cached.promise;
+  }
+
+  const fallbackIcon = cached?.icon || null;
+  const promise = loadMonitorFavicon(targetUrl)
+    .then((icon) => {
+      monitorFaviconCache.set(key, {
+        icon: icon || null,
+        missing: !icon,
+        expiresAt: Date.now() + (icon ? MONITOR_FAVICON_CACHE_MS : MONITOR_FAVICON_NEGATIVE_CACHE_MS),
+        promise: null,
+      });
+      pruneMonitorFaviconCache();
+      return icon;
+    })
+    .catch((error) => {
+      console.error("monitor_favicon_failed", key, error?.message || error);
+      monitorFaviconCache.set(key, {
+        icon: fallbackIcon,
+        missing: !fallbackIcon,
+        expiresAt: Date.now() + (fallbackIcon ? 60000 : MONITOR_FAVICON_NEGATIVE_CACHE_MS),
+        promise: null,
+      });
+      pruneMonitorFaviconCache();
+      return fallbackIcon;
+    });
+
+  monitorFaviconCache.set(key, {
+    icon: cached?.icon || null,
+    missing: !!cached?.missing,
+    expiresAt: cached?.expiresAt || 0,
+    promise,
+  });
+  pruneMonitorFaviconCache();
+  return promise;
+}
+
+async function handleMonitorFavicon(req, res, monitor) {
+  const targetUrl = getMonitorUrl(monitor);
+  if (!targetUrl) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  const icon = await getMonitorFavicon(targetUrl);
+  if (!icon?.buffer?.length) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": icon.contentType || "image/x-icon",
+    "Cache-Control": "public, max-age=1800",
+  });
+  res.end(icon.buffer);
+}
+
 function truncateErrorMessage(error) {
   if (!error) return null;
   const source = [error.name || "Error", error.message || ""]
@@ -2623,11 +2918,32 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("users", "notify_discord_enabled"))) {
     await pool.query("ALTER TABLE users ADD COLUMN notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_discord_webhook_url");
   }
+  if (!(await hasColumn("users", "stripe_customer_id"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL AFTER notify_discord_enabled");
+  }
+  if (!(await hasColumn("users", "stripe_subscription_id"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255) NULL AFTER stripe_customer_id");
+  }
+  if (!(await hasColumn("users", "stripe_price_id"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN stripe_price_id VARCHAR(255) NULL AFTER stripe_subscription_id");
+  }
+  if (!(await hasColumn("users", "stripe_subscription_status"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN stripe_subscription_status VARCHAR(64) NULL AFTER stripe_price_id");
+  }
+  if (!(await hasColumn("users", "stripe_current_period_end"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN stripe_current_period_end DATETIME NULL AFTER stripe_subscription_status");
+  }
   await pool.query(
     "UPDATE users SET notify_discord_enabled = 0 WHERE notify_discord_enabled IS NULL OR notify_discord_enabled NOT IN (0, 1)"
   );
   if (!(await hasUniqueIndexOnColumn("users", "discord_id"))) {
     await pool.query("CREATE UNIQUE INDEX uniq_users_discord_id ON users(discord_id)");
+  }
+  if (!(await hasUniqueIndexOnColumn("users", "stripe_customer_id"))) {
+    await pool.query("CREATE UNIQUE INDEX uniq_users_stripe_customer_id ON users(stripe_customer_id)");
+  }
+  if (!(await hasUniqueIndexOnColumn("users", "stripe_subscription_id"))) {
+    await pool.query("CREATE UNIQUE INDEX uniq_users_stripe_subscription_id ON users(stripe_subscription_id)");
   }
 
   if (!(await hasColumn("monitors", "public_id"))) {
@@ -2829,6 +3145,11 @@ async function initDb() {
       discord_email VARCHAR(255) NULL,
       notify_discord_webhook_url VARCHAR(2048) NULL,
       notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      stripe_customer_id VARCHAR(255) NULL UNIQUE,
+      stripe_subscription_id VARCHAR(255) NULL UNIQUE,
+      stripe_price_id VARCHAR(255) NULL,
+      stripe_subscription_status VARCHAR(64) NULL,
+      stripe_current_period_end DATETIME NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -2987,6 +3308,131 @@ async function getUserNotificationSettingsById(userId) {
   );
   if (!rows.length) return null;
   return rows[0];
+}
+
+async function getUserBillingSettingsById(userId) {
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        email,
+        stripe_customer_id,
+        stripe_subscription_id,
+        stripe_price_id,
+        stripe_subscription_status,
+        stripe_current_period_end,
+        created_at
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [userId]
+  );
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+async function findUserByStripeCustomerId(customerId) {
+  const normalized = String(customerId || "").trim();
+  if (!normalized) return null;
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        email,
+        stripe_customer_id,
+        stripe_subscription_id,
+        stripe_price_id,
+        stripe_subscription_status,
+        stripe_current_period_end,
+        created_at
+      FROM users
+      WHERE stripe_customer_id = ?
+      LIMIT 1
+    `,
+    [normalized]
+  );
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+async function updateUserStripeCustomerId(userId, customerId) {
+  const normalizedCustomerId = String(customerId || "").trim();
+  if (!normalizedCustomerId) return 0;
+  try {
+    const [result] = await pool.query(
+      "UPDATE users SET stripe_customer_id = ? WHERE id = ? LIMIT 1",
+      [normalizedCustomerId, userId]
+    );
+    return Number(result?.affectedRows || 0);
+  } catch (error) {
+    if (String(error?.code || "") === "ER_DUP_ENTRY") {
+      return 0;
+    }
+    throw error;
+  }
+}
+
+async function updateUserStripeSubscriptionByUserId(userId, payload = {}) {
+  const normalizedCustomerId = String(payload.customerId || "").trim() || null;
+  const normalizedSubscriptionId = String(payload.subscriptionId || "").trim() || null;
+  const normalizedPriceId = String(payload.priceId || "").trim() || null;
+  const normalizedStatus = String(payload.status || "").trim().toLowerCase() || null;
+  const periodEndDate = payload.periodEnd instanceof Date ? payload.periodEnd : null;
+
+  try {
+    const [result] = await pool.query(
+      `
+        UPDATE users
+        SET
+          stripe_customer_id = COALESCE(?, stripe_customer_id),
+          stripe_subscription_id = ?,
+          stripe_price_id = ?,
+          stripe_subscription_status = ?,
+          stripe_current_period_end = ?
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [normalizedCustomerId, normalizedSubscriptionId, normalizedPriceId, normalizedStatus, periodEndDate, userId]
+    );
+    return Number(result?.affectedRows || 0);
+  } catch (error) {
+    if (String(error?.code || "") === "ER_DUP_ENTRY") {
+      return 0;
+    }
+    throw error;
+  }
+}
+
+async function updateUserStripeSubscriptionByCustomerId(customerId, payload = {}) {
+  const normalizedCustomerId = String(customerId || "").trim();
+  if (!normalizedCustomerId) return 0;
+  const normalizedSubscriptionId = String(payload.subscriptionId || "").trim() || null;
+  const normalizedPriceId = String(payload.priceId || "").trim() || null;
+  const normalizedStatus = String(payload.status || "").trim().toLowerCase() || null;
+  const periodEndDate = payload.periodEnd instanceof Date ? payload.periodEnd : null;
+
+  try {
+    const [result] = await pool.query(
+      `
+        UPDATE users
+        SET
+          stripe_subscription_id = ?,
+          stripe_price_id = ?,
+          stripe_subscription_status = ?,
+          stripe_current_period_end = ?
+        WHERE stripe_customer_id = ?
+        LIMIT 1
+      `,
+      [normalizedSubscriptionId, normalizedPriceId, normalizedStatus, periodEndDate, normalizedCustomerId]
+    );
+    return Number(result?.affectedRows || 0);
+  } catch (error) {
+    if (String(error?.code || "") === "ER_DUP_ENTRY") {
+      return 0;
+    }
+    throw error;
+  }
 }
 
 async function findUserByEmail(email) {
@@ -3317,6 +3763,35 @@ async function getMonitorByIdForUser(userId, monitorId) {
 async function getDefaultPublicMonitor() {
   if (!DEFAULT_PUBLIC_STATUS_MONITOR_ID) return null;
   return getPublicMonitorByIdentifier(DEFAULT_PUBLIC_STATUS_MONITOR_ID);
+}
+
+async function getLatestPublicMonitor() {
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        public_id,
+        user_id,
+        name,
+        url,
+        target_url,
+        interval_ms,
+        is_paused,
+        last_status,
+        status_since,
+        last_checked_at,
+        last_check_at,
+        last_response_ms,
+        created_at
+      FROM monitors
+      WHERE user_id IS NOT NULL
+      ORDER BY COALESCE(last_check_at, last_checked_at, created_at) DESC, id DESC
+      LIMIT 1
+    `
+  );
+
+  if (!rows.length) return null;
+  return rows[0];
 }
 
 async function getPublicMonitorByIdentifier(monitorId) {
@@ -3988,6 +4463,761 @@ function toAccountNotificationsPayload(account) {
       webhookMasked: configured ? maskDiscordWebhookUrl(normalizedWebhook) : null,
     },
   };
+}
+
+function toIsoStringOrNull(value) {
+  const timestampMs = toTimestampMs(value);
+  if (!Number.isFinite(timestampMs)) return null;
+  return new Date(timestampMs).toISOString();
+}
+
+function normalizeStripeSubscriptionStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return null;
+  return normalized.slice(0, 64);
+}
+
+function normalizeStripePriceId(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  return normalized.slice(0, 255);
+}
+
+function normalizeStripeLookupKey(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  return normalized.slice(0, 255);
+}
+
+function hasStripeCheckoutPriceConfig() {
+  return !!(normalizeStripePriceId(STRIPE_PRICE_ID) || normalizeStripeLookupKey(STRIPE_PRICE_LOOKUP_KEY));
+}
+
+function isStripeSubscriptionActive(status) {
+  const normalized = normalizeStripeSubscriptionStatus(status);
+  if (!normalized) return false;
+  return STRIPE_ACTIVE_SUBSCRIPTION_STATUSES.has(normalized);
+}
+
+function toAccountBillingPayload(account) {
+  const normalizedStatus = normalizeStripeSubscriptionStatus(account?.stripe_subscription_status) || "none";
+  const customerId = String(account?.stripe_customer_id || "").trim();
+  const subscriptionId = String(account?.stripe_subscription_id || "").trim();
+  const priceId = String(account?.stripe_price_id || "").trim();
+
+  return {
+    available: STRIPE_ENABLED,
+    checkoutEnabled: STRIPE_ENABLED && hasStripeCheckoutPriceConfig(),
+    status: normalizedStatus,
+    active: isStripeSubscriptionActive(normalizedStatus),
+    hasCustomer: !!customerId,
+    subscriptionId: subscriptionId || null,
+    priceId: priceId || null,
+    currentPeriodEnd: toIsoStringOrNull(account?.stripe_current_period_end),
+  };
+}
+
+function toStripeFormBody(payload) {
+  const params = new URLSearchParams();
+  const source = payload && typeof payload === "object" ? payload : {};
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined || value === null || value === "") continue;
+    if (typeof value === "boolean") {
+      params.append(key, value ? "true" : "false");
+      continue;
+    }
+    params.append(key, String(value));
+  }
+  return params.toString();
+}
+
+async function stripeApiRequest(method, apiPath, payload = null) {
+  if (!STRIPE_ENABLED) {
+    return { ok: false, statusCode: 503, errorCode: "stripe_disabled", errorMessage: "stripe disabled", payload: null };
+  }
+
+  const normalizedMethod = String(method || "GET").trim().toUpperCase();
+  const normalizedPath = String(apiPath || "").startsWith("/") ? String(apiPath || "") : `/${apiPath || ""}`;
+  const requestUrl = `${STRIPE_API_BASE}${normalizedPath}`;
+  const headers = {
+    Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+    Accept: "application/json",
+  };
+  const options = {
+    method: normalizedMethod,
+    headers,
+  };
+
+  if (normalizedMethod !== "GET" && payload && typeof payload === "object") {
+    headers["Content-Type"] = "application/x-www-form-urlencoded";
+    options.body = toStripeFormBody(payload);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), STRIPE_REQUEST_TIMEOUT_MS);
+  options.signal = controller.signal;
+
+  try {
+    const response = await fetch(requestUrl, options);
+    const responseText = await response.text();
+    let responsePayload = null;
+    try {
+      responsePayload = responseText ? JSON.parse(responseText) : null;
+    } catch (error) {
+      responsePayload = null;
+    }
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        statusCode: Number(response.status || 0),
+        errorCode: String(responsePayload?.error?.code || "").trim() || `http_${response.status || "error"}`,
+        errorMessage: String(responsePayload?.error?.message || responseText || "stripe request failed").slice(0, 300),
+        payload: responsePayload,
+      };
+    }
+
+    return {
+      ok: true,
+      statusCode: Number(response.status || 200),
+      errorCode: "",
+      errorMessage: "",
+      payload: responsePayload,
+    };
+  } catch (error) {
+    const timedOut = error?.name === "AbortError";
+    return {
+      ok: false,
+      statusCode: 0,
+      errorCode: timedOut ? "timeout" : "request_failed",
+      errorMessage: String(error?.message || "stripe request failed").slice(0, 300),
+      payload: null,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchStripePriceIdByLookupKey(lookupKey) {
+  const normalizedLookupKey = normalizeStripeLookupKey(lookupKey);
+  if (!normalizedLookupKey) {
+    return { ok: false, priceId: "", errorCode: "invalid_lookup_key", errorMessage: "invalid lookup key" };
+  }
+
+  const query = new URLSearchParams();
+  query.set("active", "true");
+  query.set("type", "recurring");
+  query.set("limit", "1");
+  query.set("lookup_keys[0]", normalizedLookupKey);
+  query.append("expand[]", "data.product");
+
+  const result = await stripeApiRequest("GET", `/prices?${query.toString()}`);
+  if (!result.ok) {
+    return {
+      ok: false,
+      priceId: "",
+      errorCode: result.errorCode || "lookup_failed",
+      errorMessage: result.errorMessage || "stripe price lookup failed",
+    };
+  }
+
+  const priceRows = Array.isArray(result.payload?.data) ? result.payload.data : [];
+  const priceId = normalizeStripePriceId(priceRows[0]?.id);
+  if (!priceId) {
+    return {
+      ok: false,
+      priceId: "",
+      errorCode: "lookup_not_found",
+      errorMessage: "no recurring price found for lookup key",
+    };
+  }
+
+  return { ok: true, priceId, errorCode: "", errorMessage: "" };
+}
+
+async function resolveStripeCheckoutPriceId(preferredLookupKey = "") {
+  const lookupKeys = [];
+  const preferred = normalizeStripeLookupKey(preferredLookupKey);
+  const configuredLookup = normalizeStripeLookupKey(STRIPE_PRICE_LOOKUP_KEY);
+  if (preferred) lookupKeys.push(preferred);
+  if (configuredLookup && configuredLookup !== preferred) lookupKeys.push(configuredLookup);
+
+  let lastLookupError = "";
+  for (const key of lookupKeys) {
+    const lookupResult = await fetchStripePriceIdByLookupKey(key);
+    if (lookupResult.ok && lookupResult.priceId) {
+      return { ok: true, priceId: lookupResult.priceId, source: `lookup_key:${key}`, errorCode: "", errorMessage: "" };
+    }
+    lastLookupError = lookupResult.errorCode || lastLookupError;
+  }
+
+  const configuredPriceId = normalizeStripePriceId(STRIPE_PRICE_ID);
+  if (configuredPriceId) {
+    return { ok: true, priceId: configuredPriceId, source: "price_id", errorCode: "", errorMessage: "" };
+  }
+
+  return {
+    ok: false,
+    priceId: "",
+    source: "",
+    errorCode: lastLookupError || "price_not_configured",
+    errorMessage: "stripe checkout price not configured",
+  };
+}
+
+async function createStripeCustomerForUser(account) {
+  const userId = Number(account?.id || 0);
+  const email = String(account?.email || "").trim().toLowerCase();
+  if (!Number.isInteger(userId) || userId <= 0 || !email) {
+    return { ok: false, customerId: "", errorCode: "invalid_user", errorMessage: "invalid user" };
+  }
+
+  const result = await stripeApiRequest("POST", "/customers", {
+    email,
+    "metadata[user_id]": String(userId),
+  });
+  const customerId = String(result?.payload?.id || "").trim();
+  if (!result.ok || !customerId) {
+    return {
+      ok: false,
+      customerId: "",
+      errorCode: result.errorCode || "customer_create_failed",
+      errorMessage: result.errorMessage || "stripe customer create failed",
+    };
+  }
+
+  return { ok: true, customerId, errorCode: "", errorMessage: "" };
+}
+
+async function ensureStripeCustomerForUser(account) {
+  const existingCustomerId = String(account?.stripe_customer_id || "").trim();
+  if (existingCustomerId) {
+    return { ok: true, customerId: existingCustomerId, errorCode: "", errorMessage: "" };
+  }
+
+  const created = await createStripeCustomerForUser(account);
+  if (!created.ok || !created.customerId) {
+    return created;
+  }
+
+  const affected = await updateUserStripeCustomerId(account.id, created.customerId);
+  if (affected <= 0) {
+    const refreshed = await getUserBillingSettingsById(account.id);
+    const storedCustomerId = String(refreshed?.stripe_customer_id || "").trim();
+    if (storedCustomerId !== created.customerId) {
+      return {
+        ok: false,
+        customerId: "",
+        errorCode: "customer_store_failed",
+        errorMessage: "stripe customer could not be linked",
+      };
+    }
+  }
+  return { ok: true, customerId: created.customerId, errorCode: "", errorMessage: "" };
+}
+
+async function createStripeCheckoutSession(customerId, userId, options = {}) {
+  const normalizedCustomerId = String(customerId || "").trim();
+  const numericUserId = Number(userId || 0);
+  if (!normalizedCustomerId || !Number.isInteger(numericUserId) || numericUserId <= 0) {
+    return { ok: false, url: "", errorCode: "invalid_input", errorMessage: "invalid input" };
+  }
+
+  const lookupKey = normalizeStripeLookupKey(options.lookupKey || "");
+  const priceResolution = await resolveStripeCheckoutPriceId(lookupKey);
+  if (!priceResolution.ok || !priceResolution.priceId) {
+    return {
+      ok: false,
+      url: "",
+      errorCode: priceResolution.errorCode || "checkout_price_failed",
+      errorMessage: priceResolution.errorMessage || "stripe checkout price resolution failed",
+    };
+  }
+
+  const trialPeriodDaysInput = Number(options.trialPeriodDays);
+  const hasTrialOverride = options.trialPeriodDays !== undefined;
+  const trialPeriodDays = hasTrialOverride
+    ? Number.isInteger(trialPeriodDaysInput) && trialPeriodDaysInput >= 0
+      ? trialPeriodDaysInput
+      : STRIPE_TRIAL_PERIOD_DAYS
+    : STRIPE_TRIAL_PERIOD_DAYS;
+
+  const billingCycleAnchorInput = Number(options.billingCycleAnchorUnix);
+  const hasAnchorOverride = options.billingCycleAnchorUnix !== undefined;
+  const billingCycleAnchorUnix = hasAnchorOverride
+    ? Number.isInteger(billingCycleAnchorInput) && billingCycleAnchorInput >= 0
+      ? billingCycleAnchorInput
+      : STRIPE_BILLING_CYCLE_ANCHOR_UNIX
+    : STRIPE_BILLING_CYCLE_ANCHOR_UNIX;
+
+  const automaticTaxEnabled =
+    typeof options.automaticTaxEnabled === "boolean" ? options.automaticTaxEnabled : STRIPE_AUTOMATIC_TAX_ENABLED;
+
+  const checkoutPayload = {
+    mode: "subscription",
+    customer: normalizedCustomerId,
+    "line_items[0][price]": priceResolution.priceId,
+    "line_items[0][quantity]": 1,
+    success_url: STRIPE_SUCCESS_URL,
+    cancel_url: STRIPE_CANCEL_URL,
+    "metadata[user_id]": String(numericUserId),
+    "metadata[price_source]": priceResolution.source,
+    client_reference_id: String(numericUserId),
+    "subscription_data[metadata][user_id]": String(numericUserId),
+    allow_promotion_codes: true,
+    "automatic_tax[enabled]": automaticTaxEnabled,
+  };
+  if (trialPeriodDays > 0) {
+    checkoutPayload["subscription_data[trial_period_days]"] = trialPeriodDays;
+  }
+  if (billingCycleAnchorUnix > 0) {
+    checkoutPayload["subscription_data[billing_cycle_anchor]"] = billingCycleAnchorUnix;
+  }
+
+  const result = await stripeApiRequest("POST", "/checkout/sessions", checkoutPayload);
+  const checkoutUrl = String(result?.payload?.url || "").trim();
+  if (!result.ok || !checkoutUrl) {
+    return {
+      ok: false,
+      url: "",
+      errorCode: result.errorCode || "checkout_create_failed",
+      errorMessage: result.errorMessage || "stripe checkout create failed",
+    };
+  }
+
+  return { ok: true, url: checkoutUrl, errorCode: "", errorMessage: "" };
+}
+
+async function createStripePortalSession(customerId) {
+  const normalizedCustomerId = String(customerId || "").trim();
+  if (!normalizedCustomerId) {
+    return { ok: false, url: "", errorCode: "invalid_input", errorMessage: "invalid input" };
+  }
+
+  const result = await stripeApiRequest("POST", "/billing_portal/sessions", {
+    customer: normalizedCustomerId,
+    return_url: STRIPE_PORTAL_RETURN_URL,
+  });
+  const portalUrl = String(result?.payload?.url || "").trim();
+  if (!result.ok || !portalUrl) {
+    return {
+      ok: false,
+      url: "",
+      errorCode: result.errorCode || "portal_create_failed",
+      errorMessage: result.errorMessage || "stripe portal create failed",
+    };
+  }
+
+  return { ok: true, url: portalUrl, errorCode: "", errorMessage: "" };
+}
+
+function parseStripeSignatureHeader(headerValue) {
+  const parsed = {
+    timestamp: 0,
+    signatures: [],
+  };
+  const raw = String(headerValue || "").trim();
+  if (!raw) return parsed;
+
+  for (const part of raw.split(",")) {
+    const token = String(part || "").trim();
+    if (!token) continue;
+    const separatorIndex = token.indexOf("=");
+    if (separatorIndex <= 0) continue;
+
+    const key = token.slice(0, separatorIndex).trim();
+    const value = token.slice(separatorIndex + 1).trim();
+    if (!key || !value) continue;
+
+    if (key === "t" && /^\d+$/.test(value)) {
+      parsed.timestamp = Number(value);
+      continue;
+    }
+    if (key === "v1" && /^[a-f0-9]+$/i.test(value)) {
+      parsed.signatures.push(value.toLowerCase());
+    }
+  }
+
+  return parsed;
+}
+
+function verifyStripeWebhookSignature(rawBodyBuffer, signatureHeader) {
+  if (!Buffer.isBuffer(rawBodyBuffer) || !rawBodyBuffer.length) return false;
+  if (!STRIPE_WEBHOOK_SECRET) return false;
+
+  const parsed = parseStripeSignatureHeader(signatureHeader);
+  if (!parsed.timestamp || !parsed.signatures.length) return false;
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSeconds - parsed.timestamp) > STRIPE_WEBHOOK_TOLERANCE_SECONDS) {
+    return false;
+  }
+
+  const signedPayload = `${parsed.timestamp}.${rawBodyBuffer.toString("utf8")}`;
+  const expectedSignature = crypto.createHmac("sha256", STRIPE_WEBHOOK_SECRET).update(signedPayload).digest("hex");
+
+  return parsed.signatures.some((candidate) => timingSafeEqualHex(expectedSignature, candidate));
+}
+
+function toDateFromUnixSeconds(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return new Date(numeric * 1000);
+}
+
+function readStripeObjectId(value) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (value && typeof value === "object") {
+    const nestedId = String(value.id || "").trim();
+    if (nestedId) return nestedId;
+  }
+  return "";
+}
+
+function extractStripeSubscriptionSnapshot(subscriptionObject) {
+  if (!subscriptionObject || typeof subscriptionObject !== "object") return null;
+
+  const customerId = readStripeObjectId(subscriptionObject.customer);
+  const subscriptionId = readStripeObjectId(subscriptionObject.id);
+  const priceId = String(subscriptionObject?.items?.data?.[0]?.price?.id || "").trim() || null;
+  const status = normalizeStripeSubscriptionStatus(subscriptionObject.status);
+  const periodEnd = toDateFromUnixSeconds(subscriptionObject.current_period_end);
+  const metadataUserIdRaw = Number(subscriptionObject?.metadata?.user_id || 0);
+  const metadataUserId = Number.isInteger(metadataUserIdRaw) && metadataUserIdRaw > 0 ? metadataUserIdRaw : null;
+
+  if (!customerId && !subscriptionId) return null;
+
+  return {
+    customerId: customerId || null,
+    subscriptionId: subscriptionId || null,
+    priceId,
+    status,
+    periodEnd,
+    metadataUserId,
+  };
+}
+
+async function fetchStripeSubscriptionSnapshot(subscriptionId) {
+  const normalizedSubscriptionId = String(subscriptionId || "").trim();
+  if (!normalizedSubscriptionId) return null;
+
+  const result = await stripeApiRequest("GET", `/subscriptions/${encodeURIComponent(normalizedSubscriptionId)}`);
+  if (!result.ok || !result.payload) return null;
+  return extractStripeSubscriptionSnapshot(result.payload);
+}
+
+async function applyStripeSubscriptionSnapshot(snapshot) {
+  if (!snapshot) return 0;
+
+  if (snapshot.metadataUserId) {
+    return updateUserStripeSubscriptionByUserId(snapshot.metadataUserId, {
+      customerId: snapshot.customerId,
+      subscriptionId: snapshot.subscriptionId,
+      priceId: snapshot.priceId,
+      status: snapshot.status,
+      periodEnd: snapshot.periodEnd,
+    });
+  }
+
+  if (snapshot.customerId) {
+    return updateUserStripeSubscriptionByCustomerId(snapshot.customerId, {
+      subscriptionId: snapshot.subscriptionId,
+      priceId: snapshot.priceId,
+      status: snapshot.status,
+      periodEnd: snapshot.periodEnd,
+    });
+  }
+
+  return 0;
+}
+
+async function handleStripeWebhookEvent(eventPayload) {
+  const eventType = String(eventPayload?.type || "").trim();
+  if (!eventType) return;
+
+  if (eventType === "checkout.session.completed") {
+    const session = eventPayload?.data?.object || {};
+    const mode = String(session?.mode || "").trim().toLowerCase();
+    if (mode !== "subscription") return;
+
+    const customerId = readStripeObjectId(session?.customer);
+    const subscriptionId = readStripeObjectId(session?.subscription);
+    const userIdRaw = Number(session?.client_reference_id || session?.metadata?.user_id || 0);
+    const userId = Number.isInteger(userIdRaw) && userIdRaw > 0 ? userIdRaw : null;
+
+    if (userId && customerId) {
+      await updateUserStripeCustomerId(userId, customerId);
+    }
+
+    if (subscriptionId) {
+      const snapshot = await fetchStripeSubscriptionSnapshot(subscriptionId);
+      if (snapshot) {
+        if (!snapshot.metadataUserId && userId) {
+          snapshot.metadataUserId = userId;
+        }
+        await applyStripeSubscriptionSnapshot(snapshot);
+        return;
+      }
+    }
+
+    if (userId) {
+      await updateUserStripeSubscriptionByUserId(userId, {
+        customerId: customerId || null,
+        subscriptionId: subscriptionId || null,
+        priceId: STRIPE_PRICE_ID || null,
+        status: "incomplete",
+        periodEnd: null,
+      });
+      return;
+    }
+
+    if (customerId) {
+      await updateUserStripeSubscriptionByCustomerId(customerId, {
+        subscriptionId: subscriptionId || null,
+        priceId: STRIPE_PRICE_ID || null,
+        status: "incomplete",
+        periodEnd: null,
+      });
+    }
+    return;
+  }
+
+  if (eventType.startsWith("customer.subscription.")) {
+    const snapshot = extractStripeSubscriptionSnapshot(eventPayload?.data?.object);
+    if (!snapshot) return;
+    await applyStripeSubscriptionSnapshot(snapshot);
+  }
+}
+
+async function handleStripeWebhook(req, res) {
+  if (!STRIPE_ENABLED) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+  if (!STRIPE_WEBHOOK_SECRET) {
+    sendJson(res, 503, { ok: false, error: "stripe not configured" });
+    return;
+  }
+
+  let rawBody;
+  try {
+    rawBody = await readRawBody(req, STRIPE_WEBHOOK_BODY_LIMIT_BYTES);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid payload" });
+    return;
+  }
+
+  const signatureHeader = req.headers["stripe-signature"];
+  if (!verifyStripeWebhookSignature(rawBody, signatureHeader)) {
+    sendJson(res, 400, { ok: false, error: "invalid signature" });
+    return;
+  }
+
+  let eventPayload = null;
+  try {
+    eventPayload = rawBody.length ? JSON.parse(rawBody.toString("utf8")) : null;
+  } catch (error) {
+    sendJson(res, 400, { ok: false, error: "invalid payload" });
+    return;
+  }
+
+  if (!eventPayload || typeof eventPayload !== "object") {
+    sendJson(res, 400, { ok: false, error: "invalid payload" });
+    return;
+  }
+
+  try {
+    await handleStripeWebhookEvent(eventPayload);
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("stripe_webhook_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountBillingGet(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const account = await getUserBillingSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+    sendJson(res, 200, { ok: true, data: toAccountBillingPayload(account) });
+  } catch (error) {
+    console.error("account_billing_get_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountBillingCheckout(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  if (!STRIPE_ENABLED) {
+    sendJson(res, 503, { ok: false, error: "stripe disabled" });
+    return;
+  }
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasLookupKeyField =
+    Object.prototype.hasOwnProperty.call(body, "lookup_key") || Object.prototype.hasOwnProperty.call(body, "lookupKey");
+  const lookupKeyRaw =
+    typeof body?.lookup_key === "string" ? body.lookup_key : typeof body?.lookupKey === "string" ? body.lookupKey : "";
+  const lookupKey = normalizeStripeLookupKey(lookupKeyRaw);
+  if (hasLookupKeyField && !lookupKey) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasTrialDaysField =
+    Object.prototype.hasOwnProperty.call(body, "trial_period_days") ||
+    Object.prototype.hasOwnProperty.call(body, "trialPeriodDays");
+  const trialDaysRaw = hasTrialDaysField ? Number(body?.trial_period_days ?? body?.trialPeriodDays) : NaN;
+  const trialDays =
+    hasTrialDaysField && Number.isInteger(trialDaysRaw) && trialDaysRaw >= 0 && trialDaysRaw <= 365
+      ? trialDaysRaw
+      : undefined;
+  if (hasTrialDaysField && trialDays === undefined) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasBillingAnchorField =
+    Object.prototype.hasOwnProperty.call(body, "billing_cycle_anchor") ||
+    Object.prototype.hasOwnProperty.call(body, "billingCycleAnchor");
+  const billingAnchorRaw = hasBillingAnchorField ? Number(body?.billing_cycle_anchor ?? body?.billingCycleAnchor) : NaN;
+  const billingAnchor =
+    hasBillingAnchorField && Number.isInteger(billingAnchorRaw) && billingAnchorRaw >= 0 ? billingAnchorRaw : undefined;
+  if (hasBillingAnchorField && billingAnchor === undefined) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasAutomaticTaxField =
+    Object.prototype.hasOwnProperty.call(body, "automatic_tax") ||
+    Object.prototype.hasOwnProperty.call(body, "automaticTax");
+  const automaticTaxRaw = hasAutomaticTaxField ? body?.automatic_tax ?? body?.automaticTax : undefined;
+  const automaticTax = typeof automaticTaxRaw === "boolean" ? automaticTaxRaw : undefined;
+  if (hasAutomaticTaxField && automaticTax === undefined) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  if (!hasStripeCheckoutPriceConfig() && !lookupKey) {
+    sendJson(res, 503, { ok: false, error: "stripe not configured" });
+    return;
+  }
+
+  try {
+    const account = await getUserBillingSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const currentStatus = normalizeStripeSubscriptionStatus(account.stripe_subscription_status);
+    if (isStripeSubscriptionActive(currentStatus)) {
+      sendJson(res, 409, { ok: false, error: "already subscribed" });
+      return;
+    }
+
+    let customerResult = await ensureStripeCustomerForUser(account);
+    if (!customerResult.ok || !customerResult.customerId) {
+      sendJson(res, 502, { ok: false, error: "stripe customer failed" });
+      return;
+    }
+
+    const checkoutOptions = {
+      ...(lookupKey ? { lookupKey } : {}),
+      ...(trialDays !== undefined ? { trialPeriodDays: trialDays } : {}),
+      ...(billingAnchor !== undefined ? { billingCycleAnchorUnix: billingAnchor } : {}),
+      ...(automaticTax !== undefined ? { automaticTaxEnabled: automaticTax } : {}),
+    };
+
+    let checkoutResult = await createStripeCheckoutSession(customerResult.customerId, user.id, checkoutOptions);
+    if (!checkoutResult.ok && checkoutResult.errorCode === "resource_missing") {
+      const recreated = await createStripeCustomerForUser(account);
+      if (recreated.ok && recreated.customerId) {
+        await updateUserStripeCustomerId(user.id, recreated.customerId);
+        customerResult = { ok: true, customerId: recreated.customerId, errorCode: "", errorMessage: "" };
+        checkoutResult = await createStripeCheckoutSession(customerResult.customerId, user.id, checkoutOptions);
+      }
+    }
+
+    if (!checkoutResult.ok || !checkoutResult.url) {
+      sendJson(res, 502, { ok: false, error: "checkout failed" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true, url: checkoutResult.url });
+  } catch (error) {
+    console.error("account_billing_checkout_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountBillingPortal(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  if (!STRIPE_ENABLED) {
+    sendJson(res, 503, { ok: false, error: "stripe disabled" });
+    return;
+  }
+
+  try {
+    const account = await getUserBillingSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    let customerResult = await ensureStripeCustomerForUser(account);
+    if (!customerResult.ok || !customerResult.customerId) {
+      sendJson(res, 502, { ok: false, error: "stripe customer failed" });
+      return;
+    }
+
+    let portalResult = await createStripePortalSession(customerResult.customerId);
+    if (!portalResult.ok && portalResult.errorCode === "resource_missing") {
+      const recreated = await createStripeCustomerForUser(account);
+      if (recreated.ok && recreated.customerId) {
+        await updateUserStripeCustomerId(user.id, recreated.customerId);
+        customerResult = { ok: true, customerId: recreated.customerId, errorCode: "", errorMessage: "" };
+        portalResult = await createStripePortalSession(customerResult.customerId);
+      }
+    }
+
+    if (!portalResult.ok || !portalResult.url) {
+      sendJson(res, 502, { ok: false, error: "portal failed" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true, url: portalResult.url });
+  } catch (error) {
+    console.error("account_billing_portal_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
 }
 
 async function postDiscordWebhook(webhookUrl, payload) {
@@ -6095,14 +7325,18 @@ async function handleRequest(req, res) {
   const method = (req.method || "GET").toUpperCase();
   const pathname = url.pathname;
 
-  if (pathname === "/favicon.ico") {
-    res.writeHead(204);
-    res.end();
+  if (method === "GET" && pathname === "/favicon.ico") {
+    await serveStaticFile(res, "pingmyserverlogo.png");
     return;
   }
 
   if (method === "GET" && pathname === "/api/health") {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (method === "POST" && pathname === "/stripe/webhook") {
+    await handleStripeWebhook(req, res);
     return;
   }
 
@@ -6198,8 +7432,23 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && pathname === "/api/account/billing") {
+    await handleAccountBillingGet(req, res);
+    return;
+  }
+
   if (method === "POST" && pathname === "/api/account/notifications/discord") {
     await handleAccountDiscordNotificationUpsert(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/billing/checkout") {
+    await handleAccountBillingCheckout(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/billing/portal") {
+    await handleAccountBillingPortal(req, res);
     return;
   }
 
@@ -6347,6 +7596,22 @@ async function handleRequest(req, res) {
     return;
   }
 
+  const monitorFaviconMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/favicon\/?$/);
+  if (method === "GET" && monitorFaviconMatch) {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const monitorId = monitorFaviconMatch[1];
+    const monitor = await getMonitorByIdForUser(user.id, monitorId);
+    if (!monitor) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+
+    await handleMonitorFavicon(req, res, monitor);
+    return;
+  }
+
   const monitorDetailMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/?$/);
   if (method === "DELETE" && monitorDetailMatch) {
     await handleDeleteMonitor(req, res, monitorDetailMatch[1]);
@@ -6390,16 +7655,20 @@ async function handleRequest(req, res) {
   if (method === "GET" && pathname === "/status/data") {
     const monitorFilter = String(url.searchParams.get("monitor") || "").trim();
     let monitor = null;
+    let user = null;
 
     if (monitorFilter) {
       monitor = await getPublicMonitorByIdentifier(monitorFilter);
     } else {
-      const user = await requireAuth(req, res, { silent: true });
+      user = await requireAuth(req, res, { silent: true });
       if (user) {
         monitor = await getLatestMonitorForUser(user.id);
       }
       if (!monitor) {
         monitor = await getDefaultPublicMonitor();
+      }
+      if (!monitor && !user) {
+        monitor = await getLatestPublicMonitor();
       }
     }
 
@@ -6527,8 +7796,23 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && pathname === "/robots.txt") {
+    await serveStaticFile(res, "robots.txt");
+    return;
+  }
+
+  if (method === "GET" && pathname === "/sitemap.xml") {
+    await serveStaticFile(res, "sitemap.xml");
+    return;
+  }
+
+  if (method === "GET" && pathname === "/site.webmanifest") {
+    await serveStaticFile(res, "site.webmanifest");
+    return;
+  }
+
   if (method === "GET" && pathname === "/index.html") {
-    sendRedirect(res, "/app", 301);
+    sendRedirect(res, "/", 301);
     return;
   }
 

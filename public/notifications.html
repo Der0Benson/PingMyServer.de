@@ -3,7 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Benachrichtigungskanäle in PingMyServer konfigurieren und verwalten." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="googlebot" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <title>Benachrichtigungen · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,10 +24,10 @@
   <body>
     <div class="app">
       <aside class="sidebar">
-        <div class="brand">
-          <span class="brand-dot"></span>
-          <span>PingMyServer</span>
-        </div>
+        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+          <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+          <span class="brand-name">PingMyServer.de</span>
+        </a>
         <nav class="side-nav">
           <a href="/app">Monitoring</a>
           <a href="/incidents">Vorfälle</a>
@@ -44,9 +50,7 @@
           <div class="crumb">Benachrichtigungen</div>
           <header class="topbar">
             <div class="title-block">
-              <div class="logo-dot">
-                <span class="logo-inner"></span>
-              </div>
+              <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
                 <div class="title">Benachrichtigungen</div>
                 <div class="subtitle">Discord Webhook für Statuswechsel deiner Monitore</div>
@@ -88,6 +92,22 @@
 
               <p class="panel-message" id="discord-message"></p>
             </section>
+
+            <section class="card wide" id="billing-card">
+              <div class="card-title">Billing (Stripe)</div>
+              <p class="muted card-copy">
+                Upgrade auf einen bezahlten Plan und verwalte dein Abo im Stripe Customer Portal.
+              </p>
+              <div class="status-row">
+                <span class="status-badge" id="billing-state-badge">Nicht aktiv</span>
+                <span class="muted" id="billing-state-text">Kein aktives Abo.</span>
+              </div>
+              <div class="form-actions billing-actions">
+                <button class="btn primary" id="billing-upgrade-btn" type="button">Mit Stripe upgraden</button>
+                <button class="btn ghost" id="billing-manage-btn" type="button">Abo verwalten</button>
+              </div>
+              <p class="panel-message" id="billing-message"></p>
+            </section>
           </main>
 
           <footer class="site-footer">
@@ -105,3 +125,5 @@
     <script src="/assets/notifications.js"></script>
   </body>
 </html>
+
+

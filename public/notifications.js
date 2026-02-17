@@ -11,10 +11,17 @@ const discordWebhookMaskEl = document.getElementById("discord-webhook-mask");
 const discordMessageEl = document.getElementById("discord-message");
 const testDiscordButton = document.getElementById("test-discord-btn");
 const deleteDiscordButton = document.getElementById("delete-discord-btn");
+const billingCardEl = document.getElementById("billing-card");
+const billingStateBadgeEl = document.getElementById("billing-state-badge");
+const billingStateTextEl = document.getElementById("billing-state-text");
+const billingMessageEl = document.getElementById("billing-message");
+const billingUpgradeButton = document.getElementById("billing-upgrade-btn");
+const billingManageButton = document.getElementById("billing-manage-btn");
 
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 let user = null;
 let notificationsState = null;
+let billingState = null;
 
 function setPanelMessage(element, text, type = "") {
   if (!element) return;
@@ -145,6 +152,172 @@ function renderDiscordState(discordSettings) {
 
   if (deleteDiscordButton) {
     deleteDiscordButton.disabled = !configured;
+  }
+}
+
+function formatBillingDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(date);
+  } catch (error) {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+function renderBillingState(data) {
+  const billing = data || {};
+  const available = !!billing.available;
+  const checkoutEnabled = !!billing.checkoutEnabled;
+  const active = !!billing.active;
+  const status = String(billing.status || "none").trim().toLowerCase();
+  const periodEndLabel = formatBillingDate(billing.currentPeriodEnd);
+
+  if (billingCardEl) {
+    billingCardEl.hidden = false;
+  }
+
+  if (billingStateBadgeEl) {
+    billingStateBadgeEl.classList.remove("connected", "disabled", "error");
+
+    if (!available || !checkoutEnabled) {
+      billingStateBadgeEl.textContent = "Nicht verfuegbar";
+      billingStateBadgeEl.classList.add("disabled");
+    } else if (active) {
+      billingStateBadgeEl.textContent = "Aktiv";
+      billingStateBadgeEl.classList.add("connected");
+    } else if (status === "past_due" || status === "unpaid") {
+      billingStateBadgeEl.textContent = "Aktion noetig";
+      billingStateBadgeEl.classList.add("error");
+    } else {
+      billingStateBadgeEl.textContent = "Free";
+      billingStateBadgeEl.classList.add("disabled");
+    }
+  }
+
+  if (billingStateTextEl) {
+    if (!available || !checkoutEnabled) {
+      billingStateTextEl.textContent = "Stripe Billing ist aktuell nicht aktiviert.";
+    } else if (active) {
+      const suffix = periodEndLabel ? ` Naechste Verlaengerung: ${periodEndLabel}.` : "";
+      billingStateTextEl.textContent = `Abo-Status: ${status}.${suffix}`;
+    } else if (status === "past_due" || status === "unpaid") {
+      billingStateTextEl.textContent = "Eine Zahlung ist offen. Bitte im Portal aktualisieren.";
+    } else {
+      billingStateTextEl.textContent = "Du nutzt aktuell den Free-Plan.";
+    }
+  }
+
+  if (billingUpgradeButton) {
+    billingUpgradeButton.disabled = !available || !checkoutEnabled || active;
+  }
+
+  if (billingManageButton) {
+    billingManageButton.disabled = !available;
+  }
+}
+
+async function loadBilling() {
+  setPanelMessage(billingMessageEl, "Lade Billing...");
+  try {
+    const { response, payload } = await fetchJson("/api/account/billing");
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok || !payload.data) {
+      billingState = null;
+      renderBillingState({});
+      setPanelMessage(billingMessageEl, "Billing konnte nicht geladen werden.", "error");
+      return;
+    }
+
+    billingState = payload.data;
+    renderBillingState(billingState);
+    setPanelMessage(billingMessageEl, "");
+  } catch (error) {
+    billingState = null;
+    renderBillingState({});
+    setPanelMessage(billingMessageEl, "Billing konnte nicht geladen werden.", "error");
+  }
+}
+
+async function startBillingCheckout() {
+  setPanelMessage(billingMessageEl, "Stripe Checkout wird vorbereitet...");
+  try {
+    const { response, payload } = await fetchJson("/api/account/billing/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.url) {
+      if (payload?.error === "already subscribed") {
+        setPanelMessage(billingMessageEl, "Abo bereits aktiv. Bitte im Portal verwalten.", "error");
+      } else if (payload?.error === "stripe disabled" || payload?.error === "stripe not configured") {
+        setPanelMessage(billingMessageEl, "Stripe ist derzeit nicht aktiv.", "error");
+      } else {
+        setPanelMessage(billingMessageEl, "Checkout konnte nicht gestartet werden.", "error");
+      }
+      return;
+    }
+
+    window.location.href = payload.url;
+  } catch (error) {
+    setPanelMessage(billingMessageEl, "Checkout konnte nicht gestartet werden.", "error");
+  }
+}
+
+async function openBillingPortal() {
+  setPanelMessage(billingMessageEl, "Stripe Portal wird geoeffnet...");
+  try {
+    const { response, payload } = await fetchJson("/api/account/billing/portal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.url) {
+      if (payload?.error === "stripe disabled" || payload?.error === "stripe not configured") {
+        setPanelMessage(billingMessageEl, "Stripe ist derzeit nicht aktiv.", "error");
+      } else {
+        setPanelMessage(billingMessageEl, "Portal konnte nicht geoeffnet werden.", "error");
+      }
+      return;
+    }
+
+    window.location.href = payload.url;
+  } catch (error) {
+    setPanelMessage(billingMessageEl, "Portal konnte nicht geoeffnet werden.", "error");
+  }
+}
+
+function applyBillingQueryMessage() {
+  const params = new URLSearchParams(window.location.search || "");
+  const billingStateParam = String(params.get("billing") || "").trim().toLowerCase();
+  if (!billingStateParam) return;
+
+  if (billingStateParam === "success") {
+    setPanelMessage(billingMessageEl, "Checkout abgeschlossen. Abo wird aktualisiert.", "success");
+    return;
+  }
+  if (billingStateParam === "cancel") {
+    setPanelMessage(billingMessageEl, "Checkout wurde abgebrochen.", "error");
   }
 }
 
@@ -313,6 +486,20 @@ function bindEvents() {
       });
     });
   }
+  if (billingUpgradeButton) {
+    billingUpgradeButton.addEventListener("click", () => {
+      startBillingCheckout().catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (billingManageButton) {
+    billingManageButton.addEventListener("click", () => {
+      openBillingPortal().catch(() => {
+        // ignore
+      });
+    });
+  }
 }
 
 async function init() {
@@ -321,6 +508,8 @@ async function init() {
   await syncPublicStatusLinks();
   bindEvents();
   await loadNotifications();
+  await loadBilling();
+  applyBillingQueryMessage();
 }
 
 init();

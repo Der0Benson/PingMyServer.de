@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PingMyServer - Uptime Monitoring für Websites, APIs und Services</title>
+    <meta name="description" content="PingMyServer überwacht Websites, APIs und Services rund um die Uhr. Erhalte Ausfall-Alerts per Discord, E-Mail und Webhook in Sekunden." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://pingmyserver.de/" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PingMyServer.de" />
+    <meta property="og:title" content="PingMyServer - Uptime Monitoring für Websites, APIs und Services" />
+    <meta property="og:description" content="Uptime-Monitoring für Websites, APIs und Services mit schnellen Alerts und öffentlicher Statusseite." />
+    <meta property="og:url" content="https://pingmyserver.de/" />
+    <meta property="og:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PingMyServer - Uptime Monitoring" />
+    <meta name="twitter:description" content="Überwache Websites und APIs 24/7 und erhalte Alerts in Sekunden." />
+    <meta name="twitter:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
+    <meta name="theme-color" content="#070d1a" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="stylesheet" href="/assets/landing-tailwind.css" />
     <link rel="stylesheet" href="/assets/landing.css" />
 </head>
@@ -13,10 +31,10 @@
     <nav class="fixed w-full top-0 z-50 glass-effect">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <div class="flex items-center space-x-2">
-                    <div class="w-8 h-8 bg-cyan-400 rounded-lg"></div>
-                    <span class="text-xl font-bold">PingMyServer</span>
-                </div>
+                <a class="landing-brand" href="/" aria-label="PingMyServer Startseite">
+                    <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+                    <span class="landing-brand-name">PingMyServer.de</span>
+                </a>
                 <div class="hidden md:flex space-x-8">
                     <a href="#features" class="hover:text-cyan-400 transition">Features</a>
                     <a href="#preise" class="hover:text-cyan-400 transition">Preise</a>
@@ -24,8 +42,16 @@
                     <a href="/status" class="hover:text-cyan-400 transition">Statusseite</a>
                 </div>
                 <div class="flex space-x-4">
-                    <a href="/login" class="text-sm hover:text-cyan-400 transition inline-flex items-center">Anmelden</a>
-                    <a href="/login" class="bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center">
+                    <a
+                        id="landing-nav-login"
+                        href="/login"
+                        class="text-sm hover:text-cyan-400 transition inline-flex items-center"
+                    >Anmelden</a>
+                    <a
+                        id="landing-nav-primary-cta"
+                        href="/login"
+                        class="bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center"
+                    >
                         Kostenlos starten
                     </a>
                 </div>
@@ -39,7 +65,7 @@
             <div class="grid lg:grid-cols-2 gap-12 items-center">
                 <div>
                     <div class="inline-block mb-4 px-4 py-2 glass-effect rounded-full text-cyan-400 text-sm font-semibold">
-                        🚀 Jetzt im Early Access
+                        Jetzt im Early Access
                     </div>
                     <h1 class="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                         Ausfälle früh erkennen,<br/>
@@ -74,7 +100,7 @@
 
                     <div class="flex flex-col sm:flex-row gap-4">
                         <a href="/login" class="bg-cyan-400 text-slate-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                            Early Access starten →
+                            Early Access starten ->
                         </a>
                         <a href="/status" class="glass-effect px-8 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
                             Live-Demo ansehen
@@ -82,7 +108,7 @@
                     </div>
 
                     <p class="text-sm text-slate-400 mt-4">
-                        Komplett kostenlos während Early Access • Made in Germany 🇩🇪
+                        Komplett kostenlos während Early Access • Made in Germany
                     </p>
                 </div>
 
@@ -167,7 +193,7 @@
                     <p class="text-slate-400 mt-2">Ziel-Uptime</p>
                 </div>
                 <div>
-                    <div class="stat-number">🇩🇪</div>
+                    <div class="stat-number">DE</div>
                     <p class="text-slate-400 mt-2">Made in Germany</p>
                 </div>
             </div>
@@ -268,7 +294,7 @@
     </section>
 
     <!-- Why We Built This -->
-    <section class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
+    <section id="about" class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4">Warum wir PingMyServer gebaut haben</h2>
@@ -311,7 +337,7 @@
                             <p class="text-sm text-slate-400">Wir entwickeln transparent und hören auf unser Community-Feedback</p>
                         </div>
                         <div>
-                            <p class="text-cyan-400 font-semibold mb-2">Made with ❤️</p>
+                            <p class="text-cyan-400 font-semibold mb-2">Made with Herz</p>
                             <p class="text-sm text-slate-400">Gebaut mit moderner Technologie und Leidenschaft fürs Detail</p>
                         </div>
                         <div>
@@ -324,9 +350,9 @@
 
             <div class="text-center mt-12">
                 <p class="text-slate-400 mb-4">Du hast Fragen oder Feedback?</p>
-                <button class="glass-effect px-6 py-3 rounded-lg font-semibold hover:bg-slate-700 transition">
-                    Discord Community beitreten →
-                </button>
+                <a href="mailto:pritzsche.ben.luca@gmail.com" class="glass-effect px-6 py-3 rounded-lg font-semibold hover:bg-slate-700 transition inline-flex items-center justify-center">
+                    Kontakt per E-Mail ->
+                </a>
             </div>
         </div>
     </section>
@@ -335,8 +361,8 @@
     <section id="preise" class="py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4">Early Access Pricing</h2>
-                <p class="text-xl text-slate-300">Starte kostenlos – während der Beta-Phase sind alle Features frei verfügbar</p>
+                <h2 class="text-4xl font-bold mb-4">Preise</h2>
+                <p class="text-xl text-slate-300">Beta ist komplett kostenlos. Starter und Pro / Team kommen bald.</p>
             </div>
 
             <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -344,7 +370,7 @@
                 <div class="glass-effect rounded-2xl p-8 border-2 border-cyan-400 relative hover:scale-105 transition">
                     <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
                         <span class="bg-cyan-400 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
-                            Early Access
+                            Beta
                         </span>
                     </div>
                     <h3 class="text-2xl font-bold mb-2">Beta</h3>
@@ -439,6 +465,7 @@
                     <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
                         In Planung
                     </button>
+                    <p class="text-center text-xs text-slate-400 mt-3">Kommt bald</p>
                 </div>
 
                 <!-- Pro Plan -->
@@ -493,9 +520,7 @@
             </div>
 
             <div class="text-center mt-12">
-                <p class="text-slate-400">
-                    🎉 Während der Beta-Phase ist alles kostenlos • Preise werden fair bleiben • Early Adopters bekommen Rabatte
-                </p>
+                <p class="text-slate-400">Beta: kostenlos. Starter und Pro / Team: in Planung.</p>
             </div>
         </div>
     </section>
@@ -634,14 +659,14 @@
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="/login" class="bg-cyan-400 text-slate-900 px-10 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                    Beta-Zugang sichern →
+                    Beta-Zugang sichern ->
                 </a>
                 <a href="/status" class="glass-effect px-10 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
                     Statusseite ansehen
                 </a>
             </div>
             <p class="text-sm text-slate-400 mt-6">
-                ✓ Komplett kostenlos  •  ✓ Keine Kreditkarte  •  ✓ Made with ❤️ in Germany
+                Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany
             </p>
         </div>
     </section>
@@ -651,10 +676,10 @@
         <div class="max-w-7xl mx-auto">
             <div class="grid md:grid-cols-4 gap-8 mb-8">
                 <div>
-                    <div class="flex items-center space-x-2 mb-4">
-                        <div class="w-8 h-8 bg-cyan-400 rounded-lg"></div>
-                        <span class="text-xl font-bold">PingMyServer</span>
-                    </div>
+                    <a class="landing-brand footer-brand" href="/" aria-label="PingMyServer Startseite">
+                        <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+                        <span class="landing-brand-name">PingMyServer.de</span>
+                    </a>
                     <p class="text-slate-400 text-sm">
                         Professionelles Uptime-Monitoring für Websites, APIs und Services.
                     </p>
@@ -671,10 +696,10 @@
                 <div>
                     <h4 class="font-bold mb-4">Unternehmen</h4>
                     <ul class="space-y-2 text-slate-400">
-                        <li><a href="#" class="hover:text-cyan-400 transition">Über uns</a></li>
-                        <li><a href="#" class="hover:text-cyan-400 transition">Blog</a></li>
-                        <li><a href="#" class="hover:text-cyan-400 transition">Changelog</a></li>
-                        <li><a href="#" class="hover:text-cyan-400 transition">Kontakt</a></li>
+                        <li><a href="#about" class="hover:text-cyan-400 transition">Über uns</a></li>
+                        <li><a href="https://github.com/Der0Benson/PingMyServer.de" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer">GitHub</a></li>
+                        <li><a href="https://github.com/Der0Benson/PingMyServer.de/commits/main" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer">Commits</a></li>
+                        <li><a href="mailto:pritzsche.ben.luca@gmail.com" class="hover:text-cyan-400 transition">Kontakt</a></li>
                     </ul>
                 </div>
                 <div>
@@ -692,9 +717,9 @@
                     © 2026 PingMyServer – Ben Luca Pritzsche
                 </p>
                 <div class="flex space-x-6 mt-4 md:mt-0">
-                    <a href="#" class="text-slate-400 hover:text-cyan-400 transition">Twitter</a>
-                    <a href="#" class="text-slate-400 hover:text-cyan-400 transition">GitHub</a>
-                    <a href="#" class="text-slate-400 hover:text-cyan-400 transition">Discord</a>
+                    <a href="mailto:pritzsche.ben.luca@gmail.com" class="text-slate-400 hover:text-cyan-400 transition">E-Mail</a>
+                    <a href="https://github.com/Der0Benson/PingMyServer.de" class="text-slate-400 hover:text-cyan-400 transition" target="_blank" rel="noreferrer">GitHub</a>
+                    <a href="/status" class="text-slate-400 hover:text-cyan-400 transition">Status</a>
                 </div>
             </div>
         </div>

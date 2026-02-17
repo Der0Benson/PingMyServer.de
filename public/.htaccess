@@ -1,0 +1,6 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # If DocumentRoot points to /public, keep /index.html consistent.
+  RewriteRule ^index\.html$ / [R=301,L]
+</IfModule>

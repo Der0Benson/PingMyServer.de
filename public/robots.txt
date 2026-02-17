@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /incidents
+Disallow: /notifications
+Disallow: /connections
+Disallow: /owner
+Disallow: /onboarding
+Disallow: /login
+Disallow: /api/
+
+Sitemap: https://pingmyserver.de/sitemap.xml

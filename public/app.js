@@ -28,6 +28,7 @@ const heatmapMonths = document.getElementById("heatmap-months");
 const heatmapCells = document.getElementById("heatmap-cells");
 const monitorNameEl = document.getElementById("monitor-name");
 const monitorTargetEl = document.getElementById("monitor-target");
+const monitorIconEl = document.getElementById("monitor-icon");
 const range7Uptime = document.getElementById("range-7-uptime");
 const range7Meta = document.getElementById("range-7-meta");
 const range30Uptime = document.getElementById("range-30-uptime");
@@ -54,6 +55,8 @@ let latestMetrics = null;
 let statusSince = Date.now();
 let lastCheckTime = null;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
+const DEFAULT_MONITOR_ICON = "/assets/pingmyserverlogo.png";
+let monitorIconKey = "";
 
 function parseMonitorIdFromPath(pathname = window.location.pathname) {
   const match = pathname.match(/^\/app\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/?$/);
@@ -92,6 +95,29 @@ function findMonitor(monitorId) {
 function getMonitorDisplayName(monitor) {
   if (!monitor) return "Monitor";
   return monitor.name || monitor.url || `Monitor ${monitor.id}`;
+}
+
+function getMonitorTargetUrl(monitor) {
+  if (!monitor) return "";
+  return String(monitor.url || "").trim();
+}
+
+function setMonitorIcon(monitorId, targetUrl = "") {
+  if (!monitorIconEl) return;
+
+  const normalizedId = String(monitorId || "").trim();
+  if (!normalizedId) {
+    monitorIconKey = "";
+    monitorIconEl.src = DEFAULT_MONITOR_ICON;
+    return;
+  }
+
+  const nextKey = `${normalizedId}|${String(targetUrl || "").trim()}`;
+  if (nextKey === monitorIconKey) return;
+
+  monitorIconKey = nextKey;
+  monitorIconEl.dataset.fallback = "0";
+  monitorIconEl.src = `/api/monitors/${encodeURIComponent(normalizedId)}/favicon`;
 }
 
 function setCurrentUserLabel() {
@@ -314,6 +340,7 @@ async function setActiveMonitor(monitorId, options = {}) {
   if (!monitor) return;
 
   activeMonitorId = String(monitor.id);
+  setMonitorIcon(activeMonitorId, getMonitorTargetUrl(monitor));
   writeStoredMonitorId(activeMonitorId);
   renderMonitorControls();
 
@@ -342,6 +369,8 @@ async function refreshMonitors() {
     navigateToMonitor(activeMonitorId, true);
   }
 
+  const activeMonitor = findMonitor(activeMonitorId);
+  setMonitorIcon(activeMonitorId, getMonitorTargetUrl(activeMonitor));
   renderMonitorControls();
 }
 
@@ -366,6 +395,8 @@ async function bootstrapMonitor() {
   }
 
   writeStoredMonitorId(activeMonitorId);
+  const activeMonitor = findMonitor(activeMonitorId);
+  setMonitorIcon(activeMonitorId, getMonitorTargetUrl(activeMonitor));
   renderMonitorControls();
   return true;
 }
@@ -427,6 +458,9 @@ function updateMonitorInfo(data) {
   }
   if (monitorTargetEl && data.target) {
     monitorTargetEl.textContent = `HTTPS Monitor für ${data.target}`;
+  }
+  if (activeMonitorId) {
+    setMonitorIcon(activeMonitorId, data.target || "");
   }
 }
 
@@ -959,6 +993,14 @@ async function handlePopState() {
 async function init() {
   const authenticated = await ensureAuthenticated();
   if (!authenticated) return;
+
+  if (monitorIconEl) {
+    monitorIconEl.addEventListener("error", () => {
+      if (monitorIconEl.dataset.fallback === "1") return;
+      monitorIconEl.dataset.fallback = "1";
+      monitorIconEl.src = DEFAULT_MONITOR_ICON;
+    });
+  }
 
   if (logoutButton) {
     logoutButton.addEventListener("click", logout);

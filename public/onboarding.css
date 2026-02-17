@@ -52,15 +52,18 @@ body {
   gap: 10px;
   color: inherit;
   text-decoration: none;
-  font-family: "Syne", sans-serif;
 }
 
-.logo-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: linear-gradient(140deg, #b1ff6d, #66c7ff);
-  box-shadow: 0 0 16px rgba(177, 255, 109, 0.5);
+.wordmark-logo {
+  display: block;
+  height: 24px;
+  width: auto;
+}
+
+.wordmark-name {
+  font-family: "Syne", sans-serif;
+  font-size: 1.08rem;
+  font-weight: 700;
 }
 
 h1 {

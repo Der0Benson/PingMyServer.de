@@ -1,0 +1,9 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Expose SEO files from /public when DocumentRoot points to project root.
+  RewriteRule ^sitemap\.xml$ public/sitemap.xml [L]
+  RewriteRule ^robots\.txt$ public/robots.txt [L]
+  RewriteRule ^site\.webmanifest$ public/site.webmanifest [L]
+  RewriteRule ^favicon\.ico$ public/pingmyserverlogo.png [L]
+</IfModule>

@@ -10,6 +10,32 @@ body {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-brand-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+  max-width: min(56vw, 120px);
+}
+
+.landing-brand-name {
+  font-family: "Syne", sans-serif;
+  font-size: 1.22rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.footer-brand {
+  margin-bottom: 1rem;
+}
+
 .glass-effect {
   background: rgba(30, 41, 59, 0.6);
   -webkit-backdrop-filter: blur(10px);
@@ -120,5 +146,15 @@ button:focus-visible {
   .faq-icon {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-brand-logo {
+    height: 24px;
+  }
+
+  .landing-brand-name {
+    font-size: 1.05rem;
   }
 }

@@ -17,6 +17,8 @@
   const monitor2Uptime = document.getElementById("landing-monitor-2-uptime");
   const alertTime = document.getElementById("landing-alert-time");
   const alertText = document.getElementById("landing-alert-text");
+  const navLoginLink = document.getElementById("landing-nav-login");
+  const navPrimaryCta = document.getElementById("landing-nav-primary-cta");
 
   const stateTextClasses = ["text-green-400", "text-orange-400", "text-slate-400"];
   const liveDotClasses = ["bg-green-400", "bg-yellow-500", "bg-slate-700"];
@@ -297,6 +299,27 @@
     return payload.data;
   }
 
+  async function hasAuthenticatedSession() {
+    const payload = await fetchJsonPayload("/api/me");
+    return !!payload?.ok && !!payload?.user;
+  }
+
+  function renderNavigationAuthState(isAuthenticated) {
+    if (navLoginLink) {
+      navLoginLink.classList.toggle("hidden", isAuthenticated);
+      navLoginLink.setAttribute("aria-hidden", isAuthenticated ? "true" : "false");
+      if (isAuthenticated) {
+        navLoginLink.setAttribute("hidden", "");
+      } else {
+        navLoginLink.removeAttribute("hidden");
+      }
+    }
+
+    if (!navPrimaryCta) return;
+    navPrimaryCta.setAttribute("href", isAuthenticated ? "/app" : "/login");
+    navPrimaryCta.textContent = isAuthenticated ? "Zum Dashboard" : "Kostenlos starten";
+  }
+
   function uniqueMetrics(metricsList) {
     const unique = [];
     const seenIds = new Set();
@@ -314,16 +337,15 @@
   }
 
   async function loadPreviewData() {
-    let metricsList = await loadAuthenticatedPreviewMetrics();
+    let metricsList = [];
+    const isAuthenticated = await hasAuthenticatedSession();
+    renderNavigationAuthState(isAuthenticated);
 
-    if (!metricsList.length) {
+    if (isAuthenticated) {
+      metricsList = await loadAuthenticatedPreviewMetrics();
+    } else {
       const publicMetric = await loadPublicPreviewMetric();
       metricsList = publicMetric ? [publicMetric] : [];
-    } else if (metricsList.length === 1) {
-      const publicMetric = await loadPublicPreviewMetric();
-      if (publicMetric) {
-        metricsList.push(publicMetric);
-      }
     }
 
     const normalizedMetrics = uniqueMetrics(metricsList).slice(0, 2);

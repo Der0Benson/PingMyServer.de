@@ -3,8 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Live-Statusseite von PingMyServer mit Uptime, Vorfällen und letzten Checks in Echtzeit." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="googlebot" content="noindex, nofollow" />
+    <link rel="canonical" href="https://pingmyserver.de/status" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PingMyServer.de" />
+    <meta property="og:title" content="PingMyServer Statusseite" />
+    <meta property="og:description" content="Live-Statusseite mit Uptime, Vorfällen und letzten Checks." />
+    <meta property="og:url" content="https://pingmyserver.de/status" />
+    <meta property="og:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="PingMyServer Statusseite" />
+    <meta name="twitter:description" content="Live-Statusseite mit Uptime und Vorfällen." />
+    <meta name="twitter:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
+    <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
-    <title>Status · Uptime</title>
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Statusseite · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,9 +34,10 @@
   </head>
   <body>
     <div class="status-page">
+      <h1 class="sr-only">PingMyServer Statusseite</h1>
       <header class="status-header">
         <div class="brand">
-          <span class="brand-dot"></span>
+          <img class="brand-mark" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <div>
             <div class="brand-title" id="status-name">Statusseite</div>
             <div class="brand-sub" id="status-target">Wird geladen…</div>

@@ -1,0 +1,22 @@
+{
+  "name": "PingMyServer.de",
+  "short_name": "PingMyServer",
+  "description": "Uptime Monitoring für Websites, APIs und Services",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070d1a",
+  "theme_color": "#070d1a",
+  "icons": [
+    {
+      "src": "/assets/pingmyserverlogo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/pingmyserverlogo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
