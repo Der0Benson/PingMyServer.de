@@ -113,6 +113,30 @@ function showMaintenanceVerifyLink(hostname) {
   if (clean) maintenanceVerifyLinkEl.dataset.hostname = clean;
 }
 
+function extractHostname(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = raw.includes("://") ? new URL(raw) : new URL(`https://${raw}`);
+    return String(parsed.hostname || "").trim();
+  } catch (error) {
+    const withoutProto = raw.replace(/^https?:\/\//i, "");
+    const host = withoutProto.split(/[/?#]/)[0] || "";
+    return host.replace(/:\d+$/, "").replace(/^\[|\]$/g, "").trim();
+  }
+}
+
+function getActiveMonitorHostnameHint() {
+  const fromMetrics = String(latestMetrics?.target || "").trim();
+  if (fromMetrics) {
+    const host = extractHostname(fromMetrics);
+    if (host) return host;
+  }
+  const monitor = findMonitor(activeMonitorId);
+  const fromMonitor = getMonitorTargetUrl(monitor);
+  return extractHostname(fromMonitor);
+}
+
 function markAssertionsDirty() {
   assertionsDirty = true;
   setAssertionsMessage("");
@@ -440,6 +464,13 @@ async function createMaintenance() {
         setMaintenanceMessage("Start ist ungültig. Bitte Datum/Uhrzeit neu setzen.", "error");
       } else if (response.status === 400 && (errorCode === "invalid end" || errorCode === "invalid endsat")) {
         setMaintenanceMessage("Ende ist ungültig. Bitte Datum/Uhrzeit neu setzen.", "error");
+      } else if (response.status === 403 && !payload) {
+        const hostname = getActiveMonitorHostnameHint();
+        setMaintenanceMessage(
+          `Domain${hostname ? ` (${hostname})` : ""} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.`,
+          "error"
+        );
+        showMaintenanceVerifyLink(hostname);
       } else if (response.status === 404 && !payload) {
         setMaintenanceMessage(
           "Endpoint nicht gefunden (HTTP 404). Das Feature ist auf dem Server vermutlich noch nicht deployed oder der Node-Prozess läuft noch mit altem Code.",
