@@ -1,0 +1,131 @@
+:root {
+  --bg: #070b14;
+  --panel: rgba(15, 22, 37, 0.88);
+  --panel-border: rgba(255, 255, 255, 0.14);
+  --text: #ecf5ff;
+  --muted: #9fb3cf;
+  --accent: #66c7ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Manrope", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(102, 199, 255, 0.2), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(177, 255, 109, 0.16), transparent 35%),
+    linear-gradient(150deg, #050914 0%, #0a1323 48%, #0a1914 100%);
+}
+
+.onboarding-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+}
+
+.onboarding-card {
+  width: min(520px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  padding: 28px;
+  backdrop-filter: blur(7px);
+}
+
+.onboarding-page .site-footer {
+  width: min(520px, 100%);
+}
+
+.onboarding-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+  font-family: "Syne", sans-serif;
+}
+
+.logo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #b1ff6d, #66c7ff);
+  box-shadow: 0 0 16px rgba(177, 255, 109, 0.5);
+}
+
+h1 {
+  margin: 18px 0 10px;
+  font-family: "Syne", sans-serif;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+code {
+  color: var(--text);
+}
+
+form {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(5, 11, 20, 0.75);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+input:focus {
+  outline: none;
+  border-color: rgba(102, 199, 255, 0.75);
+  box-shadow: 0 0 0 3px rgba(102, 199, 255, 0.16);
+}
+
+button {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), #64a9ff);
+  color: #0e2a47;
+}
+
+.message {
+  margin-top: 14px;
+  min-height: 22px;
+}
+
+.message.error {
+  color: #ff7b88;
+}
+
+.message.success {
+  color: #b1ff6d;
+}

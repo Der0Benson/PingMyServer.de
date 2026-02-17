@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <title>Dashboard · PingMyServer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/app-monitors.css" />
+    <link rel="stylesheet" href="/assets/footer.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span>PingMyServer</span>
+        </div>
+        <nav class="side-nav">
+          <a class="active" href="/app">Monitoring</a>
+          <a href="/incidents">Vorfälle</a>
+          <a href="/notifications">Benachrichtigungen</a>
+          <a href="/owner" data-owner-link hidden>Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+        </nav>
+        <section class="monitor-nav-section">
+          <div class="monitor-nav-title">Deine Monitore</div>
+          <div class="monitor-nav-list" id="monitor-list"></div>
+        </section>
+        <div class="side-footer">
+          <a class="user-pill profile-link" href="/connections" aria-label="Connections und Kontoeinstellungen">
+            <span class="avatar small">U</span>
+            <span class="muted" id="current-user-email">eingeloggt</span>
+          </a>
+          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+        </div>
+      </aside>
+
+      <div class="content">
+        <div class="page">
+          <div class="crumb">Monitoring</div>
+          <header class="topbar">
+            <div class="title-block">
+              <div class="logo-dot">
+                <span class="logo-inner"></span>
+              </div>
+              <div>
+                <div class="title" id="monitor-name">Monitor</div>
+                <div class="subtitle" id="monitor-target">HTTPS Monitor</div>
+              </div>
+            </div>
+            <div class="top-actions">
+              <div class="monitor-picker">
+                <label for="monitor-select">Monitor</label>
+                <select id="monitor-select"></select>
+              </div>
+              <button class="btn ghost" id="new-monitor-btn" type="button">Neuer Monitor</button>
+              <button class="btn ghost" id="public-status-btn" type="button">Öffentliche Statusseite</button>
+            </div>
+          </header>
+
+          <main class="dashboard">
+            <section class="main-col">
+              <div class="grid cards-row">
+                <div class="card">
+                  <div class="card-title">Aktueller Status</div>
+                  <div class="status-big" id="status-state">Online</div>
+                  <div class="muted" id="status-duration">wird geladen…</div>
+                </div>
+                <div class="card">
+                  <div class="card-title">Letzter Check</div>
+                  <div class="metric" id="last-check">wird geladen…</div>
+                  <div class="muted" id="check-interval">Prüfintervall: 1 Min.</div>
+                </div>
+                <div class="card">
+                  <div class="card-title">Letzte 24 Stunden</div>
+                  <div class="uptime-bars" id="uptime-bars"></div>
+                  <div class="bar-footer">
+                    <span class="muted" id="uptime-incidents">0 Vorfälle, 0 Min. Ausfall</span>
+                    <span class="metric" id="uptime-percent">100%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card wide heatmap-card">
+                <div class="range-row">
+                  <div class="range-cell">
+                    <div class="card-title">Letzte 7 Tage</div>
+                    <div class="metric" id="range-7-uptime">--.--%</div>
+                    <div class="muted" id="range-7-meta">–</div>
+                  </div>
+                  <div class="range-cell">
+                    <div class="card-title">Letzte 30 Tage</div>
+                    <div class="metric" id="range-30-uptime">--.--%</div>
+                    <div class="muted" id="range-30-meta">–</div>
+                  </div>
+                  <div class="range-cell">
+                    <div class="card-title">Letzte 365 Tage</div>
+                    <div class="metric" id="range-365-uptime">--.--%</div>
+                    <div class="muted" id="range-365-meta">–</div>
+                  </div>
+                  <div class="range-cell range-picker">
+                    <div class="card-title">Zeitraum wählen</div>
+                    <div class="dropdown" id="range-picker-label">Letzte 30 Tage</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card wide">
+                <div class="card-title">Tagesübersicht.</div>
+                <div class="heatmap">
+                  <div class="heatmap-scroll">
+                    <div class="heatmap-months" id="heatmap-months"></div>
+                    <div class="heatmap-grid">
+                      <div class="heatmap-days">
+                        <span>Mo</span>
+                        <span class="empty"> </span>
+                        <span>Mi</span>
+                        <span class="empty"> </span>
+                        <span>Fr</span>
+                        <span class="empty"> </span>
+                        <span class="empty"> </span>
+                      </div>
+                      <div class="heatmap-cells" id="heatmap-cells"></div>
+                    </div>
+                  </div>
+                  <div class="heatmap-legend">
+                    <span class="legend-item"><span class="legend-dot ok"></span>Keine Fehler</span>
+                    <span class="legend-item"><span class="legend-dot warn"></span>Kleine Fehler</span>
+                    <span class="legend-item"><span class="legend-dot down"></span>Ausfall</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card wide response-card">
+                <div class="card-header">
+                  <div>
+                    <div class="card-title">Antwortzeit.</div>
+                    <div class="muted">Letzte Stunde</div>
+                  </div>
+                </div>
+                <div class="chart">
+                  <svg id="response-chart" viewBox="0 0 960 240" preserveAspectRatio="none"></svg>
+                </div>
+                <div class="stat-row">
+                  <div>
+                    <div class="stat-title">Durchschnitt</div>
+                    <div class="stat-value" id="stat-avg">-- ms</div>
+                  </div>
+                  <div>
+                    <div class="stat-title">Minimum</div>
+                    <div class="stat-value" id="stat-min">-- ms</div>
+                  </div>
+                  <div>
+                    <div class="stat-title">Maximum</div>
+                    <div class="stat-value" id="stat-max">-- ms</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="side-col">
+              <div class="card">
+                <div class="card-title">Domain & SSL.</div>
+                <div class="meta-block">
+                  <div class="muted">Domain gültig bis</div>
+                  <div class="metric" id="domain-expiry">Wird geladen…</div>
+                  <div class="muted" id="domain-source"></div>
+                </div>
+                <div class="meta-block">
+                  <div class="muted">SSL-Zertifikat gültig bis</div>
+                  <div class="metric" id="ssl-expiry">Wird geladen…</div>
+                  <div class="muted" id="ssl-issuer"></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">Regionen.</div>
+                <div class="map">
+                  <img class="map-img" src="/assets/world-map.svg" alt="Weltkarte" />
+                  <div class="map-marker" aria-hidden="true"></div>
+                </div>
+                <div class="metric" id="map-location">Standort wird geladen…</div>
+                <div class="muted" id="map-coords">–</div>
+              </div>
+
+              <div class="card incidents-side-card">
+                <div class="card-title">Letzte Vorfälle.</div>
+                <div class="incidents compact" id="incidents-list">
+                  <div class="incidents-inner">
+                    <div class="incidents-title">👍 Gute Arbeit, keine Vorfälle.</div>
+                    <div class="muted">Bisher gab es keine Vorfälle. Weiter so!</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </main>
+
+          <footer class="site-footer">
+            <span class="site-footer-note">Rechtliches</span>
+            <nav class="site-footer-links" aria-label="Rechtliche Navigation">
+              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
+              <a href="/datenschutz">Datenschutz</a>
+              <a href="/impressum">Impressum</a>
+            </nav>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

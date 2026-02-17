@@ -1,0 +1,707 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingMyServer - Uptime Monitoring für Websites, APIs und Services</title>
+    <link rel="stylesheet" href="/assets/landing-tailwind.css" />
+    <link rel="stylesheet" href="/assets/landing.css" />
+</head>
+<body class="gradient-bg text-white">
+    
+    <!-- Navigation -->
+    <nav class="fixed w-full top-0 z-50 glass-effect">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-cyan-400 rounded-lg"></div>
+                    <span class="text-xl font-bold">PingMyServer</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#features" class="hover:text-cyan-400 transition">Features</a>
+                    <a href="#preise" class="hover:text-cyan-400 transition">Preise</a>
+                    <a href="#faq" class="hover:text-cyan-400 transition">FAQ</a>
+                    <a href="/status" class="hover:text-cyan-400 transition">Statusseite</a>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="/login" class="text-sm hover:text-cyan-400 transition inline-flex items-center">Anmelden</a>
+                    <a href="/login" class="bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center">
+                        Kostenlos starten
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="inline-block mb-4 px-4 py-2 glass-effect rounded-full text-cyan-400 text-sm font-semibold">
+                        🚀 Jetzt im Early Access
+                    </div>
+                    <h1 class="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                        Ausfälle früh erkennen,<br/>
+                        <span class="text-cyan-400">bevor Nutzer</span> sie melden
+                    </h1>
+                    <p class="text-xl text-slate-300 mb-8">
+                        PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr. 
+                        Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.
+                    </p>
+                    
+                    <!-- Benefits List -->
+                    <div class="space-y-3 mb-8">
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-slate-200">Setup in unter 60 Sekunden</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-slate-200">Keine Kreditkarte erforderlich</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-slate-200">Öffentliche Statusseite inklusive</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <a href="/login" class="bg-cyan-400 text-slate-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
+                            Early Access starten →
+                        </a>
+                        <a href="/status" class="glass-effect px-8 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
+                            Live-Demo ansehen
+                        </a>
+                    </div>
+
+                    <p class="text-sm text-slate-400 mt-4">
+                        Komplett kostenlos während Early Access • Made in Germany 🇩🇪
+                    </p>
+                </div>
+
+                <!-- Dashboard Preview -->
+                <div class="floating">
+                    <div class="glass-effect rounded-2xl p-6 shadow-2xl">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center space-x-3">
+                                <div id="landing-live-dot" class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                                <span class="font-semibold">Live Status</span>
+                            </div>
+                            <span id="landing-live-overall" class="text-green-400 text-sm font-semibold">Lade Monitor-Daten ...</span>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="glass-effect rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span id="landing-monitor-1-name" class="font-medium">Monitor wird geladen ...</span>
+                                    <span id="landing-monitor-1-status" class="text-slate-400 text-sm">Prüfung ...</span>
+                                </div>
+                                <div class="flex items-center space-x-2 text-sm text-slate-400">
+                                    <span id="landing-monitor-1-response">Response: --</span>
+                                    <span>•</span>
+                                    <span id="landing-monitor-1-uptime">--% Uptime</span>
+                                </div>
+                                <div id="landing-monitor-1-bars" class="mt-3 flex space-x-1">
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                </div>
+                            </div>
+
+                            <div id="landing-monitor-2-card" class="glass-effect rounded-lg p-4 hidden">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span id="landing-monitor-2-name" class="font-medium">Monitor wird geladen ...</span>
+                                    <span id="landing-monitor-2-status" class="text-slate-400 text-sm">Prüfung ...</span>
+                                </div>
+                                <div class="flex items-center space-x-2 text-sm text-slate-400">
+                                    <span id="landing-monitor-2-response">Response: --</span>
+                                    <span>•</span>
+                                    <span id="landing-monitor-2-uptime">--% Uptime</span>
+                                </div>
+                            </div>
+
+                            <div class="glass-effect rounded-lg p-4 border-l-4 border-cyan-400">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="font-medium">Recent Alert</span>
+                                    <span id="landing-alert-time" class="text-cyan-400 text-sm">gerade eben</span>
+                                </div>
+                                <p id="landing-alert-text" class="text-sm text-slate-300">Noch keine Vorfälle gefunden.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof Stats -->
+    <section class="py-16 px-4 sm:px-6 lg:px-8 border-y border-slate-700">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-8">
+                <h3 class="text-2xl font-bold mb-2">Built by developers, for developers</h3>
+                <p class="text-slate-400">Ein Azubi-Projekt mit professionellem Anspruch</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                <div>
+                    <div class="stat-number">24/7</div>
+                    <p class="text-slate-400 mt-2">Monitoring</p>
+                </div>
+                <div>
+                    <div class="stat-number">&lt;60s</div>
+                    <p class="text-slate-400 mt-2">Check-Intervall</p>
+                </div>
+                <div>
+                    <div class="stat-number">99.9%</div>
+                    <p class="text-slate-400 mt-2">Ziel-Uptime</p>
+                </div>
+                <div>
+                    <div class="stat-number">🇩🇪</div>
+                    <p class="text-slate-400 mt-2">Made in Germany</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Alles, was du für professionelles Monitoring brauchst</h2>
+                <p class="text-xl text-slate-300 max-w-3xl mx-auto">
+                    Von einfachen HTTP-Checks bis zu komplexen API-Überwachungen – 
+                    PingMyServer bietet alle Tools für zuverlässiges Uptime-Monitoring
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="glass-effect rounded-xl p-8 feature-card">
+                    <div class="w-14 h-14 bg-cyan-400/20 rounded-lg flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Blitzschnelle Checks</h3>
+                    <p class="text-slate-300">
+                        Überwache deine Endpoints alle 60 Sekunden. Erhalte Alerts innerhalb von Sekunden nach einem Ausfall – bevor deine Kunden es merken.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass-effect rounded-xl p-8 feature-card">
+                    <div class="w-14 h-14 bg-blue-400/20 rounded-lg flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Detaillierte Incident-Historie</h3>
+                    <p class="text-slate-300">
+                        Vollständige Aufzeichnung aller Vorfälle mit Dauer, Fehlerquote und Verlauf. Perfekt für Postmortems und Reporting.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass-effect rounded-xl p-8 feature-card">
+                    <div class="w-14 h-14 bg-purple-400/20 rounded-lg flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Multi-Channel Alerts</h3>
+                    <p class="text-slate-300">
+                        Discord, Slack, E-Mail, Webhooks, Telegram – wähle deinen bevorzugten Kanal. Oder nutze alle gleichzeitig.
+                    </p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="glass-effect rounded-xl p-8 feature-card">
+                    <div class="w-14 h-14 bg-green-400/20 rounded-lg flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">SSL-Zertifikat Monitoring</h3>
+                    <p class="text-slate-300">
+                        Automatische Überwachung deiner SSL-Zertifikate. Werde rechtzeitig benachrichtigt, bevor ein Zertifikat abläuft.
+                    </p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="glass-effect rounded-xl p-8 feature-card">
+                    <div class="w-14 h-14 bg-orange-400/20 rounded-lg flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Globale Monitoring-Standorte</h3>
+                    <p class="text-slate-300">
+                        Überwache deine Services von mehreren Standorten weltweit. Erkenne regionale Ausfälle sofort.
+                    </p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="glass-effect rounded-xl p-8 feature-card">
+                    <div class="w-14 h-14 bg-pink-400/20 rounded-lg flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Öffentliche Statusseite</h3>
+                    <p class="text-slate-300">
+                        Branded Statusseite für deine Kunden. Zeige Transparenz mit Echtzeit-Status und Incident-Updates.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why We Built This -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Warum wir PingMyServer gebaut haben</h2>
+                <p class="text-xl text-slate-300">Ein Student-Projekt mit echter Mission</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto">
+                <div class="glass-effect rounded-xl p-8 md:p-12">
+                    <div class="flex items-start space-x-4 mb-6">
+                        <div class="w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex-shrink-0 flex items-center justify-center text-2xl font-bold">
+                            BP
+                        </div>
+                        <div>
+                            <p class="font-semibold text-lg">Ben Luca Pritzsche</p>
+                            <p class="text-slate-400">Gründer & Developer</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4 text-slate-300 text-lg leading-relaxed">
+                        <p>
+                            Nach dem Gymnasium bin ich jetzt in der Ausbildung und habe nebenbei angefangen, 
+                            eigene Web-Projekte zu bauen. Das Problem: Meine Seiten sind öfter mal ausgefallen, 
+                            ohne dass ich es mitbekommen habe. Erst wenn sich Nutzer gemeldet haben, wusste ich Bescheid – 
+                            und das war mir echt peinlich.
+                        </p>
+                        <p>
+                            Die bestehenden Monitoring-Tools waren entweder zu teuer für mein Azubi-Budget oder 
+                            viel zu kompliziert für meine Bedürfnisse. Also habe ich PingMyServer gebaut: 
+                            Ein simples, zuverlässiges Tool, das genau das macht, was es soll – ohne Schnickschnack.
+                        </p>
+                        <p class="text-cyan-400 font-semibold">
+                            Jetzt will ich es mit anderen Azubis, Studenten und Developern teilen. 
+                            Feedback und Verbesserungsvorschläge sind herzlich willkommen!
+                        </p>
+                    </div>
+
+                    <div class="mt-8 pt-8 border-t border-slate-700 grid md:grid-cols-3 gap-6">
+                        <div>
+                            <p class="text-cyan-400 font-semibold mb-2">Open Development</p>
+                            <p class="text-sm text-slate-400">Wir entwickeln transparent und hören auf unser Community-Feedback</p>
+                        </div>
+                        <div>
+                            <p class="text-cyan-400 font-semibold mb-2">Made with ❤️</p>
+                            <p class="text-sm text-slate-400">Gebaut mit moderner Technologie und Leidenschaft fürs Detail</p>
+                        </div>
+                        <div>
+                            <p class="text-cyan-400 font-semibold mb-2">Join Early</p>
+                            <p class="text-sm text-slate-400">Sei dabei von Anfang an und forme die Zukunft des Tools mit</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-12">
+                <p class="text-slate-400 mb-4">Du hast Fragen oder Feedback?</p>
+                <button class="glass-effect px-6 py-3 rounded-lg font-semibold hover:bg-slate-700 transition">
+                    Discord Community beitreten →
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="preise" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Early Access Pricing</h2>
+                <p class="text-xl text-slate-300">Starte kostenlos – während der Beta-Phase sind alle Features frei verfügbar</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <!-- Free Plan -->
+                <div class="glass-effect rounded-2xl p-8 border-2 border-cyan-400 relative hover:scale-105 transition">
+                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-cyan-400 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
+                            Early Access
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Beta</h3>
+                    <p class="text-slate-400 mb-6">Komplett kostenlos</p>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold">0€</span>
+                        <span class="text-slate-400">/während Beta</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Unbegrenzte Monitore</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>60-Sekunden-Checks</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Alle Alert-Kanäle</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Öffentliche Statusseite</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>SSL-Monitoring</span>
+                        </li>
+                    </ul>
+                    <a href="/login" class="w-full bg-cyan-400 text-slate-900 py-3 rounded-lg font-bold hover:bg-cyan-300 transition inline-flex items-center justify-center">
+                        Jetzt Beta-Zugang sichern
+                    </a>
+                    <p class="text-center text-xs text-slate-400 mt-3">Keine Kreditkarte erforderlich</p>
+                </div>
+
+                <!-- Starter Plan - Featured -->
+                <div class="glass-effect rounded-2xl p-8 relative hover:scale-105 transition opacity-75">
+                    <div class="absolute top-4 right-4">
+                        <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
+                            Kommt bald
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Starter</h3>
+                    <p class="text-slate-400 mb-6">Geplant für später</p>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold">~5€</span>
+                        <span class="text-slate-400">/Monat</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Mehr Monitore</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Schnellere Checks (30s)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Erweiterte Statistiken</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>API-Zugang</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Priority Support</span>
+                        </li>
+                    </ul>
+                    <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
+                        In Planung
+                    </button>
+                </div>
+
+                <!-- Pro Plan -->
+                <div class="glass-effect rounded-2xl p-8 relative hover:scale-105 transition opacity-75">
+                    <div class="absolute top-4 right-4">
+                        <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
+                            Kommt bald
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Pro / Team</h3>
+                    <p class="text-slate-400 mb-6">Für später</p>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold">~20€</span>
+                        <span class="text-slate-400">/Monat</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Unbegrenzte Monitore</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Team-Kollaboration</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Custom Branding</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Dedizierte Standorte</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Premium Support</span>
+                        </li>
+                    </ul>
+                    <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
+                        In Planung
+                    </button>
+                </div>
+            </div>
+
+            <div class="text-center mt-12">
+                <p class="text-slate-400">
+                    🎉 Während der Beta-Phase ist alles kostenlos • Preise werden fair bleiben • Early Adopters bekommen Rabatte
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Häufige Fragen</h2>
+                <p class="text-xl text-slate-300">Alles, was du über PingMyServer wissen musst</p>
+            </div>
+
+            <div class="space-y-4">
+                <!-- FAQ Item 1 -->
+                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="1">
+                        <h3 class="text-xl font-bold pr-8">Kann ich auch private Webseiten monitoren?</h3>
+                        <svg id="faq-icon-1" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="faq-content-1" class="faq-content">
+                        <div class="px-6 pb-6">
+                            <p class="text-slate-300">
+                                Ja, über die Domain-, Direkte private- oder lokale IP-Ziele sind aus Sicherheitsgründen blockiert. 
+                                Du kannst aber HTTP-Authentifizierung nutzen oder Custom Headers setzen.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 2 -->
+                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="2">
+                        <h3 class="text-xl font-bold pr-8">Wie schnell wird ein Ausfall erkannt?</h3>
+                        <svg id="faq-icon-2" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="faq-content-2" class="faq-content">
+                        <div class="px-6 pb-6">
+                            <p class="text-slate-300">
+                                Bei 60-Sekunden-Checks (Standard) innerhalb von rund einer Minute. Bei bezahlten Plänen kannst 
+                                du die Check-Intervalle auf bis zu 30 Sekunden reduzieren, sodass Ausfälle noch schneller erkannt werden.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 3 -->
+                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="3">
+                        <h3 class="text-xl font-bold pr-8">Wie teile ich den Status mit Kunden?</h3>
+                        <svg id="faq-icon-3" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="faq-content-3" class="faq-content">
+                        <div class="px-6 pb-6">
+                            <p class="text-slate-300">
+                                Jeder Monitor hat eine öffentliche Statusseite, die direkt verlinkt werden kann. Die Seite zeigt 
+                                Echtzeit-Status, Uptime-Statistiken und vergangene Incidents. Du kannst sie auch mit deinem eigenen 
+                                Branding versehen (in bezahlten Plänen).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 4 -->
+                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="4">
+                        <h3 class="text-xl font-bold pr-8">Ist PingMyServer DSGVO-konform?</h3>
+                        <svg id="faq-icon-4" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="faq-content-4" class="faq-content">
+                        <div class="px-6 pb-6">
+                            <p class="text-slate-300">
+                                Ja, absolut. Alle Daten werden in der EU gehostet (Frankfurt, Deutschland). Wir sammeln nur 
+                                notwendige Monitoring-Daten und geben nichts an Dritte weiter. Du kannst deine Daten jederzeit 
+                                exportieren oder löschen.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 5 -->
+                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="5">
+                        <h3 class="text-xl font-bold pr-8">Was passiert, wenn ich kündige?</h3>
+                        <svg id="faq-icon-5" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="faq-content-5" class="faq-content">
+                        <div class="px-6 pb-6">
+                            <p class="text-slate-300">
+                                Du kannst jederzeit mit einem Klick kündigen. Dein Account bleibt bis zum Ende der bezahlten 
+                                Periode aktiv. Danach werden deine Monitore deaktiviert, aber deine Daten bleiben für 90 Tage 
+                                gespeichert, falls du zurückkommen möchtest.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 6 -->
+                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="6">
+                        <h3 class="text-xl font-bold pr-8">Gibt es eine API?</h3>
+                        <svg id="faq-icon-6" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="faq-content-6" class="faq-content">
+                        <div class="px-6 pb-6">
+                            <p class="text-slate-300">
+                                Ja! Ab dem Starter-Plan hast du Zugriff auf unsere REST API. Damit kannst du Monitore 
+                                programmgesteuert erstellen, Status abfragen und Incidents abrufen. Perfekt für CI/CD-Integration.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+<!-- Final CTA -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-5xl font-bold mb-6">
+                Bereit, Teil der Community zu werden?
+            </h2>
+            <p class="text-xl text-slate-300 mb-8">
+                Sichere dir jetzt deinen kostenlosen Beta-Zugang und hilf uns dabei,<br/>
+                das beste Uptime-Monitoring-Tool für Developer zu bauen.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/login" class="bg-cyan-400 text-slate-900 px-10 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
+                    Beta-Zugang sichern →
+                </a>
+                <a href="/status" class="glass-effect px-10 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
+                    Statusseite ansehen
+                </a>
+            </div>
+            <p class="text-sm text-slate-400 mt-6">
+                ✓ Komplett kostenlos  •  ✓ Keine Kreditkarte  •  ✓ Made with ❤️ in Germany
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-700 py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-8 h-8 bg-cyan-400 rounded-lg"></div>
+                        <span class="text-xl font-bold">PingMyServer</span>
+                    </div>
+                    <p class="text-slate-400 text-sm">
+                        Professionelles Uptime-Monitoring für Websites, APIs und Services.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-4">Produkt</h4>
+                    <ul class="space-y-2 text-slate-400">
+                        <li><a href="#features" class="hover:text-cyan-400 transition">Features</a></li>
+                        <li><a href="#preise" class="hover:text-cyan-400 transition">Preise</a></li>
+                        <li><a href="/login" class="hover:text-cyan-400 transition">API Docs</a></li>
+                        <li><a href="/status" class="hover:text-cyan-400 transition">Status</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-4">Unternehmen</h4>
+                    <ul class="space-y-2 text-slate-400">
+                        <li><a href="#" class="hover:text-cyan-400 transition">Über uns</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Blog</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Changelog</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Kontakt</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-4">Legal</h4>
+                    <ul class="space-y-2 text-slate-400">
+                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition">Datenschutz</a></li>
+                        <li><a href="/impressum" class="hover:text-cyan-400 transition">Impressum</a></li>
+                        <li><a href="/nutzungsbedingungen" class="hover:text-cyan-400 transition">AGB</a></li>
+                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition">DSGVO</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-slate-700 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-slate-400 text-sm">
+                    © 2026 PingMyServer – Ben Luca Pritzsche
+                </p>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    <a href="#" class="text-slate-400 hover:text-cyan-400 transition">Twitter</a>
+                    <a href="#" class="text-slate-400 hover:text-cyan-400 transition">GitHub</a>
+                    <a href="#" class="text-slate-400 hover:text-cyan-400 transition">Discord</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/assets/landing.js"></script>
+</body>
+</html>
+
+

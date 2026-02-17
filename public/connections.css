@@ -1,0 +1,249 @@
+.connections-page {
+  display: grid;
+  gap: 16px;
+}
+
+.sessions-summary {
+  margin: 0 0 10px;
+}
+
+.panel-message {
+  min-height: 20px;
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.panel-message.success {
+  color: var(--accent-2);
+}
+
+.panel-message.error {
+  color: #f26b6b;
+}
+
+.session-list {
+  display: grid;
+  gap: 10px;
+}
+
+.app-connections-list {
+  display: grid;
+  gap: 10px;
+}
+
+.app-connection-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.app-connection-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-connection-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.app-connection-subtitle {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.app-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.72rem;
+}
+
+.app-connection-badge.connected {
+  color: var(--accent-2);
+  border-color: rgba(185, 242, 124, 0.4);
+  background: rgba(185, 242, 124, 0.12);
+}
+
+.app-connection-badge.pending {
+  color: #f4b45a;
+  border-color: rgba(244, 180, 90, 0.4);
+  background: rgba(244, 180, 90, 0.12);
+}
+
+.app-connection-meta {
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.session-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.session-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.session-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.session-subtitle {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.72rem;
+}
+
+.session-badge.current {
+  color: var(--accent-2);
+  border-color: rgba(185, 242, 124, 0.4);
+  background: rgba(185, 242, 124, 0.12);
+}
+
+.session-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.session-meta-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.session-meta-key {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.session-meta-value {
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.session-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.password-form {
+  max-width: 560px;
+  display: grid;
+  gap: 10px;
+}
+
+.password-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.password-form label span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.password-form input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 24, 0.9);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.password-form input:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.password-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.danger-card {
+  border: 1px solid rgba(242, 107, 107, 0.35);
+}
+
+.danger-btn {
+  border-color: rgba(242, 107, 107, 0.55) !important;
+  color: #f6a9a9 !important;
+}
+
+.danger-btn:hover {
+  border-color: rgba(242, 107, 107, 0.8) !important;
+  color: #ffd6d6 !important;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px 10px;
+}
+
+.empty-state .title {
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 760px) {
+  .session-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-connection-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .session-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .session-actions {
+    justify-content: stretch;
+  }
+
+  .session-actions .btn {
+    width: 100%;
+  }
+}

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <title>Vorfälle · PingMyServer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/incidents.css" />
+    <link rel="stylesheet" href="/assets/footer.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span>PingMyServer</span>
+        </div>
+        <nav class="side-nav">
+          <a href="/app">Monitoring</a>
+          <a class="active" href="/incidents">Vorfälle</a>
+          <a href="/notifications">Benachrichtigungen</a>
+          <a href="/owner" data-owner-link hidden>Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+        </nav>
+        <div class="side-footer">
+          <a class="user-pill profile-link" href="/connections" aria-label="Connections und Kontoeinstellungen">
+            <span class="avatar small">U</span>
+            <span class="muted" id="current-user-email">eingeloggt</span>
+          </a>
+          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+        </div>
+      </aside>
+
+      <div class="content">
+        <div class="page">
+          <div class="crumb">Vorfälle</div>
+          <header class="topbar">
+            <div class="title-block">
+              <div class="logo-dot">
+                <span class="logo-inner"></span>
+              </div>
+              <div>
+                <div class="title">Vorfall-Log</div>
+                <div class="subtitle">Alle Vorfälle mit Details und Sortierung</div>
+              </div>
+            </div>
+            <div class="top-actions">
+              <button class="btn ghost" id="refresh-btn" type="button">Aktualisieren</button>
+            </div>
+          </header>
+
+          <main class="incidents-page">
+            <section class="card wide incidents-controls-card">
+              <div class="card-title">Filter & Sortierung</div>
+              <div class="incidents-controls">
+                <label class="control">
+                  <span>Monitor</span>
+                  <select id="monitor-filter"></select>
+                </label>
+                <label class="control">
+                  <span>Sortieren nach</span>
+                  <select id="sort-field">
+                    <option value="start">Startzeit</option>
+                    <option value="duration">Dauer</option>
+                    <option value="checks">Fehlchecks</option>
+                    <option value="monitor">Monitor</option>
+                  </select>
+                </label>
+                <label class="control">
+                  <span>Reihenfolge</span>
+                  <select id="sort-order">
+                    <option value="desc">Absteigend</option>
+                    <option value="asc">Aufsteigend</option>
+                  </select>
+                </label>
+                <label class="control">
+                  <span>Zeitraum</span>
+                  <select id="lookback-days">
+                    <option value="30">30 Tage</option>
+                    <option value="90">90 Tage</option>
+                    <option value="365">365 Tage</option>
+                    <option value="730">730 Tage</option>
+                  </select>
+                </label>
+                <label class="control">
+                  <span>Max. Einträge</span>
+                  <select id="limit-select">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
+                  </select>
+                </label>
+              </div>
+              <div class="muted incidents-summary" id="incidents-summary">Lade Vorfälle…</div>
+            </section>
+
+            <section class="card wide incidents-list-card">
+              <div class="card-title">Alle Vorfälle</div>
+              <div class="incident-history-list" id="incident-history-list">
+                <div class="incidents-inner">
+                  <div class="incidents-title">Lade Daten…</div>
+                  <div class="muted">Bitte kurz warten.</div>
+                </div>
+              </div>
+            </section>
+          </main>
+
+          <footer class="site-footer">
+            <span class="site-footer-note">Rechtliches</span>
+            <nav class="site-footer-links" aria-label="Rechtliche Navigation">
+              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
+              <a href="/datenschutz">Datenschutz</a>
+              <a href="/impressum">Impressum</a>
+            </nav>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/incidents.js"></script>
+  </body>
+</html>

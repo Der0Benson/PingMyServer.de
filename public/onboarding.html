@@ -1,0 +1,70 @@
+﻿<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <title>Onboarding · PingMyServer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/onboarding.css" />
+    <link rel="stylesheet" href="/assets/footer.css" />
+  </head>
+  <body>
+    <main class="onboarding-page">
+      <section class="onboarding-card">
+        <a class="onboarding-logo" href="/">
+          <span class="logo-dot"></span>
+          <span>PingMyServer</span>
+        </a>
+
+        <h1>Welche Website willst du überwachen?</h1>
+        <p>
+          Gib eine Domain oder URL an. Beispiele: <code>example.com</code> oder
+          <code>https://example.com</code>.
+        </p>
+
+        <form id="onboarding-form" novalidate>
+          <label for="monitor-url">URL oder Domain</label>
+          <input
+            id="monitor-url"
+            name="url"
+            type="text"
+            placeholder="https://example.com"
+            autocomplete="url"
+            required
+          />
+
+          <label for="monitor-name">Name (optional)</label>
+          <input
+            id="monitor-name"
+            name="name"
+            type="text"
+            placeholder="Mein Shop"
+            maxlength="255"
+          />
+
+          <button type="submit">Monitor erstellen</button>
+        </form>
+
+        <p id="onboarding-message" class="message"></p>
+      </section>
+
+      <footer class="site-footer">
+        <span class="site-footer-note">Rechtliches</span>
+        <nav class="site-footer-links" aria-label="Rechtliche Navigation">
+          <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
+          <a href="/datenschutz">Datenschutz</a>
+          <a href="/impressum">Impressum</a>
+        </nav>
+      </footer>
+    </main>
+
+    <script src="/assets/onboarding.js"></script>
+  </body>
+</html>
+

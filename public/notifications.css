@@ -1,0 +1,119 @@
+.notifications-page {
+  display: grid;
+  gap: 16px;
+}
+
+.card-copy {
+  margin: 0 0 10px;
+  max-width: 720px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.74rem;
+}
+
+.status-badge.connected {
+  color: var(--accent-2);
+  border-color: rgba(185, 242, 124, 0.4);
+  background: rgba(185, 242, 124, 0.12);
+}
+
+.status-badge.disabled {
+  color: #f4b45a;
+  border-color: rgba(244, 180, 90, 0.4);
+  background: rgba(244, 180, 90, 0.12);
+}
+
+.notification-form {
+  max-width: 760px;
+  display: grid;
+  gap: 12px;
+}
+
+.notification-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.notification-form label span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.notification-form input[type="url"] {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 24, 0.9);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.notification-form input[type="url"]:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.check-row {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+}
+
+.check-row input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.check-row span {
+  font-size: 0.85rem !important;
+  color: var(--text) !important;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.danger-btn {
+  border-color: rgba(242, 107, 107, 0.55) !important;
+  color: #f6a9a9 !important;
+}
+
+.danger-btn:hover {
+  border-color: rgba(242, 107, 107, 0.8) !important;
+  color: #ffd6d6 !important;
+}
+
+.panel-message {
+  min-height: 20px;
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.panel-message.success {
+  color: var(--accent-2);
+}
+
+.panel-message.error {
+  color: #f26b6b;
+}
