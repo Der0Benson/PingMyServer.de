@@ -3,26 +3,30 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Live-Statusseite von PingMyServer mit Uptime, Vorfällen und letzten Checks in Echtzeit." />
+    <meta
+      name="description"
+      data-i18n-content="meta.status.description"
+      content="Live-Statusseite von PingMyServer mit Uptime, Vorfällen und letzten Checks in Echtzeit."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <link rel="canonical" href="https://pingmyserver.de/status" />
     <meta property="og:locale" content="de_DE" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PingMyServer.de" />
-    <meta property="og:title" content="PingMyServer Statusseite" />
-    <meta property="og:description" content="Live-Statusseite mit Uptime, Vorfällen und letzten Checks." />
+    <meta property="og:title" data-i18n-content="meta.status.og_title" content="PingMyServer Statusseite" />
+    <meta property="og:description" data-i18n-content="meta.status.og_description" content="Live-Statusseite mit Uptime, Vorfällen und letzten Checks." />
     <meta property="og:url" content="https://pingmyserver.de/status" />
     <meta property="og:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="PingMyServer Statusseite" />
-    <meta name="twitter:description" content="Live-Statusseite mit Uptime und Vorfällen." />
+    <meta name="twitter:title" data-i18n-content="meta.status.twitter_title" content="PingMyServer Statusseite" />
+    <meta name="twitter:description" data-i18n-content="meta.status.twitter_description" content="Live-Statusseite mit Uptime und Vorfällen." />
     <meta name="twitter:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Statusseite · PingMyServer</title>
+    <title data-i18n="meta.status.title">Statusseite · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -30,29 +34,56 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/status.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
     <div class="status-page">
-      <h1 class="sr-only">PingMyServer Statusseite</h1>
+      <h1 class="sr-only" data-i18n="status.h1">PingMyServer Statusseite</h1>
       <header class="status-header">
         <div class="brand">
           <img class="brand-mark" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <div>
-            <div class="brand-title" id="status-name">Statusseite</div>
-            <div class="brand-sub" id="status-target">Wird geladen…</div>
+            <div class="brand-title" id="status-name" data-i18n="status.brand.title">Statusseite</div>
+            <div class="brand-sub" id="status-target" data-i18n="common.loading">Wird geladen…</div>
           </div>
         </div>
-        <div class="status-pill" id="status-pill">
-          <span class="status-dot"></span>
-          <span id="status-label">Prüfe Status…</span>
+        <div class="status-actions">
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <div class="status-pill" id="status-pill">
+            <span class="status-dot"></span>
+            <span id="status-label" data-i18n="status.checking">Prüfe Status…</span>
+          </div>
         </div>
       </header>
 
       <section class="maintenance-banner" id="maintenance-banner" hidden>
         <div class="maintenance-banner-head">
-          <div class="maintenance-banner-title" id="maintenance-banner-title">Wartung</div>
-          <span class="maintenance-badge" id="maintenance-badge">Geplant</span>
+          <div class="maintenance-banner-title" id="maintenance-banner-title" data-i18n="status.maintenance.title">Wartung</div>
+          <span class="maintenance-badge" id="maintenance-badge" data-i18n="status.maintenance.planned">Geplant</span>
         </div>
         <div class="maintenance-banner-meta" id="maintenance-banner-meta"></div>
         <div class="maintenance-banner-note" id="maintenance-banner-note"></div>
@@ -60,17 +91,17 @@
 
       <section class="status-hero">
         <div class="hero-card">
-          <div class="hero-title">Aktueller Status</div>
+          <div class="hero-title" data-i18n="status.hero.current_status">Aktueller Status</div>
           <div class="hero-status" id="status-state">–</div>
-          <div class="hero-meta" id="status-duration">wird geladen…</div>
+          <div class="hero-meta" id="status-duration" data-i18n="common.loading">wird geladen…</div>
         </div>
         <div class="hero-card">
-          <div class="hero-title">Letzter Check</div>
+          <div class="hero-title" data-i18n="status.hero.last_check">Letzter Check</div>
           <div class="hero-status small" id="last-check">–</div>
           <div class="hero-meta" id="check-interval">–</div>
         </div>
         <div class="hero-card wide">
-          <div class="hero-title">Letzte 24 Stunden</div>
+          <div class="hero-title" data-i18n="status.hero.last_24h">Letzte 24 Stunden</div>
           <div class="uptime-bars" id="uptime-bars"></div>
           <div class="hero-meta">
             <span id="uptime-incidents">–</span>
@@ -81,47 +112,48 @@
 
       <section class="status-grid">
         <div class="status-card">
-          <div class="card-title">Letzte 7 Tage</div>
+          <div class="card-title" data-i18n="status.range.last_7_days">Letzte 7 Tage</div>
           <div class="card-value" id="range-7-uptime">--.--%</div>
           <div class="card-sub" id="range-7-meta">–</div>
         </div>
         <div class="status-card">
-          <div class="card-title">Letzte 30 Tage</div>
+          <div class="card-title" data-i18n="status.range.last_30_days">Letzte 30 Tage</div>
           <div class="card-value" id="range-30-uptime">--.--%</div>
           <div class="card-sub" id="range-30-meta">–</div>
         </div>
         <div class="status-card">
-          <div class="card-title">Letzte 365 Tage</div>
+          <div class="card-title" data-i18n="status.range.last_365_days">Letzte 365 Tage</div>
           <div class="card-value" id="range-365-uptime">--.--%</div>
           <div class="card-sub" id="range-365-meta">–</div>
         </div>
         <div class="status-card highlight">
-          <div class="card-title">Zeitraum wählen</div>
-          <div class="card-value small" id="range-picker-label">Letzte 30 Tage</div>
-          <div class="card-sub">Weitere Auswertungen folgen</div>
+          <div class="card-title" data-i18n="status.range.choose">Zeitraum wählen</div>
+          <div class="card-value small" id="range-picker-label" data-i18n="status.range.default">Letzte 30 Tage</div>
+          <div class="card-sub" data-i18n="status.range.more_soon">Weitere Auswertungen folgen</div>
         </div>
       </section>
 
       <section class="status-incidents">
-        <div class="section-title">Letzte Vorfälle</div>
+        <div class="section-title" data-i18n="status.incidents.title">Letzte Vorfälle</div>
         <div class="incidents" id="incidents-list">
           <div class="incidents-inner">
-            <div class="incidents-title">👍 Gute Arbeit, keine Vorfälle.</div>
-            <div class="muted">Bisher gab es keine Vorfälle. Weiter so!</div>
+            <div class="incidents-title" data-i18n="status.incidents.empty_title">👍 Gute Arbeit, keine Vorfälle.</div>
+            <div class="muted" data-i18n="status.incidents.empty_body">Bisher gab es keine Vorfälle. Weiter so!</div>
           </div>
         </div>
       </section>
 
       <footer class="status-footer site-footer">
-        <span id="updated-at">Zuletzt aktualisiert: –</span>
+        <span id="updated-at" data-i18n="status.updated_at">Zuletzt aktualisiert: –</span>
         <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-          <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-          <a href="/datenschutz">Datenschutz</a>
-          <a href="/impressum">Impressum</a>
+          <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+          <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+          <a href="/impressum" data-i18n="common.imprint">Impressum</a>
         </nav>
       </footer>
     </div>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/status.js"></script>
   </body>
 </html>

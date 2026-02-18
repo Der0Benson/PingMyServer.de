@@ -3,31 +3,36 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Impressum von PingMyServer mit allen Pflichtangaben nach § 5 TMG und Kontaktinformationen." />
+    <meta
+      name="description"
+      data-i18n-content="meta.imprint.description"
+      content="Impressum von PingMyServer mit allen Pflichtangaben nach § 5 TMG und Kontaktinformationen."
+    />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://pingmyserver.de/impressum" />
     <meta property="og:locale" content="de_DE" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PingMyServer.de" />
-    <meta property="og:title" content="Impressum · PingMyServer" />
-    <meta property="og:description" content="Impressum von PingMyServer." />
+    <meta property="og:title" data-i18n-content="meta.imprint.og_title" content="Impressum · PingMyServer" />
+    <meta property="og:description" data-i18n-content="meta.imprint.og_description" content="Impressum von PingMyServer." />
     <meta property="og:url" content="https://pingmyserver.de/impressum" />
     <meta property="og:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Impressum · PingMyServer" />
-    <meta name="twitter:description" content="Impressum von PingMyServer." />
+    <meta name="twitter:title" data-i18n-content="meta.imprint.twitter_title" content="Impressum · PingMyServer" />
+    <meta name="twitter:description" data-i18n-content="meta.imprint.twitter_description" content="Impressum von PingMyServer." />
     <meta name="twitter:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Impressum · PingMyServer</title>
+    <title data-i18n="meta.imprint.title">Impressum · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/legal.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
@@ -38,57 +43,123 @@
           <img class="wordmark-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <span class="wordmark-name">PingMyServer.de</span>
         </a>
-        <a class="legal-back" href="/">Zur Startseite</a>
+        <div class="legal-actions">
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <a class="legal-back" href="/" data-i18n="common.back_home">Zur Startseite</a>
+        </div>
       </header>
 
       <main class="legal-card">
-        <h1>Impressum</h1>
-        <p class="legal-meta">Angaben gemäß § 5 TMG. Stand: 15.02.2026.</p>
+        <section data-lang-block="de">
+          <h1>Impressum</h1>
+          <p class="legal-meta">Angaben gemäß § 5 TMG. Stand: 15.02.2026.</p>
 
-        <h2>Anbieter</h2>
-        <p>
-          <strong>Ben Luca Pritzsche</strong><br />
-          Im Wildgarten 38<br />
-          29328 Faßberg<br />
-          Deutschland
-        </p>
+          <h2>Anbieter</h2>
+          <p>
+            <strong>Ben Luca Pritzsche</strong><br />
+            Im Wildgarten 38<br />
+            29328 Faßberg<br />
+            Deutschland
+          </p>
 
-        <h2>Kontakt</h2>
-        <p>
-          E-Mail: <a href="mailto:pritzsche.ben.luca@gmail.com">pritzsche.ben.luca@gmail.com</a><br />
-          Telefon: <a href="tel:+4915172168975">0151 72168975</a>
-        </p>
+          <h2>Kontakt</h2>
+          <p>
+            E-Mail: <a href="mailto:pritzsche.ben.luca@gmail.com">pritzsche.ben.luca@gmail.com</a><br />
+            Telefon: <a href="tel:+4915172168975">0151 72168975</a>
+          </p>
 
-        <h2>Register und Steuer</h2>
-        <p>
-          Handelsregister: nicht vorhanden<br />
-          USt-IdNr.: nicht vorhanden
-        </p>
+          <h2>Register und Steuer</h2>
+          <p>
+            Handelsregister: nicht vorhanden<br />
+            USt-IdNr.: nicht vorhanden
+          </p>
 
-        <h2>Verantwortlich für journalistisch-redaktionelle Inhalte</h2>
-        <p>
-          Ben Luca Pritzsche<br />
-          Im Wildgarten 38<br />
-          29328 Faßberg
-        </p>
+          <h2>Verantwortlich für journalistisch-redaktionelle Inhalte</h2>
+          <p>
+            Ben Luca Pritzsche<br />
+            Im Wildgarten 38<br />
+            29328 Faßberg
+          </p>
 
-        <h2>Hinweis</h2>
-        <p>
-          Diese Website dient dem Monitoring von Websites und Webdiensten. Bei Fragen zu rechtlichen Angaben kannst du
-          uns jederzeit per E-Mail kontaktieren.
-        </p>
+          <h2>Hinweis</h2>
+          <p>
+            Diese Website dient dem Monitoring von Websites und Webdiensten. Bei Fragen zu rechtlichen Angaben kannst du
+            uns jederzeit per E-Mail kontaktieren.
+          </p>
+        </section>
+
+        <section data-lang-block="en" hidden>
+          <h1>Imprint</h1>
+          <p class="legal-meta">Information pursuant to § 5 TMG. Last updated: Feb 15, 2026.</p>
+
+          <h2>Provider</h2>
+          <p>
+            <strong>Ben Luca Pritzsche</strong><br />
+            Im Wildgarten 38<br />
+            29328 Faßberg<br />
+            Germany
+          </p>
+
+          <h2>Contact</h2>
+          <p>
+            Email: <a href="mailto:pritzsche.ben.luca@gmail.com">pritzsche.ben.luca@gmail.com</a><br />
+            Phone: <a href="tel:+4915172168975">+49 151 72168975</a>
+          </p>
+
+          <h2>Register and Tax</h2>
+          <p>
+            Commercial register: none<br />
+            VAT ID: none
+          </p>
+
+          <h2>Responsible for Editorial Content</h2>
+          <p>
+            Ben Luca Pritzsche<br />
+            Im Wildgarten 38<br />
+            29328 Faßberg
+          </p>
+
+          <h2>Note</h2>
+          <p>
+            This website is used for monitoring websites and web services. If you have questions about legal
+            information, feel free to contact us via email.
+          </p>
+        </section>
 
         <footer class="site-footer">
-          <span class="site-footer-note">Rechtliches</span>
-          <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-            <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-            <a href="/datenschutz">Datenschutz</a>
-            <a href="/impressum">Impressum</a>
+          <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
+          <nav class="site-footer-links" aria-label="Legal navigation">
+            <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+            <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+            <a href="/impressum" data-i18n="common.imprint">Impressum</a>
           </nav>
         </footer>
       </main>
     </div>
+
+    <script src="/assets/i18n.js"></script>
   </body>
 </html>
-
-

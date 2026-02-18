@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Owner-Übersicht von PingMyServer für operative Kennzahlen und Top-Monitore." />
+    <meta
+      name="description"
+      data-i18n-content="meta.owner.description"
+      content="Owner-Übersicht von PingMyServer für operative Kennzahlen und Top-Monitore."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Owner Ops · PingMyServer</title>
+    <title data-i18n="meta.owner.title">Owner Ops · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,88 +23,123 @@
     />
     <link rel="stylesheet" href="/assets/styles.css" />
     <link rel="stylesheet" href="/assets/owner.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+        <a
+          class="brand brand-link"
+          href="/"
+          data-i18n-aria-label="common.aria.home"
+          aria-label="PingMyServer Startseite"
+        >
           <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <span class="brand-name">PingMyServer.de</span>
         </a>
         <nav class="side-nav">
-          <a href="/app">Monitoring</a>
-          <a href="/incidents">Vorfälle</a>
-          <a href="/notifications">Benachrichtigungen</a>
-          <a href="/connections">Connections</a>
-          <a class="active" href="/owner">Owner Ops</a>
-          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+          <a href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
+          <a href="/connections" data-i18n="common.connections">Connections</a>
+          <a class="active" href="/owner" data-i18n="common.owner_ops">Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
         </nav>
         <div class="side-footer">
-          <a class="user-pill profile-link" href="/connections" aria-label="Konto und Sicherheit">
+          <a
+            class="user-pill profile-link"
+            href="/connections"
+            data-i18n-aria-label="common.aria.profile_settings"
+            aria-label="Konto und Sicherheit"
+          >
             <span class="avatar small">U</span>
-            <span class="muted" id="current-user-email">eingeloggt</span>
+            <span class="muted" id="current-user-email" data-i18n="common.signed_in">eingeloggt</span>
           </a>
-          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
         </div>
       </aside>
 
       <div class="content">
         <div class="page">
-          <div class="crumb">Owner</div>
+          <div class="crumb" data-i18n="owner.crumb">Owner</div>
           <header class="topbar">
             <div class="title-block">
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <div class="title">Owner Ops Dashboard</div>
-                <div class="subtitle">Serverlast, Monitorkosten und Schwachpunkte in Echtzeit</div>
+                <div class="title" data-i18n="owner.title">Owner Ops Dashboard</div>
+                <div class="subtitle" data-i18n="owner.sub">Serverlast, Monitorkosten und Schwachpunkte in Echtzeit</div>
               </div>
             </div>
             <div class="top-actions">
-              <span class="owner-badge" id="owner-user-badge">Owner</span>
-              <button class="btn ghost" id="refresh-btn" type="button">Aktualisieren</button>
+              <span class="owner-badge" id="owner-user-badge" data-i18n="owner.badge">Owner</span>
+              <button class="btn ghost" id="refresh-btn" type="button" data-i18n="common.refresh">Aktualisieren</button>
             </div>
           </header>
 
           <main class="owner-page">
             <section class="card">
-              <div class="card-title">Serverlast</div>
-              <p class="muted card-subtitle">Laufzeitmetriken seit Prozessstart</p>
+              <div class="card-title" data-i18n="owner.cards.server_load.title">Serverlast</div>
+              <p class="muted card-subtitle" data-i18n="owner.cards.server_load.sub">Laufzeitmetriken seit Prozessstart</p>
               <div class="stats-grid" id="process-stats"></div>
             </section>
 
             <section class="card">
-              <div class="card-title">Check-Engine</div>
-              <p class="muted card-subtitle">Scheduler, Durchsatz und parallele Checks</p>
+              <div class="card-title" data-i18n="owner.cards.check_engine.title">Check-Engine</div>
+              <p class="muted card-subtitle" data-i18n="owner.cards.check_engine.sub">Scheduler, Durchsatz und parallele Checks</p>
               <div class="stats-grid" id="checks-stats"></div>
             </section>
 
             <section class="card">
-              <div class="card-title">Datenbank</div>
-              <p class="muted card-subtitle">Pool-Auslastung und Query-Verhalten</p>
+              <div class="card-title" data-i18n="owner.cards.database.title">Datenbank</div>
+              <p class="muted card-subtitle" data-i18n="owner.cards.database.sub">Pool-Auslastung und Query-Verhalten</p>
               <div class="stats-grid" id="db-stats"></div>
             </section>
 
             <section class="card wide">
-              <div class="card-title">Teuerste Monitore (24h)</div>
-              <p class="muted card-subtitle">Sortiert nach Cost-Score (Checks, Antwortzeit, Fehler, Timeouts)</p>
+              <div class="card-title" data-i18n="owner.cards.costs.title">Teuerste Monitore (24h)</div>
+              <p class="muted card-subtitle" data-i18n="owner.cards.costs.sub">Sortiert nach Cost-Score (Checks, Antwortzeit, Fehler, Timeouts)</p>
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>Monitor</th>
-                      <th>User</th>
-                      <th>Status</th>
-                      <th>Checks 24h</th>
-                      <th>Fehlerquote</th>
-                      <th>Ø ms</th>
-                      <th>Timeouts</th>
-                      <th>Score</th>
+                      <th data-i18n="common.monitor">Monitor</th>
+                      <th data-i18n="owner.table.user">User</th>
+                      <th data-i18n="owner.table.status">Status</th>
+                      <th data-i18n="owner.table.checks_24h">Checks 24h</th>
+                      <th data-i18n="owner.table.error_rate">Fehlerquote</th>
+                      <th data-i18n="owner.table.avg_ms">Ø ms</th>
+                      <th data-i18n="owner.table.timeouts">Timeouts</th>
+                      <th data-i18n="owner.table.score">Score</th>
                     </tr>
                   </thead>
                   <tbody id="monitor-costs-body">
                     <tr>
-                      <td colspan="8" class="muted">Lade Daten...</td>
+                      <td colspan="8" class="muted" data-i18n="common.loading_data">Lade Daten...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -108,23 +147,23 @@
             </section>
 
             <section class="card wide">
-              <div class="card-title">Security-Insights</div>
-              <p class="muted card-subtitle">Blockierungen, Auth-Risiken und häufige Fehlerbilder</p>
+              <div class="card-title" data-i18n="owner.cards.security.title">Security-Insights</div>
+              <p class="muted card-subtitle" data-i18n="owner.cards.security.sub">Blockierungen, Auth-Risiken und häufige Fehlerbilder</p>
               <div class="insights-grid">
                 <article class="insight-card">
-                  <h3>Runtime Security Counter</h3>
+                  <h3 data-i18n="owner.security.runtime">Runtime Security Counter</h3>
                   <ul id="runtime-security-list"></ul>
                 </article>
                 <article class="insight-card">
-                  <h3>Top Fehlermeldungen (24h)</h3>
+                  <h3 data-i18n="owner.security.top_errors">Top Fehlermeldungen (24h)</h3>
                   <ul id="top-errors-list"></ul>
                 </article>
                 <article class="insight-card">
-                  <h3>Auffällige Monitore (24h)</h3>
+                  <h3 data-i18n="owner.security.failing_monitors">Auffällige Monitore (24h)</h3>
                   <ul id="failing-monitors-list"></ul>
                 </article>
                 <article class="insight-card">
-                  <h3>Auth-Lage</h3>
+                  <h3 data-i18n="owner.security.auth">Auth-Lage</h3>
                   <ul id="auth-security-list"></ul>
                 </article>
               </div>
@@ -132,17 +171,18 @@
           </main>
 
           <footer class="site-footer">
-            <span class="site-footer-note">Rechtliches</span>
+            <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
             <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-              <a href="/datenschutz">Datenschutz</a>
-              <a href="/impressum">Impressum</a>
+              <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+              <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+              <a href="/impressum" data-i18n="common.imprint">Impressum</a>
             </nav>
           </footer>
         </div>
       </div>
     </div>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/owner.js"></script>
   </body>
 </html>

@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Login zu PingMyServer für Monitoring, Vorfälle und Benachrichtigungen." />
+    <meta
+      name="description"
+      data-i18n-content="meta.login.description"
+      content="Login zu PingMyServer für Monitoring, Vorfälle und Benachrichtigungen."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Login - PingMyServer</title>
+    <title data-i18n="meta.login.title">Login - PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,6 +22,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/login.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
@@ -28,8 +33,35 @@
           <span class="wordmark-name">PingMyServer.de</span>
         </a>
 
-        <h1>Anmelden oder registrieren</h1>
-        <p class="auth-sub">GitHub-, Google- und Discord-Login sind verfügbar, sobald OAuth aktiviert ist.</p>
+        <div class="lang-bar">
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <h1 data-i18n="login.h1">Anmelden oder registrieren</h1>
+        <p class="auth-sub" data-i18n="login.sub">GitHub-, Google- und Discord-Login sind verfügbar, sobald OAuth aktiviert ist.</p>
 
         <div class="social-list">
           <button class="social-btn" type="button" data-provider="Discord">
@@ -52,46 +84,47 @@
           </button>
         </div>
 
-        <div class="divider"><span>oder mit E-Mail</span></div>
+        <div class="divider"><span data-i18n="login.divider">oder mit E-Mail</span></div>
 
-        <div class="mode-switch" role="tablist" aria-label="Authentifizierung">
-          <button class="mode-btn active" type="button" data-mode="login">Login</button>
-          <button class="mode-btn" type="button" data-mode="register">Register</button>
+        <div class="mode-switch" role="tablist" data-i18n-aria-label="login.aria.auth" aria-label="Authentifizierung">
+          <button class="mode-btn active" type="button" data-mode="login" data-i18n="login.mode.login">Login</button>
+          <button class="mode-btn" type="button" data-mode="register" data-i18n="login.mode.register">Register</button>
         </div>
 
         <form id="login-form" novalidate>
-          <label for="login-email">E-Mail</label>
+          <label for="login-email" data-i18n="login.label.email">E-Mail</label>
           <input id="login-email" type="email" autocomplete="email" required />
 
-          <label for="login-password">Passwort</label>
+          <label for="login-password" data-i18n="login.label.password">Passwort</label>
           <input id="login-password" type="password" autocomplete="current-password" minlength="10" maxlength="72" required />
 
-          <button class="btn primary" type="submit">Einloggen</button>
+          <button class="btn primary" type="submit" data-i18n="login.button.sign_in">Einloggen</button>
         </form>
 
         <form id="register-form" hidden novalidate>
-          <label for="register-email">E-Mail</label>
+          <label for="register-email" data-i18n="login.label.email">E-Mail</label>
           <input id="register-email" type="email" autocomplete="email" required />
 
-          <label for="register-password">Passwort</label>
+          <label for="register-password" data-i18n="login.label.password">Passwort</label>
           <input id="register-password" type="password" autocomplete="new-password" minlength="10" maxlength="72" required />
 
-          <button class="btn primary" type="submit">Konto erstellen</button>
+          <button class="btn primary" type="submit" data-i18n="login.button.create_account">Konto erstellen</button>
         </form>
 
         <p class="auth-message" id="auth-message"></p>
       </section>
 
       <footer class="site-footer">
-        <span class="site-footer-note">Rechtliches</span>
+        <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
         <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-          <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-          <a href="/datenschutz">Datenschutz</a>
-          <a href="/impressum">Impressum</a>
+          <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+          <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+          <a href="/impressum" data-i18n="common.imprint">Impressum</a>
         </nav>
       </footer>
     </main>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/login.js"></script>
   </body>
 </html>

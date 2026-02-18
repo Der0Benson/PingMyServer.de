@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Verbindungen und Integrationen in PingMyServer verwalten." />
+    <meta
+      name="description"
+      data-i18n-content="meta.connections.description"
+      content="Verbindungen und Integrationen in PingMyServer verwalten."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Connections · PingMyServer</title>
+    <title data-i18n="meta.connections.title">Connections · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,106 +23,137 @@
     />
     <link rel="stylesheet" href="/assets/styles.css" />
     <link rel="stylesheet" href="/assets/connections.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+        <a
+          class="brand brand-link"
+          href="/"
+          data-i18n-aria-label="common.aria.home"
+          aria-label="PingMyServer Startseite"
+        >
           <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <span class="brand-name">PingMyServer.de</span>
         </a>
         <nav class="side-nav">
-          <a href="/app">Monitoring</a>
-          <a href="/incidents">Vorfälle</a>
-          <a href="/notifications">Benachrichtigungen</a>
-          <a class="active" href="/connections">Connections</a>
-          <a href="/owner" data-owner-link hidden>Owner Ops</a>
-          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+          <a href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
+          <a class="active" href="/connections" data-i18n="common.connections">Connections</a>
+          <a href="/owner" data-owner-link hidden data-i18n="common.owner_ops">Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
         </nav>
         <div class="side-footer">
           <a
             class="user-pill profile-link"
             href="/connections"
+            data-i18n-aria-label="common.aria.profile_settings"
             aria-label="Connections und Kontoeinstellungen"
             aria-current="page"
           >
             <span class="avatar small">U</span>
-            <span class="muted" id="current-user-email">eingeloggt</span>
+            <span class="muted" id="current-user-email" data-i18n="common.signed_in">eingeloggt</span>
           </a>
-          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
         </div>
       </aside>
 
       <div class="content">
         <div class="page">
-          <div class="crumb">Konto</div>
+          <div class="crumb" data-i18n="common.account">Konto</div>
           <header class="topbar">
             <div class="title-block">
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <div class="title">Connections & Sicherheit</div>
-                <div class="subtitle">Aktive Sitzungen verwalten, Domains verifizieren und Passwort ändern</div>
+                <div class="title" data-i18n="connections.title">Connections & Sicherheit</div>
+                <div class="subtitle" data-i18n="connections.sub">Aktive Sitzungen verwalten, Domains verifizieren und Passwort ändern</div>
               </div>
             </div>
             <div class="top-actions">
-              <button class="btn ghost" id="refresh-sessions-btn" type="button">Aktualisieren</button>
-              <button class="btn ghost" id="revoke-others-btn" type="button">Alle anderen trennen</button>
+              <button class="btn ghost" id="refresh-sessions-btn" type="button" data-i18n="common.refresh">Aktualisieren</button>
+              <button class="btn ghost" id="revoke-others-btn" type="button" data-i18n="connections.revoke_others">Alle anderen trennen</button>
             </div>
           </header>
 
           <main class="connections-page">
             <section class="card wide">
-              <div class="card-title">App Connections</div>
-              <p class="muted sessions-summary" id="app-connections-summary">Lade App Connections...</p>
+              <div class="card-title" data-i18n="connections.app_connections.title">App Connections</div>
+              <p class="muted sessions-summary" id="app-connections-summary" data-i18n="connections.app_connections.loading">Lade App Connections...</p>
               <p class="panel-message" id="app-connections-message"></p>
               <div class="app-connections-list" id="app-connections-list">
                 <div class="empty-state">
-                  <div class="title">Lade Daten...</div>
-                  <div class="muted">Bitte kurz warten.</div>
+                  <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                  <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
                 </div>
               </div>
             </section>
 
             <section class="card wide" id="domain-verification">
-              <div class="card-title">Domain-Verifizierung</div>
-              <p class="muted sessions-summary" id="domains-summary">Lade Domains...</p>
+              <div class="card-title" data-i18n="connections.domains.title">Domain-Verifizierung</div>
+              <p class="muted sessions-summary" id="domains-summary" data-i18n="connections.domains.loading">Lade Domains...</p>
               <p class="panel-message" id="domains-message"></p>
               <form id="domain-form" class="domain-form" novalidate autocomplete="off">
                 <label for="domain-input">
-                  <span>Domain</span>
+                  <span data-i18n="connections.domains.label">Domain</span>
                   <input id="domain-input" type="text" placeholder="example.com" inputmode="url" required />
                 </label>
                 <div class="password-actions domain-form-actions">
-                  <button class="btn primary" type="submit">DNS-Challenge erstellen</button>
+                  <button class="btn primary" type="submit" data-i18n="connections.domains.create_challenge">DNS-Challenge erstellen</button>
                 </div>
               </form>
               <div class="domain-list" id="domain-list">
                 <div class="empty-state">
-                  <div class="title">Lade Daten...</div>
-                  <div class="muted">Bitte kurz warten.</div>
+                  <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                  <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
                 </div>
               </div>
             </section>
 
             <section class="card wide">
-              <div class="card-title">Aktive Sitzungen</div>
-              <p class="muted sessions-summary" id="sessions-summary">Lade aktive Sitzungen...</p>
+              <div class="card-title" data-i18n="connections.sessions.title">Aktive Sitzungen</div>
+              <p class="muted sessions-summary" id="sessions-summary" data-i18n="connections.sessions.loading">Lade aktive Sitzungen...</p>
               <p class="panel-message" id="sessions-message"></p>
               <div class="session-list" id="sessions-list">
                 <div class="empty-state">
-                  <div class="title">Lade Daten...</div>
-                  <div class="muted">Bitte kurz warten.</div>
+                  <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                  <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
                 </div>
               </div>
             </section>
 
             <section class="card wide">
-              <div class="card-title">Passwort ändern</div>
-              <p class="muted" id="password-mode-hint">Aktuelles Passwort ist erforderlich.</p>
+              <div class="card-title" data-i18n="connections.password.title">Passwort ändern</div>
+              <p class="muted" id="password-mode-hint" data-i18n="connections.password.hint_required">Aktuelles Passwort ist erforderlich.</p>
               <form id="password-form" class="password-form" novalidate>
                 <label for="current-password">
-                  <span>Aktuelles Passwort</span>
+                  <span data-i18n="connections.password.current">Aktuelles Passwort</span>
                   <input
                     id="current-password"
                     type="password"
@@ -129,7 +164,7 @@
                   />
                 </label>
                 <label for="new-password">
-                  <span>Neues Passwort</span>
+                  <span data-i18n="connections.password.new">Neues Passwort</span>
                   <input
                     id="new-password"
                     type="password"
@@ -140,7 +175,7 @@
                   />
                 </label>
                 <label for="repeat-password">
-                  <span>Neues Passwort wiederholen</span>
+                  <span data-i18n="connections.password.repeat">Neues Passwort wiederholen</span>
                   <input
                     id="repeat-password"
                     type="password"
@@ -151,19 +186,21 @@
                   />
                 </label>
                 <div class="password-actions">
-                  <button class="btn primary" type="submit">Passwort speichern</button>
+                  <button class="btn primary" type="submit" data-i18n="connections.password.save">Passwort speichern</button>
                 </div>
               </form>
               <p class="panel-message" id="password-message"></p>
             </section>
 
             <section class="card wide danger-card">
-              <div class="card-title">Konto löschen</div>
-              <p class="muted">Dadurch werden dein Konto, alle Monitore und alle aktiven Sitzungen dauerhaft gelöscht.</p>
-              <p class="muted" id="delete-mode-hint">Aktuelles Passwort ist erforderlich.</p>
+              <div class="card-title" data-i18n="connections.delete.title">Konto löschen</div>
+              <p class="muted" data-i18n="connections.delete.desc">
+                Dadurch werden dein Konto, alle Monitore und alle aktiven Sitzungen dauerhaft gelöscht.
+              </p>
+              <p class="muted" id="delete-mode-hint" data-i18n="connections.password.hint_required">Aktuelles Passwort ist erforderlich.</p>
               <form id="delete-account-form" class="password-form" novalidate>
                 <label for="delete-account-password">
-                  <span>Aktuelles Passwort</span>
+                  <span data-i18n="connections.password.current">Aktuelles Passwort</span>
                   <input
                     id="delete-account-password"
                     type="password"
@@ -174,7 +211,7 @@
                   />
                 </label>
                 <div class="password-actions">
-                  <button class="btn ghost danger-btn" id="delete-account-btn" type="submit">Konto dauerhaft löschen</button>
+                  <button class="btn ghost danger-btn" id="delete-account-btn" type="submit" data-i18n="connections.delete.confirm">Konto dauerhaft löschen</button>
                 </div>
               </form>
               <p class="panel-message" id="delete-account-message"></p>
@@ -182,17 +219,18 @@
           </main>
 
           <footer class="site-footer">
-            <span class="site-footer-note">Rechtliches</span>
+            <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
             <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-              <a href="/datenschutz">Datenschutz</a>
-              <a href="/impressum">Impressum</a>
+              <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+              <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+              <a href="/impressum" data-i18n="common.imprint">Impressum</a>
             </nav>
           </footer>
         </div>
       </div>
     </div>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/connections.js"></script>
   </body>
 </html>

@@ -1,0 +1,143 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+.lang-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 6px 0 10px;
+}
+
+.lang-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lang-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.lang-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lang-summary {
+  list-style: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 14, 24, 0.78);
+  color: inherit;
+  border-radius: 10px;
+  min-width: 44px;
+  min-height: 34px;
+  padding: 7px 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lang-summary:focus-visible {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.lang-menu[open] > .lang-summary {
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.lang-options {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background: #0b0f14;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 6px;
+  display: grid;
+  gap: 6px;
+  z-index: 1000;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.lang-option {
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  border-radius: 10px;
+  padding: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lang-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-lang="de"] .lang-option[data-set-lang="de"],
+html[data-lang="en"] .lang-option[data-set-lang="en"] {
+  background: rgba(76, 201, 240, 0.12);
+  border-color: rgba(76, 201, 240, 0.55);
+}
+
+.lang-flag-img {
+  width: 22px;
+  height: 16px;
+  border-radius: 4px;
+  display: block;
+}
+
+/* Ensure the summary shows only the currently active language flag. */
+html[lang="de"] .lang-summary [data-lang-block="en"],
+html[data-lang="de"] .lang-summary [data-lang-block="en"] {
+  display: none !important;
+}
+
+html[lang="en"] .lang-summary [data-lang-block="de"],
+html[data-lang="en"] .lang-summary [data-lang-block="de"] {
+  display: none !important;
+}
+
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 14, 24, 0.78);
+  color: inherit;
+  border-radius: 10px;
+  min-width: 56px;
+  padding: 8px 10px;
+  font: inherit;
+  font-family: "Manrope", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.lang-select:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.lang-select option {
+  background: #0b0f14;
+  color: #e6edf7;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}

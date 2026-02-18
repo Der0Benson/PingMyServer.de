@@ -2,6 +2,16 @@
   const previewPollIntervalMs = 30000;
   const previewBarCount = 8;
 
+  const I18N = window.PMS_I18N || null;
+  const t = (key, vars, fallback) =>
+    I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+  const i18nLang = () => (I18N && typeof I18N.getLang === "function" ? I18N.getLang() : "de");
+  const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+  const rtf = () =>
+    I18N && typeof I18N.rtf === "function"
+      ? I18N.rtf()
+      : new Intl.RelativeTimeFormat(i18nLocale(), { numeric: "auto" });
+
   const faqButtons = document.querySelectorAll("[data-faq-toggle]");
   const liveDot = document.getElementById("landing-live-dot");
   const liveOverall = document.getElementById("landing-live-overall");
@@ -41,11 +51,39 @@
     return Number.isFinite(numeric) ? numeric : null;
   }
 
+  function shortUnit(unit) {
+    const lang = i18nLang();
+    if (lang === "en") {
+      if (unit === "second") return "sec";
+      if (unit === "minute") return "min";
+      if (unit === "hour") return "hr";
+    }
+    if (unit === "second") return "Sek.";
+    if (unit === "minute") return "Min.";
+    if (unit === "hour") return "Std.";
+    return unit;
+  }
+
+  function formatTimeAgo(ms) {
+    if (!Number.isFinite(ms) || ms < 0) {
+      return rtf().format(0, "second");
+    }
+
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) return rtf().format(-seconds, "second");
+
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return rtf().format(-minutes, "minute");
+
+    const hours = Math.round(minutes / 60);
+    return rtf().format(-hours, "hour");
+  }
+
   function formatRelative(ms) {
     const safeMs = Math.max(0, Number(ms) || 0);
-    if (safeMs < 60000) return `${Math.max(1, Math.round(safeMs / 1000))} Sek.`;
-    if (safeMs < 3600000) return `${Math.round(safeMs / 60000)} Min.`;
-    return `${Math.round(safeMs / 3600000)} Std.`;
+    if (safeMs < 60000) return `${Math.max(1, Math.round(safeMs / 1000))} ${shortUnit("second")}`;
+    if (safeMs < 3600000) return `${Math.round(safeMs / 60000)} ${shortUnit("minute")}`;
+    return `${Math.round(safeMs / 3600000)} ${shortUnit("hour")}`;
   }
 
   function extractHostname(target) {
@@ -63,7 +101,7 @@
     const name = String(metrics?.name || "").trim();
     if (name) return name;
     const target = String(metrics?.target || "").trim();
-    return target || "Monitor";
+    return target || t("common.monitor", null, "Monitor");
   }
 
   function monitorStatusIsOnline(metrics) {
@@ -72,12 +110,16 @@
 
   function monitorResponseText(metrics) {
     const response = asFiniteNumber(metrics?.lastResponseMs);
-    return response === null ? "Response: --" : `Response: ${Math.round(response)}ms`;
+    return response === null
+      ? t("landing.live.response_placeholder", null, "Response: --")
+      : t("landing.live.response_value", { ms: Math.round(response) }, `Response: ${Math.round(response)}ms`);
   }
 
   function monitorUptimeText(metrics) {
     const uptime = asFiniteNumber(metrics?.last24h?.uptime);
-    return uptime === null ? "--% Uptime" : `${uptime.toFixed(2)}% Uptime`;
+    return uptime === null
+      ? t("landing.live.uptime_placeholder", null, "--% Uptime")
+      : t("landing.live.uptime_value", { uptime: uptime.toFixed(2) }, `${uptime.toFixed(2)}% Uptime`);
   }
 
   function setStateColorClass(element, mode) {
@@ -140,7 +182,7 @@
   function renderOverallStatus(metricsList) {
     if (!liveOverall) return;
     if (!metricsList.length) {
-      liveOverall.textContent = "Keine Monitor-Daten verfügbar";
+      liveOverall.textContent = t("landing.live.overall.no_data", null, "No monitor data available");
       setStateColorClass(liveOverall, "unknown");
       setDotColorClass("unknown");
       return;
@@ -148,27 +190,30 @@
 
     const offlineCount = metricsList.filter((metrics) => !monitorStatusIsOnline(metrics)).length;
     if (offlineCount === 0) {
-      liveOverall.textContent = "All Systems Operational";
+      liveOverall.textContent = t("landing.live.overall.operational", null, "All systems operational");
       setStateColorClass(liveOverall, "online");
       setDotColorClass("online");
       return;
     }
 
-    const suffix = offlineCount === 1 ? "" : "e";
-    liveOverall.textContent = `${offlineCount} Monitor${suffix} offline`;
+    liveOverall.textContent = t(
+      offlineCount === 1 ? "landing.live.overall.offline.one" : "landing.live.overall.offline.many",
+      { n: offlineCount },
+      `${offlineCount} monitors offline`
+    );
     setStateColorClass(liveOverall, "offline");
     setDotColorClass("offline");
   }
 
   function renderPrimaryMonitor(metrics) {
     if (!metrics) {
-      if (monitor1Name) monitor1Name.textContent = "Kein Monitor verfügbar";
+      if (monitor1Name) monitor1Name.textContent = t("landing.live.no_monitor", null, "No monitor available");
       if (monitor1Status) {
-        monitor1Status.textContent = "Keine Daten";
+        monitor1Status.textContent = t("common.no_data", null, "No data");
         setStateColorClass(monitor1Status, "unknown");
       }
-      if (monitor1Response) monitor1Response.textContent = "Response: --";
-      if (monitor1Uptime) monitor1Uptime.textContent = "--% Uptime";
+      if (monitor1Response) monitor1Response.textContent = t("landing.live.response_placeholder", null, "Response: --");
+      if (monitor1Uptime) monitor1Uptime.textContent = t("landing.live.uptime_placeholder", null, "--% Uptime");
       renderBars(null);
       return;
     }
@@ -176,7 +221,9 @@
     if (monitor1Name) monitor1Name.textContent = monitorDisplayName(metrics);
     if (monitor1Status) {
       const online = monitorStatusIsOnline(metrics);
-      monitor1Status.textContent = online ? "Online" : "Offline";
+      monitor1Status.textContent = online
+        ? t("app.state.online", null, "Online")
+        : t("app.state.offline", null, "Offline");
       setStateColorClass(monitor1Status, online ? "online" : "offline");
     }
     if (monitor1Response) monitor1Response.textContent = monitorResponseText(metrics);
@@ -195,7 +242,9 @@
     if (monitor2Name) monitor2Name.textContent = monitorDisplayName(metrics);
     if (monitor2Status) {
       const online = monitorStatusIsOnline(metrics);
-      monitor2Status.textContent = online ? "Online" : "Offline";
+      monitor2Status.textContent = online
+        ? t("app.state.online", null, "Online")
+        : t("app.state.offline", null, "Offline");
       setStateColorClass(monitor2Status, online ? "online" : "offline");
     }
     if (monitor2Response) monitor2Response.textContent = monitorResponseText(metrics);
@@ -225,7 +274,7 @@
 
     const first = String(errorCodes[0]?.code || "").trim();
     if (!first) return "";
-    return first === "NO_RESPONSE" ? "keine Antwort" : first;
+    return first === "NO_RESPONSE" ? t("app.errors.no_response_label", null, "no response") : first;
   }
 
   function renderLatestAlert(metricsList) {
@@ -246,8 +295,8 @@
     });
 
     if (!latest) {
-      alertTime.textContent = "gerade eben";
-      alertText.textContent = "Keine aktuellen Vorfälle gefunden.";
+      alertTime.textContent = t("landing.live.alert_now", null, "just now");
+      alertText.textContent = t("landing.live.alert.none_full", null, "No recent incidents found.");
       return;
     }
 
@@ -257,10 +306,14 @@
     const codeSuffix = codeLabel ? ` (${codeLabel})` : "";
     const ongoing = !!latest.incident?.ongoing;
 
-    alertTime.textContent = `vor ${formatRelative(age)}`;
+    alertTime.textContent = formatTimeAgo(age);
     alertText.textContent = ongoing
-      ? `${label} ist aktuell offline${codeSuffix}`
-      : `${label} hatte einen Ausfall${codeSuffix}`;
+      ? t(
+          "landing.live.alert.offline",
+          { label, code: codeSuffix },
+          `${label} is currently offline${codeSuffix}`
+        )
+      : t("landing.live.alert.outage", { label, code: codeSuffix }, `${label} had an outage${codeSuffix}`);
   }
 
   async function fetchJsonPayload(url) {
@@ -317,7 +370,9 @@
 
     if (!navPrimaryCta) return;
     navPrimaryCta.setAttribute("href", isAuthenticated ? "/app" : "/login");
-    navPrimaryCta.textContent = isAuthenticated ? "Zum Dashboard" : "Kostenlos starten";
+    navPrimaryCta.textContent = isAuthenticated
+      ? t("landing.nav.dashboard", null, "Go to dashboard")
+      : t("landing.nav.cta", null, "Start for free");
   }
 
   function uniqueMetrics(metricsList) {

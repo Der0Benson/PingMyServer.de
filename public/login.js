@@ -4,39 +4,42 @@ const modeButtons = document.querySelectorAll(".mode-btn");
 const socialButtons = document.querySelectorAll(".social-btn");
 const messageEl = document.getElementById("auth-message");
 
-const OAUTH_MESSAGE_MAP = {
-  discord_disabled: "Discord-Login ist aktuell deaktiviert.",
-  discord_denied: "Discord-Anmeldung wurde abgebrochen.",
-  discord_state: "Discord-Anmeldung ist abgelaufen. Bitte erneut versuchen.",
-  discord_code: "Discord-Anmeldung fehlgeschlagen (kein Code erhalten).",
-  discord_token: "Discord-Token konnte nicht abgerufen werden.",
-  discord_scope: "Discord hat den E-Mail-Scope nicht freigegeben. Bitte erneut autorisieren.",
-  discord_profile: "Discord-Profil konnte nicht gelesen werden.",
-  discord_email_missing: "Keine verifizierte E-Mail bei Discord gefunden.",
-  discord_conflict: "Diese E-Mail ist bereits mit einem anderen Discord-Konto verknüpft.",
-  discord_error: "Discord-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
-  github_disabled: "GitHub-Login ist aktuell deaktiviert.",
-  github_denied: "GitHub-Anmeldung wurde abgebrochen.",
-  github_state: "GitHub-Anmeldung ist abgelaufen. Bitte erneut versuchen.",
-  github_code: "GitHub-Anmeldung fehlgeschlagen (kein Code erhalten).",
-  github_token: "GitHub-Token konnte nicht abgerufen werden.",
-  github_scope: "GitHub hat den E-Mail-Scope nicht freigegeben. Bitte App-Berechtigung entfernen und erneut anmelden.",
-  github_email_permission:
-    "GitHub App braucht die Berechtigung 'Email addresses: Read-only'. Bitte in GitHub App setzen und neu autorisieren.",
-  github_profile: "GitHub-Profil konnte nicht gelesen werden.",
-  github_email_missing: "Keine verifizierte E-Mail bei GitHub gefunden.",
-  github_conflict: "Diese E-Mail ist bereits mit einem anderen GitHub-Konto verknüpft.",
-  github_error: "GitHub-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
-  google_disabled: "Google-Login ist aktuell deaktiviert.",
-  google_denied: "Google-Anmeldung wurde abgebrochen.",
-  google_state: "Google-Anmeldung ist abgelaufen. Bitte erneut versuchen.",
-  google_code: "Google-Anmeldung fehlgeschlagen (kein Code erhalten).",
-  google_token: "Google-Token konnte nicht abgerufen werden.",
-  google_scope: "Google hat den E-Mail-Scope nicht freigegeben. Bitte erneut autorisieren.",
-  google_profile: "Google-Profil konnte nicht gelesen werden.",
-  google_email_missing: "Keine verifizierte E-Mail bei Google gefunden.",
-  google_conflict: "Diese E-Mail ist bereits mit einem anderen Google-Konto verknüpft.",
-  google_error: "Google-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+
+const OAUTH_MESSAGE_KEYS = {
+  discord_disabled: "login.oauth.discord_disabled",
+  discord_denied: "login.oauth.discord_denied",
+  discord_state: "login.oauth.discord_state",
+  discord_code: "login.oauth.discord_code",
+  discord_token: "login.oauth.discord_token",
+  discord_scope: "login.oauth.discord_scope",
+  discord_profile: "login.oauth.discord_profile",
+  discord_email_missing: "login.oauth.discord_email_missing",
+  discord_conflict: "login.oauth.discord_conflict",
+  discord_error: "login.oauth.discord_error",
+  github_disabled: "login.oauth.github_disabled",
+  github_denied: "login.oauth.github_denied",
+  github_state: "login.oauth.github_state",
+  github_code: "login.oauth.github_code",
+  github_token: "login.oauth.github_token",
+  github_scope: "login.oauth.github_scope",
+  github_email_permission: "login.oauth.github_email_permission",
+  github_profile: "login.oauth.github_profile",
+  github_email_missing: "login.oauth.github_email_missing",
+  github_conflict: "login.oauth.github_conflict",
+  github_error: "login.oauth.github_error",
+  google_disabled: "login.oauth.google_disabled",
+  google_denied: "login.oauth.google_denied",
+  google_state: "login.oauth.google_state",
+  google_code: "login.oauth.google_code",
+  google_token: "login.oauth.google_token",
+  google_scope: "login.oauth.google_scope",
+  google_profile: "login.oauth.google_profile",
+  google_email_missing: "login.oauth.google_email_missing",
+  google_conflict: "login.oauth.google_conflict",
+  google_error: "login.oauth.google_error",
 };
 
 function setMessage(text, type = "") {
@@ -91,8 +94,8 @@ function readOauthMessageFromUrl() {
     .toLowerCase();
   if (!oauthCode) return;
 
-  const text = OAUTH_MESSAGE_MAP[oauthCode] || "OAuth-Anmeldung fehlgeschlagen.";
-  setMessage(text, "error");
+  const key = OAUTH_MESSAGE_KEYS[oauthCode] || "login.oauth.default";
+  setMessage(t(key, null, "OAuth sign-in failed."), "error");
 
   url.searchParams.delete("oauth");
   const nextSearch = url.searchParams.toString();
@@ -125,24 +128,55 @@ async function handleLoginSubmit(event) {
   const password = document.getElementById("login-password")?.value || "";
 
   if (!isValidEmail(email) || !isValidPassword(password)) {
-    setMessage("Bitte gib eine gültige E-Mail und ein Passwort mit 10-72 Zeichen ein.", "error");
+    setMessage(
+      t(
+        "login.msg.invalid_email_password",
+        { min: 10, max: 72 },
+        "Please enter a valid email and a password with 10-72 characters."
+      ),
+      "error"
+    );
     return;
   }
 
-  setMessage("Einloggen …");
+  setMessage(t("login.msg.signing_in", null, "Signing in..."));
 
   try {
     const { response, payload } = await postJson("/api/auth/login", { email, password });
     if (!response.ok || !payload?.ok) {
-      const errorText = payload?.error || "Login fehlgeschlagen";
-      setMessage(errorText, "error");
+      if (response.status === 429) {
+        const retryAfterRaw = response.headers.get("Retry-After");
+        const retryAfter = retryAfterRaw ? Number(retryAfterRaw) : null;
+
+        if (Number.isFinite(retryAfter) && retryAfter > 0) {
+          setMessage(
+            t(
+              "login.msg.too_many_attempts_retry",
+              { seconds: Math.ceil(retryAfter) },
+              `Too many attempts. Try again in ${Math.ceil(retryAfter)} seconds.`
+            ),
+            "error"
+          );
+          return;
+        }
+
+        setMessage(t("login.msg.too_many_attempts", null, "Too many attempts. Please try again later."), "error");
+        return;
+      }
+
+      const errorCode = String(payload?.error || "").trim().toLowerCase();
+      if (errorCode === "invalid credentials") {
+        setMessage(t("login.msg.invalid_credentials", null, "Invalid email or password."), "error");
+      } else {
+        setMessage(t("login.msg.login_failed", null, "Sign in failed."), "error");
+      }
       return;
     }
 
-    setMessage("Login erfolgreich. Weiterleitung …", "success");
+    setMessage(t("login.msg.login_success", null, "Signed in. Redirecting..."), "success");
     window.location.href = payload.next || "/app";
   } catch (error) {
-    setMessage("Verbindung fehlgeschlagen.", "error");
+    setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
 }
 
@@ -152,24 +186,30 @@ async function handleRegisterSubmit(event) {
   const password = document.getElementById("register-password")?.value || "";
 
   if (!isValidEmail(email) || !isValidPassword(password)) {
-    setMessage("Bitte gib eine gültige E-Mail und ein Passwort mit 10-72 Zeichen ein.", "error");
+    setMessage(
+      t(
+        "login.msg.invalid_email_password",
+        { min: 10, max: 72 },
+        "Please enter a valid email and a password with 10-72 characters."
+      ),
+      "error"
+    );
     return;
   }
 
-  setMessage("Registrierung …");
+  setMessage(t("login.msg.registering", null, "Creating account..."));
 
   try {
     const { response, payload } = await postJson("/api/auth/register", { email, password });
     if (!response.ok || !payload?.ok) {
-      const errorText = payload?.error || "Registrierung fehlgeschlagen";
-      setMessage(errorText, "error");
+      setMessage(t("login.msg.register_failed", null, "Registration failed."), "error");
       return;
     }
 
-    setMessage("Konto erstellt. Weiterleitung …", "success");
+    setMessage(t("login.msg.register_success", null, "Account created. Redirecting..."), "success");
     window.location.href = payload.next || "/app";
   } catch (error) {
-    setMessage("Verbindung fehlgeschlagen.", "error");
+    setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
 }
 
@@ -225,7 +265,14 @@ socialButtons.forEach((button) => {
       return;
     }
 
-    setMessage(`${providerLabel}-Login folgt als OAuth-Integration.`, "error");
+    setMessage(
+      t(
+        "login.msg.oauth_coming_soon",
+        { provider: providerLabel },
+        `${providerLabel} sign-in will be available once OAuth is enabled.`
+      ),
+      "error"
+    );
   });
 });
 

@@ -74,6 +74,14 @@ a {
   font-size: 0.85rem;
 }
 
+.legal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .legal-card {
   background: var(--panel);
   border: 1px solid var(--panel-border);

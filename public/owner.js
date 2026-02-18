@@ -12,10 +12,15 @@ const topErrorsList = document.getElementById("top-errors-list");
 const failingMonitorsList = document.getElementById("failing-monitors-list");
 const authSecurityList = document.getElementById("auth-security-list");
 
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+
 function formatNumber(value, digits = 2) {
   const number = Number(value);
-  if (!Number.isFinite(number)) return "n/a";
-  return number.toLocaleString("de-DE", {
+  if (!Number.isFinite(number)) return t("common.not_available", null, "n/a");
+  return number.toLocaleString(i18nLocale(), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
@@ -24,25 +29,31 @@ function formatNumber(value, digits = 2) {
 function formatInt(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return "0";
-  return Math.round(number).toLocaleString("de-DE");
+  return Math.round(number).toLocaleString(i18nLocale());
 }
 
 function formatPercent(value) {
   const number = Number(value);
-  if (!Number.isFinite(number)) return "n/a";
+  if (!Number.isFinite(number)) return t("common.not_available", null, "n/a");
   return `${formatNumber(number, 2)}%`;
 }
 
 function formatMs(value) {
   const number = Number(value);
-  if (!Number.isFinite(number)) return "n/a";
+  if (!Number.isFinite(number)) return t("common.not_available", null, "n/a");
   return `${formatNumber(number, 2)} ms`;
+}
+
+function formatSeconds(value) {
+  const seconds = Number(value);
+  const safe = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
+  return t("owner.value.seconds", { value: formatInt(safe) }, `${formatInt(safe)} s`);
 }
 
 function formatDateTime(timestamp) {
   const ts = Number(timestamp);
-  if (!Number.isFinite(ts) || ts <= 0) return "n/a";
-  return new Intl.DateTimeFormat("de-DE", {
+  if (!Number.isFinite(ts) || ts <= 0) return t("common.not_available", null, "n/a");
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -99,7 +110,7 @@ async function ensureAuthenticated() {
     return false;
   }
   if (currentUserEmail) {
-    currentUserEmail.textContent = payload.user.email || "eingeloggt";
+    currentUserEmail.textContent = payload.user.email || t("common.signed_in", null, "signed in");
   }
   return true;
 }
@@ -115,50 +126,103 @@ function renderOverview(data) {
   const recentChecks = data?.recentChecks || {};
 
   if (ownerUserBadge) {
-    ownerUserBadge.textContent = `Owner #${formatInt(data?.ownerUserId)}`;
+    ownerUserBadge.textContent = t(
+      "owner.badge_id",
+      { id: formatInt(data?.ownerUserId) },
+      `Owner #${formatInt(data?.ownerUserId)}`
+    );
   }
 
   renderStats(processStatsEl, [
-    { label: "CPU Ø", value: processData.cpuPercentAvg !== null ? formatPercent(processData.cpuPercentAvg) : "n/a" },
-    { label: "CPU p95", value: processData.cpuPercentP95 !== null ? formatPercent(processData.cpuPercentP95) : "n/a" },
     {
-      label: "Event Loop p95",
-      value: processData.eventLoopLagMsP95 !== null ? formatMs(processData.eventLoopLagMsP95) : "n/a",
+      label: t("owner.stats.cpu_avg", null, "CPU avg"),
+      value: processData.cpuPercentAvg !== null ? formatPercent(processData.cpuPercentAvg) : t("common.not_available", null, "n/a"),
     },
-    { label: "RSS", value: processData.rssMb !== null ? `${formatNumber(processData.rssMb, 2)} MB` : "n/a" },
-    { label: "Heap genutzt", value: processData.heapUsedMb !== null ? `${formatNumber(processData.heapUsedMb, 2)} MB` : "n/a" },
-    { label: "Uptime", value: `${formatInt(processData.uptimeSeconds || 0)} Sek.` },
+    {
+      label: t("owner.stats.cpu_p95", null, "CPU p95"),
+      value: processData.cpuPercentP95 !== null ? formatPercent(processData.cpuPercentP95) : t("common.not_available", null, "n/a"),
+    },
+    {
+      label: t("owner.stats.event_loop_p95", null, "Event loop p95"),
+      value: processData.eventLoopLagMsP95 !== null ? formatMs(processData.eventLoopLagMsP95) : t("common.not_available", null, "n/a"),
+    },
+    {
+      label: t("owner.stats.rss", null, "RSS"),
+      value: processData.rssMb !== null ? `${formatNumber(processData.rssMb, 2)} MB` : t("common.not_available", null, "n/a"),
+    },
+    {
+      label: t("owner.stats.heap_used", null, "Heap used"),
+      value: processData.heapUsedMb !== null ? `${formatNumber(processData.heapUsedMb, 2)} MB` : t("common.not_available", null, "n/a"),
+    },
+    { label: t("owner.stats.uptime", null, "Uptime"), value: formatSeconds(processData.uptimeSeconds || 0) },
   ]);
 
   renderStats(checksStatsEl, [
-    { label: "Monitore (aktiv)", value: `${formatInt(monitorSummary.active || 0)} / ${formatInt(monitorSummary.total || 0)}` },
-    { label: "Checks 10 Min.", value: formatInt(recentChecks.checks10m || 0) },
-    { label: "Fehlerrate 10 Min.", value: formatPercent(recentChecks.failureRate10mPercent || 0) },
-    { label: "Check p95 Dauer", value: checksData.p95DurationMs !== null ? formatMs(checksData.p95DurationMs) : "n/a" },
-    { label: "In Flight", value: `${formatInt(checksData.inFlight || 0)} (max ${formatInt(checksData.maxInFlight || 0)})` },
-    { label: "Scheduler Drift p95", value: schedulerData.driftMsP95 !== null ? formatMs(schedulerData.driftMsP95) : "n/a" },
+    {
+      label: t("owner.stats.monitors_active", null, "Monitors (active)"),
+      value: `${formatInt(monitorSummary.active || 0)} / ${formatInt(monitorSummary.total || 0)}`,
+    },
+    { label: t("owner.stats.checks_10m", null, "Checks (10m)"), value: formatInt(recentChecks.checks10m || 0) },
+    {
+      label: t("owner.stats.failure_rate_10m", null, "Failure rate (10m)"),
+      value: formatPercent(recentChecks.failureRate10mPercent || 0),
+    },
+    {
+      label: t("owner.stats.check_p95_duration", null, "Check p95 duration"),
+      value: checksData.p95DurationMs !== null ? formatMs(checksData.p95DurationMs) : t("common.not_available", null, "n/a"),
+    },
+    {
+      label: t("owner.stats.in_flight", null, "In flight"),
+      value: t(
+        "owner.value.in_flight",
+        { current: formatInt(checksData.inFlight || 0), max: formatInt(checksData.maxInFlight || 0) },
+        `${formatInt(checksData.inFlight || 0)} (max ${formatInt(checksData.maxInFlight || 0)})`
+      ),
+    },
+    {
+      label: t("owner.stats.scheduler_drift_p95", null, "Scheduler drift p95"),
+      value: schedulerData.driftMsP95 !== null ? formatMs(schedulerData.driftMsP95) : t("common.not_available", null, "n/a"),
+    },
   ]);
 
   renderStats(dbStatsEl, [
-    { label: "Queries gesamt", value: formatInt(dbData.queryCount || 0) },
-    { label: "Slow Queries", value: formatInt(dbData.slowQueryCount || 0) },
-    { label: "DB Query p95", value: dbData.p95QueryMs !== null ? formatMs(dbData.p95QueryMs) : "n/a" },
-    { label: "DB Ops aktiv", value: formatInt(dbData.activeOperations || 0) },
-    { label: "Acquire Wait p95", value: dbData.p95AcquireWaitMs !== null ? formatMs(dbData.p95AcquireWaitMs) : "n/a" },
-    { label: "Pool busy", value: dbPoolData.busy === null ? "n/a" : formatInt(dbPoolData.busy) },
-    { label: "Pool free", value: dbPoolData.free === null ? "n/a" : formatInt(dbPoolData.free) },
-    { label: "Pool queue", value: dbPoolData.queue === null ? "n/a" : formatInt(dbPoolData.queue) },
-    { label: "Pool max busy", value: dbPoolData.maxBusy === null ? "n/a" : formatInt(dbPoolData.maxBusy) },
+    { label: t("owner.stats.queries_total", null, "Total queries"), value: formatInt(dbData.queryCount || 0) },
+    { label: t("owner.stats.slow_queries", null, "Slow queries"), value: formatInt(dbData.slowQueryCount || 0) },
+    {
+      label: t("owner.stats.db_query_p95", null, "DB query p95"),
+      value: dbData.p95QueryMs !== null ? formatMs(dbData.p95QueryMs) : t("common.not_available", null, "n/a"),
+    },
+    { label: t("owner.stats.db_ops_active", null, "Active DB ops"), value: formatInt(dbData.activeOperations || 0) },
+    {
+      label: t("owner.stats.acquire_wait_p95", null, "Acquire wait p95"),
+      value: dbData.p95AcquireWaitMs !== null ? formatMs(dbData.p95AcquireWaitMs) : t("common.not_available", null, "n/a"),
+    },
+    {
+      label: t("owner.stats.pool_busy", null, "Pool busy"),
+      value: dbPoolData.busy === null ? t("common.not_available", null, "n/a") : formatInt(dbPoolData.busy),
+    },
+    {
+      label: t("owner.stats.pool_free", null, "Pool free"),
+      value: dbPoolData.free === null ? t("common.not_available", null, "n/a") : formatInt(dbPoolData.free),
+    },
+    {
+      label: t("owner.stats.pool_queue", null, "Pool queue"),
+      value: dbPoolData.queue === null ? t("common.not_available", null, "n/a") : formatInt(dbPoolData.queue),
+    },
+    {
+      label: t("owner.stats.pool_max_busy", null, "Pool max busy"),
+      value: dbPoolData.maxBusy === null ? t("common.not_available", null, "n/a") : formatInt(dbPoolData.maxBusy),
+    },
   ]);
 }
 
-function appendListItems(listEl, items, formatter) {
+function appendListItems(listEl, items, formatter = (value) => String(value)) {
   if (!listEl) return;
   listEl.textContent = "";
   if (!Array.isArray(items) || !items.length) {
     const empty = document.createElement("li");
     empty.className = "muted";
-    empty.textContent = "Keine Daten verfügbar.";
+    empty.textContent = t("common.no_data_available", null, "No data available.");
     listEl.appendChild(empty);
     return;
   }
@@ -167,6 +231,14 @@ function appendListItems(listEl, items, formatter) {
     row.textContent = formatter(item);
     listEl.appendChild(row);
   }
+}
+
+function monitorStatusText(monitor) {
+  if (monitor?.paused) return t("owner.status.paused", null, "paused");
+  const status = String(monitor?.lastStatus || "").trim().toLowerCase();
+  if (status === "online") return t("app.state.online", null, "Online");
+  if (status === "offline") return t("app.state.offline", null, "Offline");
+  return t("common.unknown", null, "unknown");
 }
 
 function renderMonitorCosts(items) {
@@ -178,7 +250,7 @@ function renderMonitorCosts(items) {
     const cell = document.createElement("td");
     cell.colSpan = 8;
     cell.className = "muted";
-    cell.textContent = "Keine Monitor-Daten verfügbar.";
+    cell.textContent = t("owner.table.no_monitor_data", null, "No monitor data available.");
     row.appendChild(cell);
     monitorCostsBody.appendChild(row);
     return;
@@ -203,7 +275,7 @@ function renderMonitorCosts(items) {
     const status = document.createElement("span");
     const statusClass = monitor.paused ? "paused" : monitor.lastStatus === "online" ? "online" : "offline";
     status.className = `status-pill ${statusClass}`;
-    status.textContent = monitor.paused ? "pausiert" : monitor.lastStatus || "unbekannt";
+    status.textContent = monitorStatusText(monitor);
     statusCell.appendChild(status);
 
     const checksCell = document.createElement("td");
@@ -235,48 +307,88 @@ function renderMonitorCosts(items) {
 
 function renderSecurity(data) {
   const runtimeLines = [
-    `Invalid-Origin blockiert: ${formatInt(data?.runtimeSecurity?.invalidOriginBlocked || 0)}`,
-    `Rate-Limit geblockt: ${formatInt(data?.runtimeSecurity?.authRateLimited || 0)}`,
-    `OAuth-State abgewiesen: ${formatInt(data?.runtimeSecurity?.oauthStateRejected || 0)}`,
-    `Target-Blockierungen: ${formatInt(data?.runtimeSecurity?.monitorTargetBlocked || 0)}`,
+    t(
+      "owner.security.invalid_origin_blocked",
+      { value: formatInt(data?.runtimeSecurity?.invalidOriginBlocked || 0) },
+      `Invalid origin blocked: ${formatInt(data?.runtimeSecurity?.invalidOriginBlocked || 0)}`
+    ),
+    t(
+      "owner.security.rate_limited_blocked",
+      { value: formatInt(data?.runtimeSecurity?.authRateLimited || 0) },
+      `Rate limited: ${formatInt(data?.runtimeSecurity?.authRateLimited || 0)}`
+    ),
+    t(
+      "owner.security.oauth_state_rejected",
+      { value: formatInt(data?.runtimeSecurity?.oauthStateRejected || 0) },
+      `OAuth state rejected: ${formatInt(data?.runtimeSecurity?.oauthStateRejected || 0)}`
+    ),
+    t(
+      "owner.security.target_blocked",
+      { value: formatInt(data?.runtimeSecurity?.monitorTargetBlocked || 0) },
+      `Target blocks: ${formatInt(data?.runtimeSecurity?.monitorTargetBlocked || 0)}`
+    ),
   ];
+
   const blockReasonItems = Array.isArray(data?.runtimeSecurity?.monitorTargetBlockReasons)
     ? data.runtimeSecurity.monitorTargetBlockReasons
     : [];
   for (const reason of blockReasonItems) {
-    runtimeLines.push(`Blockgrund ${reason.key}: ${formatInt(reason.count)}`);
+    runtimeLines.push(
+      t(
+        "owner.security.block_reason",
+        { key: reason.key, value: formatInt(reason.count) },
+        `Block reason ${reason.key}: ${formatInt(reason.count)}`
+      )
+    );
   }
   appendListItems(runtimeSecurityList, runtimeLines);
 
-  appendListItems(
-    topErrorsList,
-    data?.topErrors || [],
-    (item) => `${item.message || "unbekannt"} (${formatInt(item.hits || 0)})`
-  );
+  appendListItems(topErrorsList, data?.topErrors || [], (item) => {
+    const message = String(item?.message || "").trim() || t("common.unknown", null, "unknown");
+    return `${message} (${formatInt(item?.hits || 0)})`;
+  });
 
-  appendListItems(
-    failingMonitorsList,
-    data?.failingMonitors || [],
-    (item) =>
+  appendListItems(failingMonitorsList, data?.failingMonitors || [], (item) =>
+    t(
+      "owner.security.failing_monitor_line",
+      {
+        name: item.name || item.publicId || item.monitorId,
+        user: formatInt(item.userId),
+        rate: formatPercent(item.failureRatePercent || 0),
+        failed: formatInt(item.failedChecks || 0),
+        total: formatInt(item.totalChecks || 0),
+      },
       `${item.name || item.publicId || item.monitorId} · User ${formatInt(item.userId)} · ${formatPercent(
         item.failureRatePercent || 0
       )} (${formatInt(item.failedChecks || 0)}/${formatInt(item.totalChecks || 0)})`
+    )
   );
 
   appendListItems(authSecurityList, [
-    `Aktive Lockouts: ${formatInt(data?.auth?.lockedAccounts || 0)}`,
-    `Auth-Fehler (24h): ${formatInt(data?.auth?.recentAuthFailures24h || 0)}`,
-    `Verfolgte Failure-Records: ${formatInt(data?.auth?.trackedAuthFailures || 0)}`,
+    t(
+      "owner.security.auth_lockouts",
+      { value: formatInt(data?.auth?.lockedAccounts || 0) },
+      `Active lockouts: ${formatInt(data?.auth?.lockedAccounts || 0)}`
+    ),
+    t(
+      "owner.security.auth_failures_24h",
+      { value: formatInt(data?.auth?.recentAuthFailures24h || 0) },
+      `Auth failures (24h): ${formatInt(data?.auth?.recentAuthFailures24h || 0)}`
+    ),
+    t(
+      "owner.security.auth_tracked_failures",
+      { value: formatInt(data?.auth?.trackedAuthFailures || 0) },
+      `Tracked failure records: ${formatInt(data?.auth?.trackedAuthFailures || 0)}`
+    ),
   ]);
 }
 
 async function loadDashboard() {
-  const [{ response: overviewResponse, payload: overviewPayload }, { response: monitorsResponse, payload: monitorsPayload }, { response: securityResponse, payload: securityPayload }] =
-    await Promise.all([
-      fetchJson("/api/owner/overview"),
-      fetchJson("/api/owner/monitors"),
-      fetchJson("/api/owner/security"),
-    ]);
+  const [
+    { response: overviewResponse, payload: overviewPayload },
+    { response: monitorsResponse, payload: monitorsPayload },
+    { response: securityResponse, payload: securityPayload },
+  ] = await Promise.all([fetchJson("/api/owner/overview"), fetchJson("/api/owner/monitors"), fetchJson("/api/owner/security")]);
 
   if (overviewResponse.status === 401 || monitorsResponse.status === 401 || securityResponse.status === 401) {
     window.location.href = "/login";
@@ -337,3 +449,4 @@ async function init() {
 }
 
 init();
+

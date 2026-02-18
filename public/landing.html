@@ -3,20 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PingMyServer - Uptime Monitoring für Websites, APIs und Services</title>
-    <meta name="description" content="PingMyServer überwacht Websites, APIs und Services rund um die Uhr. Erhalte Ausfall-Alerts per Discord, E-Mail und Webhook in Sekunden." />
+    <title data-i18n="meta.landing.title">PingMyServer - Uptime Monitoring für Websites, APIs und Services</title>
+    <meta
+      name="description"
+      data-i18n-content="meta.landing.description"
+      content="PingMyServer überwacht Websites, APIs und Services rund um die Uhr. Erhalte Ausfall-Alerts per Discord, E-Mail und Webhook in Sekunden."
+    />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://pingmyserver.de/" />
     <meta property="og:locale" content="de_DE" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PingMyServer.de" />
-    <meta property="og:title" content="PingMyServer - Uptime Monitoring für Websites, APIs und Services" />
-    <meta property="og:description" content="Uptime-Monitoring für Websites, APIs und Services mit schnellen Alerts und öffentlicher Statusseite." />
+    <meta property="og:title" data-i18n-content="meta.landing.og_title" content="PingMyServer - Uptime Monitoring für Websites, APIs und Services" />
+    <meta
+      property="og:description"
+      data-i18n-content="meta.landing.og_description"
+      content="Uptime-Monitoring für Websites, APIs und Services mit schnellen Alerts und öffentlicher Statusseite."
+    />
     <meta property="og:url" content="https://pingmyserver.de/" />
     <meta property="og:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="PingMyServer - Uptime Monitoring" />
-    <meta name="twitter:description" content="Überwache Websites und APIs 24/7 und erhalte Alerts in Sekunden." />
+    <meta name="twitter:title" data-i18n-content="meta.landing.twitter_title" content="PingMyServer - Uptime Monitoring" />
+    <meta
+      name="twitter:description"
+      data-i18n-content="meta.landing.twitter_description"
+      content="Überwache Websites und APIs 24/7 und erhalte Alerts in Sekunden."
+    />
     <meta name="twitter:image" content="https://pingmyserver.de/assets/pingmyserverlogo.png" />
     <meta name="theme-color" content="#070d1a" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
@@ -24,6 +36,7 @@
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="stylesheet" href="/assets/landing-tailwind.css" />
     <link rel="stylesheet" href="/assets/landing.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
 </head>
 <body class="gradient-bg text-white">
     
@@ -36,21 +49,47 @@
                     <span class="landing-brand-name">PingMyServer.de</span>
                 </a>
                 <div class="hidden md:flex space-x-8">
-                    <a href="#features" class="hover:text-cyan-400 transition">Features</a>
-                    <a href="#preise" class="hover:text-cyan-400 transition">Preise</a>
-                    <a href="#faq" class="hover:text-cyan-400 transition">FAQ</a>
-                    <a href="/status" class="hover:text-cyan-400 transition">Statusseite</a>
+                    <a href="#features" class="hover:text-cyan-400 transition" data-i18n="landing.nav.features">Features</a>
+                    <a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
+                    <a href="#faq" class="hover:text-cyan-400 transition" data-i18n="landing.nav.faq">FAQ</a>
+                    <a href="/status" class="hover:text-cyan-400 transition" data-i18n="landing.nav.status">Statusseite</a>
                 </div>
-                <div class="flex space-x-4">
+                <div class="flex space-x-4 items-center">
+                    <div class="lang-picker">
+                        <span class="sr-only" data-i18n="common.language">Sprache</span>
+                        <details class="lang-menu">
+                            <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                                <img
+                                    class="lang-flag-img"
+                                    data-lang-block="en"
+                                    src="/assets/flags/gb.svg"
+                                    alt=""
+                                    aria-hidden="true"
+                                    hidden
+                                />
+                            </summary>
+                            <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                                    <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                                </button>
+                                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                                    <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                                </button>
+                            </div>
+                        </details>
+                    </div>
                     <a
                         id="landing-nav-login"
                         href="/login"
                         class="text-sm hover:text-cyan-400 transition inline-flex items-center"
+                        data-i18n="landing.nav.login"
                     >Anmelden</a>
                     <a
                         id="landing-nav-primary-cta"
                         href="/login"
                         class="bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center"
+                        data-i18n="landing.nav.cta"
                     >
                         Kostenlos starten
                     </a>
@@ -64,14 +103,18 @@
         <div class="max-w-7xl mx-auto">
             <div class="grid lg:grid-cols-2 gap-12 items-center">
                 <div>
-                    <div class="inline-block mb-4 px-4 py-2 glass-effect rounded-full text-cyan-400 text-sm font-semibold">
+                    <div
+                        class="inline-block mb-4 px-4 py-2 glass-effect rounded-full text-cyan-400 text-sm font-semibold"
+                        data-i18n="landing.hero.badge"
+                    >
                         Jetzt im Early Access
                     </div>
                     <h1 class="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-                        Ausfälle früh erkennen,<br/>
-                        <span class="text-cyan-400">bevor Nutzer</span> sie melden
+                        <span data-i18n="landing.hero.h1.line1">Ausfälle früh erkennen,</span><br/>
+                        <span class="text-cyan-400" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
+                        <span data-i18n="landing.hero.h1.line2">sie melden</span>
                     </h1>
-                    <p class="text-xl text-slate-300 mb-8">
+                    <p class="text-xl text-slate-300 mb-8" data-i18n="landing.hero.lead">
                         PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr. 
                         Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.
                     </p>
@@ -82,32 +125,32 @@
                             <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span class="text-slate-200">Setup in unter 60 Sekunden</span>
+                            <span class="text-slate-200" data-i18n="landing.hero.benefit.setup">Setup in unter 60 Sekunden</span>
                         </div>
                         <div class="flex items-center space-x-3">
                             <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span class="text-slate-200">Keine Kreditkarte erforderlich</span>
+                            <span class="text-slate-200" data-i18n="landing.hero.benefit.no_cc">Keine Kreditkarte erforderlich</span>
                         </div>
                         <div class="flex items-center space-x-3">
                             <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span class="text-slate-200">Öffentliche Statusseite inklusive</span>
+                            <span class="text-slate-200" data-i18n="landing.hero.benefit.public_status">Öffentliche Statusseite inklusive</span>
                         </div>
                     </div>
 
                     <div class="flex flex-col sm:flex-row gap-4">
                         <a href="/login" class="bg-cyan-400 text-slate-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                            Early Access starten ->
+                            <span data-i18n="landing.hero.cta_primary">Early Access starten -></span>
                         </a>
                         <a href="/status" class="glass-effect px-8 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
-                            Live-Demo ansehen
+                            <span data-i18n="landing.hero.cta_secondary">Live-Demo ansehen</span>
                         </a>
                     </div>
 
-                    <p class="text-sm text-slate-400 mt-4">
+                    <p class="text-sm text-slate-400 mt-4" data-i18n="landing.hero.note">
                         Komplett kostenlos während Early Access • Made in Germany
                     </p>
                 </div>
@@ -118,21 +161,29 @@
                         <div class="flex items-center justify-between mb-6">
                             <div class="flex items-center space-x-3">
                                 <div id="landing-live-dot" class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                                <span class="font-semibold">Live Status</span>
+                                <span class="font-semibold" data-i18n="landing.live.title">Live Status</span>
                             </div>
-                            <span id="landing-live-overall" class="text-green-400 text-sm font-semibold">Lade Monitor-Daten ...</span>
+                            <span
+                                id="landing-live-overall"
+                                class="text-green-400 text-sm font-semibold"
+                                data-i18n="landing.live.overall_loading"
+                            >Lade Monitor-Daten ...</span>
                         </div>
                         
                         <div class="space-y-4">
                             <div class="glass-effect rounded-lg p-4">
                                 <div class="flex items-center justify-between mb-2">
-                                    <span id="landing-monitor-1-name" class="font-medium">Monitor wird geladen ...</span>
-                                    <span id="landing-monitor-1-status" class="text-slate-400 text-sm">Prüfung ...</span>
+                                    <span id="landing-monitor-1-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
+                                    <span
+                                        id="landing-monitor-1-status"
+                                        class="text-slate-400 text-sm"
+                                        data-i18n="landing.live.checking"
+                                    >Prüfung ...</span>
                                 </div>
                                 <div class="flex items-center space-x-2 text-sm text-slate-400">
-                                    <span id="landing-monitor-1-response">Response: --</span>
+                                    <span id="landing-monitor-1-response" data-i18n="landing.live.response_placeholder">Response: --</span>
                                     <span>•</span>
-                                    <span id="landing-monitor-1-uptime">--% Uptime</span>
+                                    <span id="landing-monitor-1-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
                                 </div>
                                 <div id="landing-monitor-1-bars" class="mt-3 flex space-x-1">
                                     <div class="h-8 w-1 bg-slate-700 rounded"></div>
@@ -148,22 +199,26 @@
 
                             <div id="landing-monitor-2-card" class="glass-effect rounded-lg p-4 hidden">
                                 <div class="flex items-center justify-between mb-2">
-                                    <span id="landing-monitor-2-name" class="font-medium">Monitor wird geladen ...</span>
-                                    <span id="landing-monitor-2-status" class="text-slate-400 text-sm">Prüfung ...</span>
+                                    <span id="landing-monitor-2-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
+                                    <span
+                                        id="landing-monitor-2-status"
+                                        class="text-slate-400 text-sm"
+                                        data-i18n="landing.live.checking"
+                                    >Prüfung ...</span>
                                 </div>
                                 <div class="flex items-center space-x-2 text-sm text-slate-400">
-                                    <span id="landing-monitor-2-response">Response: --</span>
+                                    <span id="landing-monitor-2-response" data-i18n="landing.live.response_placeholder">Response: --</span>
                                     <span>•</span>
-                                    <span id="landing-monitor-2-uptime">--% Uptime</span>
+                                    <span id="landing-monitor-2-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
                                 </div>
                             </div>
 
                             <div class="glass-effect rounded-lg p-4 border-l-4 border-cyan-400">
                                 <div class="flex items-center justify-between mb-2">
-                                    <span class="font-medium">Recent Alert</span>
-                                    <span id="landing-alert-time" class="text-cyan-400 text-sm">gerade eben</span>
+                                    <span class="font-medium" data-i18n="landing.live.alert_title">Recent Alert</span>
+                                    <span id="landing-alert-time" class="text-cyan-400 text-sm" data-i18n="landing.live.alert_now">gerade eben</span>
                                 </div>
-                                <p id="landing-alert-text" class="text-sm text-slate-300">Noch keine Vorfälle gefunden.</p>
+                                <p id="landing-alert-text" class="text-sm text-slate-300" data-i18n="landing.live.alert_none">Noch keine Vorfälle gefunden.</p>
                             </div>
                         </div>
                     </div>
@@ -176,25 +231,25 @@
     <section class="py-16 px-4 sm:px-6 lg:px-8 border-y border-slate-700">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-8">
-                <h3 class="text-2xl font-bold mb-2">Built by developers, for developers</h3>
-                <p class="text-slate-400">Ein Azubi-Projekt mit professionellem Anspruch</p>
+                <h3 class="text-2xl font-bold mb-2" data-i18n="landing.social.h3">Built by developers, for developers</h3>
+                <p class="text-slate-400" data-i18n="landing.social.sub">Ein Azubi-Projekt mit professionellem Anspruch</p>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                 <div>
                     <div class="stat-number">24/7</div>
-                    <p class="text-slate-400 mt-2">Monitoring</p>
+                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.monitoring">Monitoring</p>
                 </div>
                 <div>
                     <div class="stat-number">&lt;60s</div>
-                    <p class="text-slate-400 mt-2">Check-Intervall</p>
+                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.interval">Check-Intervall</p>
                 </div>
                 <div>
                     <div class="stat-number">99.9%</div>
-                    <p class="text-slate-400 mt-2">Ziel-Uptime</p>
+                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.uptime">Ziel-Uptime</p>
                 </div>
                 <div>
                     <div class="stat-number">DE</div>
-                    <p class="text-slate-400 mt-2">Made in Germany</p>
+                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.made_in">Made in Germany</p>
                 </div>
             </div>
         </div>
@@ -204,8 +259,8 @@
     <section id="features" class="py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4">Alles, was du für professionelles Monitoring brauchst</h2>
-                <p class="text-xl text-slate-300 max-w-3xl mx-auto">
+                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Alles, was du für professionelles Monitoring brauchst</h2>
+                <p class="text-xl text-slate-300 max-w-3xl mx-auto" data-i18n="landing.features.lead">
                     Von einfachen HTTP-Checks bis zu komplexen API-Überwachungen – 
                     PingMyServer bietet alle Tools für zuverlässiges Uptime-Monitoring
                 </p>
@@ -219,8 +274,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">Blitzschnelle Checks</h3>
-                    <p class="text-slate-300">
+                    <h3 class="text-xl font-bold mb-3" data-i18n="landing.features.cards.fast_checks.title">Blitzschnelle Checks</h3>
+                    <p class="text-slate-300" data-i18n="landing.features.cards.fast_checks.body">
                         Überwache deine Endpoints alle 60 Sekunden. Erhalte Alerts innerhalb von Sekunden nach einem Ausfall – bevor deine Kunden es merken.
                     </p>
                 </div>
@@ -232,8 +287,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">Detaillierte Incident-Historie</h3>
-                    <p class="text-slate-300">
+                    <h3 class="text-xl font-bold mb-3" data-i18n="landing.features.cards.incident_history.title">Detaillierte Incident-Historie</h3>
+                    <p class="text-slate-300" data-i18n="landing.features.cards.incident_history.body">
                         Vollständige Aufzeichnung aller Vorfälle mit Dauer, Fehlerquote und Verlauf. Perfekt für Postmortems und Reporting.
                     </p>
                 </div>
@@ -245,8 +300,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">Multi-Channel Alerts</h3>
-                    <p class="text-slate-300">
+                    <h3 class="text-xl font-bold mb-3" data-i18n="landing.features.cards.alerts.title">Multi-Channel Alerts</h3>
+                    <p class="text-slate-300" data-i18n="landing.features.cards.alerts.body">
                         Discord, Slack, E-Mail, Webhooks, Telegram – wähle deinen bevorzugten Kanal. Oder nutze alle gleichzeitig.
                     </p>
                 </div>
@@ -258,8 +313,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">SSL-Zertifikat Monitoring</h3>
-                    <p class="text-slate-300">
+                    <h3 class="text-xl font-bold mb-3" data-i18n="landing.features.cards.ssl.title">SSL-Zertifikat Monitoring</h3>
+                    <p class="text-slate-300" data-i18n="landing.features.cards.ssl.body">
                         Automatische Überwachung deiner SSL-Zertifikate. Werde rechtzeitig benachrichtigt, bevor ein Zertifikat abläuft.
                     </p>
                 </div>
@@ -271,8 +326,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">Globale Monitoring-Standorte</h3>
-                    <p class="text-slate-300">
+                    <h3 class="text-xl font-bold mb-3" data-i18n="landing.features.cards.locations.title">Globale Monitoring-Standorte</h3>
+                    <p class="text-slate-300" data-i18n="landing.features.cards.locations.body">
                         Überwache deine Services von mehreren Standorten weltweit. Erkenne regionale Ausfälle sofort.
                     </p>
                 </div>
@@ -284,8 +339,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">Öffentliche Statusseite</h3>
-                    <p class="text-slate-300">
+                    <h3 class="text-xl font-bold mb-3" data-i18n="landing.features.cards.public_status.title">Öffentliche Statusseite</h3>
+                    <p class="text-slate-300" data-i18n="landing.features.cards.public_status.body">
                         Branded Statusseite für deine Kunden. Zeige Transparenz mit Echtzeit-Status und Incident-Updates.
                     </p>
                 </div>
@@ -297,8 +352,8 @@
     <section id="about" class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4">Warum wir PingMyServer gebaut haben</h2>
-                <p class="text-xl text-slate-300">Ein Student-Projekt mit echter Mission</p>
+                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.about.h2">Warum wir PingMyServer gebaut haben</h2>
+                <p class="text-xl text-slate-300" data-i18n="landing.about.sub">Ein Student-Projekt mit echter Mission</p>
             </div>
 
             <div class="max-w-4xl mx-auto">
@@ -309,23 +364,23 @@
                         </div>
                         <div>
                             <p class="font-semibold text-lg">Ben Luca Pritzsche</p>
-                            <p class="text-slate-400">Gründer & Developer</p>
+                            <p class="text-slate-400" data-i18n="landing.about.founder_title">Gründer & Developer</p>
                         </div>
                     </div>
                     
                     <div class="space-y-4 text-slate-300 text-lg leading-relaxed">
-                        <p>
+                        <p data-i18n="landing.about.story.p1">
                             Nach dem Gymnasium bin ich jetzt in der Ausbildung und habe nebenbei angefangen, 
                             eigene Web-Projekte zu bauen. Das Problem: Meine Seiten sind öfter mal ausgefallen, 
                             ohne dass ich es mitbekommen habe. Erst wenn sich Nutzer gemeldet haben, wusste ich Bescheid – 
                             und das war mir echt peinlich.
                         </p>
-                        <p>
+                        <p data-i18n="landing.about.story.p2">
                             Die bestehenden Monitoring-Tools waren entweder zu teuer für mein Azubi-Budget oder 
                             viel zu kompliziert für meine Bedürfnisse. Also habe ich PingMyServer gebaut: 
                             Ein simples, zuverlässiges Tool, das genau das macht, was es soll – ohne Schnickschnack.
                         </p>
-                        <p class="text-cyan-400 font-semibold">
+                        <p class="text-cyan-400 font-semibold" data-i18n="landing.about.story.p3">
                             Jetzt will ich es mit anderen Azubis, Studenten und Developern teilen. 
                             Feedback und Verbesserungsvorschläge sind herzlich willkommen!
                         </p>
@@ -333,25 +388,25 @@
 
                     <div class="mt-8 pt-8 border-t border-slate-700 grid md:grid-cols-3 gap-6">
                         <div>
-                            <p class="text-cyan-400 font-semibold mb-2">Open Development</p>
-                            <p class="text-sm text-slate-400">Wir entwickeln transparent und hören auf unser Community-Feedback</p>
+                            <p class="text-cyan-400 font-semibold mb-2" data-i18n="landing.about.values.open.title">Open Development</p>
+                            <p class="text-sm text-slate-400" data-i18n="landing.about.values.open.body">Wir entwickeln transparent und hören auf unser Community-Feedback</p>
                         </div>
                         <div>
-                            <p class="text-cyan-400 font-semibold mb-2">Made with Herz</p>
-                            <p class="text-sm text-slate-400">Gebaut mit moderner Technologie und Leidenschaft fürs Detail</p>
+                            <p class="text-cyan-400 font-semibold mb-2" data-i18n="landing.about.values.heart.title">Made with Herz</p>
+                            <p class="text-sm text-slate-400" data-i18n="landing.about.values.heart.body">Gebaut mit moderner Technologie und Leidenschaft fürs Detail</p>
                         </div>
                         <div>
-                            <p class="text-cyan-400 font-semibold mb-2">Join Early</p>
-                            <p class="text-sm text-slate-400">Sei dabei von Anfang an und forme die Zukunft des Tools mit</p>
+                            <p class="text-cyan-400 font-semibold mb-2" data-i18n="landing.about.values.join.title">Join Early</p>
+                            <p class="text-sm text-slate-400" data-i18n="landing.about.values.join.body">Sei dabei von Anfang an und forme die Zukunft des Tools mit</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="text-center mt-12">
-                <p class="text-slate-400 mb-4">Du hast Fragen oder Feedback?</p>
+                <p class="text-slate-400 mb-4" data-i18n="landing.about.contact_prompt">Du hast Fragen oder Feedback?</p>
                 <a href="mailto:pritzsche.ben.luca@gmail.com" class="glass-effect px-6 py-3 rounded-lg font-semibold hover:bg-slate-700 transition inline-flex items-center justify-center">
-                    Kontakt per E-Mail ->
+                    <span data-i18n="landing.about.contact_cta">Kontakt per E-Mail -></span>
                 </a>
             </div>
         </div>
@@ -361,8 +416,8 @@
     <section id="preise" class="py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4">Preise</h2>
-                <p class="text-xl text-slate-300">Beta ist komplett kostenlos. Starter und Pro / Team kommen bald.</p>
+                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.pricing.h2">Preise</h2>
+                <p class="text-xl text-slate-300" data-i18n="landing.pricing.sub">Beta ist komplett kostenlos. Starter und Pro / Team kommen bald.</p>
             </div>
 
             <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -373,154 +428,154 @@
                             Beta
                         </span>
                     </div>
-                    <h3 class="text-2xl font-bold mb-2">Beta</h3>
-                    <p class="text-slate-400 mb-6">Komplett kostenlos</p>
+                    <h3 class="text-2xl font-bold mb-2" data-i18n="landing.pricing.beta.name">Beta</h3>
+                    <p class="text-slate-400 mb-6" data-i18n="landing.pricing.beta.tagline">Komplett kostenlos</p>
                     <div class="mb-6">
                         <span class="text-4xl font-bold">0€</span>
-                        <span class="text-slate-400">/während Beta</span>
+                        <span class="text-slate-400" data-i18n="landing.pricing.beta.per">/während Beta</span>
                     </div>
                     <ul class="space-y-4 mb-8">
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Unbegrenzte Monitore</span>
+                            <span data-i18n="landing.pricing.beta.features.unlimited">Unbegrenzte Monitore</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>60-Sekunden-Checks</span>
+                            <span data-i18n="landing.pricing.beta.features.checks_60">60-Sekunden-Checks</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Alle Alert-Kanäle</span>
+                            <span data-i18n="landing.pricing.beta.features.alert_channels">Alle Alert-Kanäle</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Öffentliche Statusseite</span>
+                            <span data-i18n="landing.pricing.beta.features.public_status">Öffentliche Statusseite</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>SSL-Monitoring</span>
+                            <span data-i18n="landing.pricing.beta.features.ssl">SSL-Monitoring</span>
                         </li>
                     </ul>
                     <a href="/login" class="w-full bg-cyan-400 text-slate-900 py-3 rounded-lg font-bold hover:bg-cyan-300 transition inline-flex items-center justify-center">
-                        Jetzt Beta-Zugang sichern
+                        <span data-i18n="landing.pricing.beta.cta">Jetzt Beta-Zugang sichern</span>
                     </a>
-                    <p class="text-center text-xs text-slate-400 mt-3">Keine Kreditkarte erforderlich</p>
+                    <p class="text-center text-xs text-slate-400 mt-3" data-i18n="landing.pricing.beta.no_cc">Keine Kreditkarte erforderlich</p>
                 </div>
 
                 <!-- Starter Plan - Featured -->
                 <div class="glass-effect rounded-2xl p-8 relative hover:scale-105 transition opacity-75">
                     <div class="absolute top-4 right-4">
                         <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
-                            Kommt bald
+                            <span data-i18n="landing.pricing.coming_soon">Kommt bald</span>
                         </span>
                     </div>
-                    <h3 class="text-2xl font-bold mb-2">Starter</h3>
-                    <p class="text-slate-400 mb-6">Geplant für später</p>
+                    <h3 class="text-2xl font-bold mb-2" data-i18n="landing.pricing.starter.name">Starter</h3>
+                    <p class="text-slate-400 mb-6" data-i18n="landing.pricing.starter.tagline">Geplant für später</p>
                     <div class="mb-6">
                         <span class="text-4xl font-bold">~5€</span>
-                        <span class="text-slate-400">/Monat</span>
+                        <span class="text-slate-400" data-i18n="landing.pricing.per_month">/Monat</span>
                     </div>
                     <ul class="space-y-4 mb-8">
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Mehr Monitore</span>
+                            <span data-i18n="landing.pricing.starter.features.more_monitors">Mehr Monitore</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Schnellere Checks (30s)</span>
+                            <span data-i18n="landing.pricing.starter.features.checks_30">Schnellere Checks (30s)</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Erweiterte Statistiken</span>
+                            <span data-i18n="landing.pricing.starter.features.stats">Erweiterte Statistiken</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>API-Zugang</span>
+                            <span data-i18n="landing.pricing.starter.features.api">API-Zugang</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Priority Support</span>
+                            <span data-i18n="landing.pricing.starter.features.support">Priority Support</span>
                         </li>
                     </ul>
                     <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
-                        In Planung
+                        <span data-i18n="landing.pricing.planned_button">In Planung</span>
                     </button>
-                    <p class="text-center text-xs text-slate-400 mt-3">Kommt bald</p>
+                    <p class="text-center text-xs text-slate-400 mt-3" data-i18n="landing.pricing.coming_soon">Kommt bald</p>
                 </div>
 
                 <!-- Pro Plan -->
                 <div class="glass-effect rounded-2xl p-8 relative hover:scale-105 transition opacity-75">
                     <div class="absolute top-4 right-4">
                         <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
-                            Kommt bald
+                            <span data-i18n="landing.pricing.coming_soon">Kommt bald</span>
                         </span>
                     </div>
-                    <h3 class="text-2xl font-bold mb-2">Pro / Team</h3>
-                    <p class="text-slate-400 mb-6">Für später</p>
+                    <h3 class="text-2xl font-bold mb-2" data-i18n="landing.pricing.pro.name">Pro / Team</h3>
+                    <p class="text-slate-400 mb-6" data-i18n="landing.pricing.pro.tagline">Für später</p>
                     <div class="mb-6">
                         <span class="text-4xl font-bold">~20€</span>
-                        <span class="text-slate-400">/Monat</span>
+                        <span class="text-slate-400" data-i18n="landing.pricing.per_month">/Monat</span>
                     </div>
                     <ul class="space-y-4 mb-8">
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Unbegrenzte Monitore</span>
+                            <span data-i18n="landing.pricing.pro.features.unlimited">Unbegrenzte Monitore</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Team-Kollaboration</span>
+                            <span data-i18n="landing.pricing.pro.features.team">Team-Kollaboration</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Custom Branding</span>
+                            <span data-i18n="landing.pricing.pro.features.branding">Custom Branding</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Dedizierte Standorte</span>
+                            <span data-i18n="landing.pricing.pro.features.locations">Dedizierte Standorte</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            <span>Premium Support</span>
+                            <span data-i18n="landing.pricing.pro.features.support">Premium Support</span>
                         </li>
                     </ul>
                     <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
-                        In Planung
+                        <span data-i18n="landing.pricing.planned_button">In Planung</span>
                     </button>
                 </div>
             </div>
 
             <div class="text-center mt-12">
-                <p class="text-slate-400">Beta: kostenlos. Starter und Pro / Team: in Planung.</p>
+                <p class="text-slate-400" data-i18n="landing.pricing.note">Beta: kostenlos. Starter und Pro / Team: in Planung.</p>
             </div>
         </div>
     </section>
@@ -529,22 +584,22 @@
     <section id="faq" class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
         <div class="max-w-4xl mx-auto">
             <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4">Häufige Fragen</h2>
-                <p class="text-xl text-slate-300">Alles, was du über PingMyServer wissen musst</p>
+                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.faq.h2">Häufige Fragen</h2>
+                <p class="text-xl text-slate-300" data-i18n="landing.faq.sub">Alles, was du über PingMyServer wissen musst</p>
             </div>
 
             <div class="space-y-4">
                 <!-- FAQ Item 1 -->
                 <div class="glass-effect rounded-xl overflow-hidden faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="1">
-                        <h3 class="text-xl font-bold pr-8">Kann ich auch private Webseiten monitoren?</h3>
+                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.private.q">Kann ich auch private Webseiten monitoren?</h3>
                         <svg id="faq-icon-1" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     <div id="faq-content-1" class="faq-content">
                         <div class="px-6 pb-6">
-                            <p class="text-slate-300">
+                            <p class="text-slate-300" data-i18n="landing.faq.items.private.a">
                                 Ja, über die Domain-, Direkte private- oder lokale IP-Ziele sind aus Sicherheitsgründen blockiert. 
                                 Du kannst aber HTTP-Authentifizierung nutzen oder Custom Headers setzen.
                             </p>
@@ -555,14 +610,14 @@
                 <!-- FAQ Item 2 -->
                 <div class="glass-effect rounded-xl overflow-hidden faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="2">
-                        <h3 class="text-xl font-bold pr-8">Wie schnell wird ein Ausfall erkannt?</h3>
+                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.speed.q">Wie schnell wird ein Ausfall erkannt?</h3>
                         <svg id="faq-icon-2" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     <div id="faq-content-2" class="faq-content">
                         <div class="px-6 pb-6">
-                            <p class="text-slate-300">
+                            <p class="text-slate-300" data-i18n="landing.faq.items.speed.a">
                                 Bei 60-Sekunden-Checks (Standard) innerhalb von rund einer Minute. Bei bezahlten Plänen kannst 
                                 du die Check-Intervalle auf bis zu 30 Sekunden reduzieren, sodass Ausfälle noch schneller erkannt werden.
                             </p>
@@ -573,14 +628,14 @@
                 <!-- FAQ Item 3 -->
                 <div class="glass-effect rounded-xl overflow-hidden faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="3">
-                        <h3 class="text-xl font-bold pr-8">Wie teile ich den Status mit Kunden?</h3>
+                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.share.q">Wie teile ich den Status mit Kunden?</h3>
                         <svg id="faq-icon-3" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     <div id="faq-content-3" class="faq-content">
                         <div class="px-6 pb-6">
-                            <p class="text-slate-300">
+                            <p class="text-slate-300" data-i18n="landing.faq.items.share.a">
                                 Jeder Monitor hat eine öffentliche Statusseite, die direkt verlinkt werden kann. Die Seite zeigt 
                                 Echtzeit-Status, Uptime-Statistiken und vergangene Incidents. Du kannst sie auch mit deinem eigenen 
                                 Branding versehen (in bezahlten Plänen).
@@ -592,14 +647,14 @@
                 <!-- FAQ Item 4 -->
                 <div class="glass-effect rounded-xl overflow-hidden faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="4">
-                        <h3 class="text-xl font-bold pr-8">Ist PingMyServer DSGVO-konform?</h3>
+                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.gdpr.q">Ist PingMyServer DSGVO-konform?</h3>
                         <svg id="faq-icon-4" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     <div id="faq-content-4" class="faq-content">
                         <div class="px-6 pb-6">
-                            <p class="text-slate-300">
+                            <p class="text-slate-300" data-i18n="landing.faq.items.gdpr.a">
                                 Ja, absolut. Alle Daten werden in der EU gehostet (Frankfurt, Deutschland). Wir sammeln nur 
                                 notwendige Monitoring-Daten und geben nichts an Dritte weiter. Du kannst deine Daten jederzeit 
                                 exportieren oder löschen.
@@ -611,14 +666,14 @@
                 <!-- FAQ Item 5 -->
                 <div class="glass-effect rounded-xl overflow-hidden faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="5">
-                        <h3 class="text-xl font-bold pr-8">Was passiert, wenn ich kündige?</h3>
+                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.cancel.q">Was passiert, wenn ich kündige?</h3>
                         <svg id="faq-icon-5" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     <div id="faq-content-5" class="faq-content">
                         <div class="px-6 pb-6">
-                            <p class="text-slate-300">
+                            <p class="text-slate-300" data-i18n="landing.faq.items.cancel.a">
                                 Du kannst jederzeit mit einem Klick kündigen. Dein Account bleibt bis zum Ende der bezahlten 
                                 Periode aktiv. Danach werden deine Monitore deaktiviert, aber deine Daten bleiben für 90 Tage 
                                 gespeichert, falls du zurückkommen möchtest.
@@ -630,14 +685,14 @@
                 <!-- FAQ Item 6 -->
                 <div class="glass-effect rounded-xl overflow-hidden faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="6">
-                        <h3 class="text-xl font-bold pr-8">Gibt es eine API?</h3>
+                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.api.q">Gibt es eine API?</h3>
                         <svg id="faq-icon-6" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     <div id="faq-content-6" class="faq-content">
                         <div class="px-6 pb-6">
-                            <p class="text-slate-300">
+                            <p class="text-slate-300" data-i18n="landing.faq.items.api.a">
                                 Ja! Ab dem Starter-Plan hast du Zugriff auf unsere REST API. Damit kannst du Monitore 
                                 programmgesteuert erstellen, Status abfragen und Incidents abrufen. Perfekt für CI/CD-Integration.
                             </p>
@@ -650,24 +705,20 @@
 <!-- Final CTA -->
     <section class="py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-4xl mx-auto text-center">
-            <h2 class="text-5xl font-bold mb-6">
-                Bereit, Teil der Community zu werden?
-            </h2>
+            <h2 class="text-5xl font-bold mb-6" data-i18n="landing.cta.h2">Bereit, Teil der Community zu werden?</h2>
             <p class="text-xl text-slate-300 mb-8">
-                Sichere dir jetzt deinen kostenlosen Beta-Zugang und hilf uns dabei,<br/>
-                das beste Uptime-Monitoring-Tool für Developer zu bauen.
+                <span data-i18n="landing.cta.p1">Sichere dir jetzt deinen kostenlosen Beta-Zugang und hilf uns dabei,</span><br/>
+                <span data-i18n="landing.cta.p2">das beste Uptime-Monitoring-Tool für Developer zu bauen.</span>
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="/login" class="bg-cyan-400 text-slate-900 px-10 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                    Beta-Zugang sichern ->
+                    <span data-i18n="landing.cta.primary">Beta-Zugang sichern -></span>
                 </a>
                 <a href="/status" class="glass-effect px-10 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
-                    Statusseite ansehen
+                    <span data-i18n="landing.cta.secondary">Statusseite ansehen</span>
                 </a>
             </div>
-            <p class="text-sm text-slate-400 mt-6">
-                Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany
-            </p>
+            <p class="text-sm text-slate-400 mt-6" data-i18n="landing.cta.note">Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany</p>
         </div>
     </section>
 
@@ -681,34 +732,34 @@
                         <span class="landing-brand-name">PingMyServer.de</span>
                     </a>
                     <p class="text-slate-400 text-sm">
-                        Professionelles Uptime-Monitoring für Websites, APIs und Services.
+                        <span data-i18n="landing.footer.pitch">Professionelles Uptime-Monitoring für Websites, APIs und Services.</span>
                     </p>
                 </div>
                 <div>
-                    <h4 class="font-bold mb-4">Produkt</h4>
+                    <h4 class="font-bold mb-4" data-i18n="landing.footer.product">Produkt</h4>
                     <ul class="space-y-2 text-slate-400">
-                        <li><a href="#features" class="hover:text-cyan-400 transition">Features</a></li>
-                        <li><a href="#preise" class="hover:text-cyan-400 transition">Preise</a></li>
-                        <li><a href="/login" class="hover:text-cyan-400 transition">API Docs</a></li>
-                        <li><a href="/status" class="hover:text-cyan-400 transition">Status</a></li>
+                        <li><a href="#features" class="hover:text-cyan-400 transition" data-i18n="landing.nav.features">Features</a></li>
+                        <li><a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a></li>
+                        <li><a href="/login" class="hover:text-cyan-400 transition" data-i18n="landing.footer.api_docs">API Docs</a></li>
+                        <li><a href="/status" class="hover:text-cyan-400 transition" data-i18n="landing.footer.status">Status</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="font-bold mb-4">Unternehmen</h4>
+                    <h4 class="font-bold mb-4" data-i18n="landing.footer.company">Unternehmen</h4>
                     <ul class="space-y-2 text-slate-400">
-                        <li><a href="#about" class="hover:text-cyan-400 transition">Über uns</a></li>
+                        <li><a href="#about" class="hover:text-cyan-400 transition" data-i18n="landing.footer.about">Über uns</a></li>
                         <li><a href="https://github.com/Der0Benson/PingMyServer.de" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer">GitHub</a></li>
-                        <li><a href="https://github.com/Der0Benson/PingMyServer.de/commits/main" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer">Commits</a></li>
-                        <li><a href="mailto:pritzsche.ben.luca@gmail.com" class="hover:text-cyan-400 transition">Kontakt</a></li>
+                        <li><a href="https://github.com/Der0Benson/PingMyServer.de/commits/main" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer" data-i18n="landing.footer.commits">Commits</a></li>
+                        <li><a href="mailto:pritzsche.ben.luca@gmail.com" class="hover:text-cyan-400 transition" data-i18n="landing.footer.contact">Kontakt</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="font-bold mb-4">Legal</h4>
+                    <h4 class="font-bold mb-4" data-i18n="landing.footer.legal">Legal</h4>
                     <ul class="space-y-2 text-slate-400">
-                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition">Datenschutz</a></li>
-                        <li><a href="/impressum" class="hover:text-cyan-400 transition">Impressum</a></li>
-                        <li><a href="/nutzungsbedingungen" class="hover:text-cyan-400 transition">AGB</a></li>
-                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition">DSGVO</a></li>
+                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition" data-i18n="common.privacy">Datenschutz</a></li>
+                        <li><a href="/impressum" class="hover:text-cyan-400 transition" data-i18n="common.imprint">Impressum</a></li>
+                        <li><a href="/nutzungsbedingungen" class="hover:text-cyan-400 transition" data-i18n="landing.footer.terms_short">AGB</a></li>
+                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition" data-i18n="landing.footer.gdpr">DSGVO</a></li>
                     </ul>
                 </div>
             </div>
@@ -717,14 +768,15 @@
                     © 2026 PingMyServer – Ben Luca Pritzsche
                 </p>
                 <div class="flex space-x-6 mt-4 md:mt-0">
-                    <a href="mailto:pritzsche.ben.luca@gmail.com" class="text-slate-400 hover:text-cyan-400 transition">E-Mail</a>
+                    <a href="mailto:pritzsche.ben.luca@gmail.com" class="text-slate-400 hover:text-cyan-400 transition" data-i18n="landing.footer.email">E-Mail</a>
                     <a href="https://github.com/Der0Benson/PingMyServer.de" class="text-slate-400 hover:text-cyan-400 transition" target="_blank" rel="noreferrer">GitHub</a>
-                    <a href="/status" class="text-slate-400 hover:text-cyan-400 transition">Status</a>
+                    <a href="/status" class="text-slate-400 hover:text-cyan-400 transition" data-i18n="landing.footer.status">Status</a>
                 </div>
             </div>
         </div>
     </footer>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/landing.js"></script>
 </body>
 </html>

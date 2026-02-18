@@ -17,6 +17,16 @@ let user = null;
 let monitors = [];
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+const i18nLang = () => (I18N && typeof I18N.getLang === "function" ? I18N.getLang() : "de");
+const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+const rtf = () =>
+  I18N && typeof I18N.rtf === "function"
+    ? I18N.rtf()
+    : new Intl.RelativeTimeFormat(i18nLocale(), { numeric: "auto" });
+
 function syncOwnerLinks() {
   const isOwner = !!user?.isOwner;
   for (const link of ownerLinks) {
@@ -106,7 +116,7 @@ function updateQueryFromState(state) {
 
 function formatDateTime(ts) {
   if (!Number.isFinite(ts)) return "–";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -118,7 +128,7 @@ function formatDateTime(ts) {
 function formatDateOnly(value) {
   if (!value) return "–";
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return new Intl.DateTimeFormat("de-DE", {
+    return new Intl.DateTimeFormat(i18nLocale(), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -126,23 +136,36 @@ function formatDateOnly(value) {
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "–";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   }).format(date);
 }
 
+function shortUnit(unit) {
+  const lang = i18nLang();
+  if (lang === "en") {
+    if (unit === "second") return "sec";
+    if (unit === "minute") return "min";
+    if (unit === "hour") return "hr";
+  }
+  if (unit === "second") return "Sek.";
+  if (unit === "minute") return "Min.";
+  if (unit === "hour") return "Std.";
+  return unit;
+}
+
 function formatDuration(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return "0 Sek.";
+  if (!Number.isFinite(ms) || ms < 0) return `0 ${shortUnit("second")}`;
   const totalSeconds = Math.floor(ms / 1000);
   const seconds = totalSeconds % 60;
   const totalMinutes = Math.floor(totalSeconds / 60);
   const minutes = totalMinutes % 60;
   const hours = Math.floor(totalMinutes / 60);
-  if (hours > 0) return `${hours} Std. ${minutes} Min.`;
-  if (minutes > 0) return `${minutes} Min. ${seconds} Sek.`;
-  return `${seconds} Sek.`;
+  if (hours > 0) return `${hours} ${shortUnit("hour")} ${minutes} ${shortUnit("minute")}`;
+  if (minutes > 0) return `${minutes} ${shortUnit("minute")} ${seconds} ${shortUnit("second")}`;
+  return `${seconds} ${shortUnit("second")}`;
 }
 
 function buildCodePills(errorCodes = [], statusCodes = []) {
@@ -151,7 +174,7 @@ function buildCodePills(errorCodes = [], statusCodes = []) {
     for (const item of errorCodes.slice(0, 8)) {
       const code = String(item.code || "NO_RESPONSE");
       const hits = Number(item.hits || 0);
-      const label = code === "NO_RESPONSE" ? "keine Antwort" : code;
+      const label = code === "NO_RESPONSE" ? t("app.errors.no_response_label", null, "no response") : code;
       items.push(`${label}${hits > 0 ? ` (${hits}x)` : ""}`);
     }
     return items;
@@ -161,7 +184,7 @@ function buildCodePills(errorCodes = [], statusCodes = []) {
     return statusCodes.slice(0, 8).map((code) => String(code));
   }
 
-  return ["keine Antwort"];
+  return [t("app.errors.no_response_label", null, "no response")];
 }
 
 function renderEmptyState(title, text) {
@@ -179,7 +202,10 @@ function renderIncidents(payload) {
   const items = Array.isArray(payload?.items) ? payload.items : [];
 
   if (!items.length) {
-    renderEmptyState("Keine Vorfälle gefunden.", "Passe Filter oder Zeitraum an.");
+    renderEmptyState(
+      t("incidents.empty_title", null, "No incidents found."),
+      t("incidents.empty_body", null, "Adjust filters or the time range.")
+    );
     return;
   }
 
@@ -189,17 +215,23 @@ function renderIncidents(payload) {
     const card = document.createElement("article");
     card.className = "incident-history-item";
 
-    const typeBadge = incident.aggregated ? "aggregiert" : "raw";
-    const stateBadge = incident.ongoing ? "laufend" : "beendet";
+    const typeBadge = incident.aggregated
+      ? t("incidents.badge.aggregated", null, "aggregated")
+      : t("incidents.badge.raw", null, "raw");
+    const stateBadge = incident.ongoing
+      ? t("app.incidents.badge.ongoing", null, "ongoing")
+      : t("app.incidents.badge.ended", null, "ended");
     const rangeLabel = incident.aggregated
       ? formatDateOnly(incident.dateKey || incident.startTs)
-      : `${formatDateTime(incident.startTs)} – ${incident.endTs ? formatDateTime(incident.endTs) : "offen"}`;
+      : `${formatDateTime(incident.startTs)} – ${
+          incident.endTs ? formatDateTime(incident.endTs) : t("app.incidents.open", null, "open")
+        }`;
     const codePills = buildCodePills(incident.errorCodes, incident.statusCodes);
 
     card.innerHTML = `
       <div class="incident-history-head">
         <div class="incident-history-title">
-          <div class="monitor-name">${escapeHtml(incident.monitorName || "Monitor")}</div>
+          <div class="monitor-name">${escapeHtml(incident.monitorName || t("common.monitor", null, "Monitor"))}</div>
           <div class="monitor-url">${escapeHtml(incident.monitorUrl || "–")}</div>
         </div>
         <div class="incident-badges">
@@ -209,30 +241,30 @@ function renderIncidents(payload) {
       </div>
       <div class="incident-details">
         <div class="detail-item">
-          <div class="detail-key">Zeitraum</div>
+          <div class="detail-key">${escapeHtml(t("incidents.detail.range", null, "Range"))}</div>
           <div class="detail-value">${escapeHtml(rangeLabel)}</div>
         </div>
         <div class="detail-item">
-          <div class="detail-key">Dauer</div>
+          <div class="detail-key">${escapeHtml(t("incidents.detail.duration", null, "Duration"))}</div>
           <div class="detail-value">${escapeHtml(formatDuration(Number(incident.durationMs || 0)))}</div>
         </div>
         <div class="detail-item">
-          <div class="detail-key">Fehlchecks</div>
+          <div class="detail-key">${escapeHtml(t("incidents.detail.failed_checks", null, "Failed checks"))}</div>
           <div class="detail-value">${Number(incident.samples || 0)}</div>
         </div>
         <div class="detail-item">
-          <div class="detail-key">Monitor-ID</div>
+          <div class="detail-key">${escapeHtml(t("incidents.detail.monitor_id", null, "Monitor ID"))}</div>
           <div class="detail-value">${escapeHtml(String(incident.monitorId || "–"))}</div>
         </div>
         <div class="detail-item">
-          <div class="detail-key">Statuscodes</div>
+          <div class="detail-key">${escapeHtml(t("incidents.detail.status_codes", null, "Status codes"))}</div>
           <div class="detail-value code-list">${(incident.statusCodes || [])
             .slice(0, 8)
             .map((code) => `<span class="code-pill">${escapeHtml(String(code))}</span>`)
-            .join("") || '<span class="code-pill">keine</span>'}</div>
+            .join("") || `<span class="code-pill">${escapeHtml(t("common.none", null, "none"))}</span>`}</div>
         </div>
         <div class="detail-item">
-          <div class="detail-key">Fehlercodes</div>
+          <div class="detail-key">${escapeHtml(t("incidents.detail.error_codes", null, "Error codes"))}</div>
           <div class="detail-value code-list">${codePills
             .map((entry) => `<span class="code-pill">${escapeHtml(entry)}</span>`)
             .join("")}</div>
@@ -271,7 +303,7 @@ async function ensureAuthenticated() {
     user = payload.user;
     syncOwnerLinks();
     if (currentUserEmail) {
-      currentUserEmail.textContent = user.email || "eingeloggt";
+      currentUserEmail.textContent = user.email || t("common.signed_in", null, "signed in");
     }
     return true;
   } catch (error) {
@@ -296,7 +328,7 @@ function renderMonitorFilter(state) {
 
   const allOption = document.createElement("option");
   allOption.value = "all";
-  allOption.textContent = "Alle Monitore";
+  allOption.textContent = t("incidents.all_monitors", null, "All monitors");
   monitorFilterEl.appendChild(allOption);
 
   for (const monitor of monitors) {
@@ -316,7 +348,7 @@ async function loadIncidents() {
   const state = readStateFromInputs();
   updateQueryFromState(state);
 
-  setSummary("Lade Vorfälle…");
+  setSummary(t("incidents.loading", null, "Loading incidents..."));
 
   const params = new URLSearchParams({
     monitor: state.monitor,
@@ -333,15 +365,21 @@ async function loadIncidents() {
       return;
     }
     if (!response.ok) {
-      renderEmptyState("Fehler beim Laden.", "Bitte erneut versuchen.");
-      setSummary("Fehler beim Laden.");
+      renderEmptyState(
+        t("common.error_loading", null, "Error while loading."),
+        t("common.try_again", null, "Please try again.")
+      );
+      setSummary(t("common.error_loading", null, "Error while loading."));
       return;
     }
 
     const payload = await response.json();
     if (!payload?.ok || !payload.data) {
-      renderEmptyState("Keine Daten.", "Es konnten keine Vorfälle geladen werden.");
-      setSummary("Keine Daten.");
+      renderEmptyState(
+        t("common.no_data", null, "No data."),
+        t("incidents.no_data_body", null, "Incidents could not be loaded.")
+      );
+      setSummary(t("common.no_data", null, "No data."));
       return;
     }
 
@@ -349,10 +387,19 @@ async function loadIncidents() {
     const shown = Array.isArray(payload.data.items) ? payload.data.items.length : 0;
     const total = Number(payload.data.total || shown);
     const lookbackDays = Number(payload.data.lookbackDays || state.lookbackDays);
-    setSummary(`Zeitraum: ${lookbackDays} Tage · Angezeigt: ${shown} · Gesamt: ${total}`);
+    setSummary(
+      t(
+        "incidents.summary",
+        { days: lookbackDays, shown, total },
+        `Range: ${lookbackDays} days · Showing: ${shown} · Total: ${total}`
+      )
+    );
   } catch (error) {
-    renderEmptyState("Verbindung fehlgeschlagen.", "Bitte später erneut versuchen.");
-    setSummary("Verbindung fehlgeschlagen.");
+    renderEmptyState(
+      t("common.connection_failed", null, "Connection failed."),
+      t("common.try_again_later", null, "Please try again later.")
+    );
+    setSummary(t("common.connection_failed", null, "Connection failed."));
   }
 }
 

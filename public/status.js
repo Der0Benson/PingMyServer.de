@@ -28,6 +28,16 @@ const range365Uptime = document.getElementById("range-365-uptime");
 const range365Meta = document.getElementById("range-365-meta");
 const rangePickerLabel = document.getElementById("range-picker-label");
 
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+const i18nLang = () => (I18N && typeof I18N.getLang === "function" ? I18N.getLang() : "de");
+const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+const rtf = () =>
+  I18N && typeof I18N.rtf === "function"
+    ? I18N.rtf()
+    : new Intl.RelativeTimeFormat(i18nLocale(), { numeric: "auto" });
+
 let statusSince = Date.now();
 let lastCheckTime = null;
 let latestMetrics = null;
@@ -47,19 +57,25 @@ function getStatusDataUrl() {
 }
 
 function renderUnavailableState() {
-  if (statusName) statusName.textContent = "Statusseite";
-  if (statusTarget) statusTarget.textContent = "Kein Monitor ausgewaehlt";
+  if (statusName) statusName.textContent = t("status.brand.title", null, "Status page");
+  if (statusTarget) statusTarget.textContent = t("status.unavailable.target", null, "No monitor selected");
   if (statusPill) statusPill.classList.add("offline");
-  if (statusLabel) statusLabel.textContent = "Kein Monitor verfuegbar";
+  if (statusLabel) statusLabel.textContent = t("status.unavailable.label", null, "No monitor available");
   if (statusState) {
-    statusState.textContent = "Nicht verfuegbar";
+    statusState.textContent = t("status.unavailable.state", null, "Unavailable");
     statusState.classList.add("offline");
   }
-  if (statusDuration) statusDuration.textContent = "Bitte oeffne die Statusseite ueber dein Dashboard.";
+  if (statusDuration) {
+    statusDuration.textContent = t(
+      "status.unavailable.hint",
+      null,
+      "Please open the status page from your dashboard."
+    );
+  }
   if (lastCheck) lastCheck.textContent = "-";
   if (checkInterval) checkInterval.textContent = "";
   if (uptimeBars) uptimeBars.innerHTML = "";
-  if (uptimeIncidents) uptimeIncidents.textContent = "Keine Daten";
+  if (uptimeIncidents) uptimeIncidents.textContent = t("common.no_data", null, "No data");
   if (uptimePercent) uptimePercent.textContent = "--%";
 }
 
@@ -107,30 +123,50 @@ function updateStatus(data) {
     statusPill.classList.toggle("maintenance", !!maintenance);
   }
   if (statusLabel) {
-    statusLabel.textContent = maintenance ? "Wartung läuft" : online ? "Alle Systeme funktionsfähig" : "Störung erkannt";
+    statusLabel.textContent = maintenance
+      ? t("status.state.maintenance_running", null, "Maintenance ongoing")
+      : online
+        ? t("status.state.operational", null, "All systems operational")
+        : t("status.state.outage_detected", null, "Outage detected");
   }
   if (statusState) {
-    statusState.textContent = maintenance ? "Wartung" : online ? "Online" : "Offline";
+    statusState.textContent = maintenance
+      ? t("status.maintenance.title", null, "Maintenance")
+      : online
+        ? t("app.state.online", null, "Online")
+        : t("app.state.offline", null, "Offline");
     statusState.classList.toggle("offline", !maintenance && !online);
     statusState.classList.toggle("maintenance", !!maintenance);
   }
   if (statusDuration) {
     if (maintenance && Number.isFinite(maintenance.endsAt)) {
       const endsInMs = Math.max(0, Number(maintenance.endsAt) - Date.now());
-      statusDuration.textContent = `Wartung bis ${formatDateTime(maintenance.endsAt)} (noch ${formatRelative(endsInMs)})`;
+      statusDuration.textContent = t(
+        "status.duration.maintenance_until",
+        { until: formatDateTime(maintenance.endsAt), remaining: formatRelative(endsInMs) },
+        `Maintenance until ${formatDateTime(maintenance.endsAt)} (ends in ${formatRelative(endsInMs)})`
+      );
     } else {
-      const prefix = online ? "Aktiv seit" : "Offline seit";
       const since = data.statusSince || statusSince;
-      statusDuration.textContent = `${prefix} ${formatDuration(Date.now() - since)}`;
+      const duration = formatDuration(Date.now() - since);
+      statusDuration.textContent = online
+        ? t("status.duration.online_for", { duration }, `Online for ${duration}`)
+        : t("status.duration.offline_for", { duration }, `Offline for ${duration}`);
     }
   }
   if (lastCheck) {
     const stamp = data.lastCheckAt || lastCheckTime;
-    lastCheck.textContent = stamp ? `vor ${formatRelative(Date.now() - stamp)}` : "warte auf ersten Check";
+    lastCheck.textContent = stamp
+      ? formatTimeAgo(Date.now() - stamp)
+      : t("status.waiting_first_check", null, "Waiting for first check");
   }
   if (checkInterval) {
     checkInterval.textContent = data.intervalMs
-      ? `Prüfintervall: ${formatInterval(data.intervalMs)}`
+      ? t(
+          "status.check_interval",
+          { interval: formatInterval(data.intervalMs) },
+          `Check interval: ${formatInterval(data.intervalMs)}`
+        )
       : "";
   }
 }
@@ -150,10 +186,12 @@ function updateMaintenance(maintenances) {
 
   const isActive = !!active;
   if (maintenanceBannerTitle) {
-    maintenanceBannerTitle.textContent = String(entry.title || "Wartung");
+    maintenanceBannerTitle.textContent = String(entry.title || t("status.maintenance.title", null, "Maintenance"));
   }
   if (maintenanceBadge) {
-    maintenanceBadge.textContent = isActive ? "Wartung läuft" : "Geplant";
+    maintenanceBadge.textContent = isActive
+      ? t("status.maintenance.active", null, "Active")
+      : t("status.maintenance.planned", null, "Planned");
     maintenanceBadge.classList.toggle("active", isActive);
   }
 
@@ -165,10 +203,18 @@ function updateMaintenance(maintenances) {
   if (maintenanceBannerMeta) {
     if (isActive && Number.isFinite(endsAt)) {
       const endsInMs = Math.max(0, endsAt - Date.now());
-      maintenanceBannerMeta.textContent = `${startLabel} – ${endLabel} · endet in ${formatRelative(endsInMs)}`;
+      maintenanceBannerMeta.textContent = t(
+        "status.maintenance.meta.ends",
+        { start: startLabel, end: endLabel, remaining: formatRelative(endsInMs) },
+        `${startLabel} – ${endLabel} · ends in ${formatRelative(endsInMs)}`
+      );
     } else if (!isActive && Number.isFinite(startsAt)) {
       const startsInMs = Math.max(0, startsAt - Date.now());
-      maintenanceBannerMeta.textContent = `${startLabel} – ${endLabel} · startet in ${formatRelative(startsInMs)}`;
+      maintenanceBannerMeta.textContent = t(
+        "status.maintenance.meta.starts",
+        { start: startLabel, end: endLabel, remaining: formatRelative(startsInMs) },
+        `${startLabel} – ${endLabel} · starts in ${formatRelative(startsInMs)}`
+      );
     } else {
       maintenanceBannerMeta.textContent = `${startLabel} – ${endLabel}`;
     }
@@ -196,7 +242,11 @@ function updateUptimeBars(last24h) {
   if (uptimeIncidents) {
     const incidents = Number.isFinite(last24h.incidents) ? last24h.incidents : 0;
     const downMinutes = Number.isFinite(last24h.downMinutes) ? last24h.downMinutes : 0;
-    uptimeIncidents.textContent = `${incidents} Vorfälle, ${downMinutes} Min. Ausfall`;
+    uptimeIncidents.textContent = t(
+      incidents === 1 ? "app.dashboard.summary.one" : "app.dashboard.summary.many",
+      { incidents, minutes: downMinutes },
+      `${incidents} incidents, ${downMinutes} min downtime`
+    );
   }
   if (uptimePercent) {
     uptimePercent.textContent = Number.isFinite(last24h.uptime) ? `${last24h.uptime.toFixed(2)}%` : "--%";
@@ -210,7 +260,11 @@ function updateRangeSummaries(ranges) {
   updateRangeCell(ranges.range365, range365Uptime, range365Meta);
 
   if (rangePickerLabel && ranges.range30?.days) {
-    rangePickerLabel.textContent = `Letzte ${ranges.range30.days} Tage`;
+    rangePickerLabel.textContent = t(
+      "status.range.last_days",
+      { days: ranges.range30.days },
+      `Last ${ranges.range30.days} days`
+    );
   }
 }
 
@@ -218,13 +272,17 @@ function updateRangeCell(summary, uptimeEl, metaEl) {
   if (!uptimeEl || !metaEl) return;
   if (!summary || !Number.isFinite(summary.uptime)) {
     uptimeEl.textContent = "--.--%";
-    metaEl.textContent = "Keine Daten";
+    metaEl.textContent = t("common.no_data", null, "No data");
     return;
   }
   uptimeEl.textContent = `${summary.uptime.toFixed(2)}%`;
   const incidents = Number.isFinite(summary.incidents) ? summary.incidents : 0;
   const downMinutes = Number.isFinite(summary.downMinutes) ? summary.downMinutes : 0;
-  metaEl.textContent = `${incidents} Vorfälle, ${downMinutes} Min. Ausfall`;
+  metaEl.textContent = t(
+    incidents === 1 ? "app.dashboard.summary.one" : "app.dashboard.summary.many",
+    { incidents, minutes: downMinutes },
+    `${incidents} incidents, ${downMinutes} min downtime`
+  );
 }
 
 function updateIncidents(incidents) {
@@ -232,10 +290,12 @@ function updateIncidents(incidents) {
   const items = incidents?.items || [];
 
   if (!items.length) {
+    const emptyTitle = escapeHtml(t("status.incidents.empty_title", null, "Good job, no incidents."));
+    const emptyBody = escapeHtml(t("status.incidents.empty_body", null, "No incidents yet. Keep it up!"));
     incidentsList.innerHTML = `
       <div class="incidents-inner">
-        <div class="incidents-title">👍 Gute Arbeit, keine Vorfälle.</div>
-        <div class="muted">Bisher gab es keine Vorfälle. Weiter so!</div>
+        <div class="incidents-title">${emptyTitle}</div>
+        <div class="muted">${emptyBody}</div>
       </div>
     `;
     return;
@@ -253,21 +313,29 @@ function updateIncidents(incidents) {
     const duration = formatDuration(incident.durationMs || 0);
     const codes = (incident.statusCodes || []).filter((code) => Number.isFinite(code));
     const codeLabel = codes.length
-      ? `Fehlercode${codes.length > 1 ? "s" : ""}: ${codes.join(", ")}`
-      : "Fehlercode: keine Antwort";
+      ? t(
+          codes.length > 1 ? "app.errors.http_codes" : "app.errors.http_code",
+          { codes: codes.join(", ") },
+          `HTTP code${codes.length > 1 ? "s" : ""}: ${codes.join(", ")}`
+        )
+      : t("app.errors.no_response_single", null, "Error code: no response");
     const checks = Number.isFinite(Number(incident.samples)) ? Number(incident.samples) : 0;
 
     item.innerHTML = `
       <div class="incident-title-row">
-        <span>Ausfall</span>
-        <span class="incident-badge">${incident.ongoing ? "laufend" : "beendet"}</span>
+        <span>${escapeHtml(t("app.incidents.outage", null, "Outage"))}</span>
+        <span class="incident-badge">${escapeHtml(
+          incident.ongoing
+            ? t("app.incidents.badge.ongoing", null, "ongoing")
+            : t("app.incidents.badge.ended", null, "ended")
+        )}</span>
       </div>
       <div class="incident-meta">
         <span>${escapeHtml(range)}</span>
         <span>⏱ ${escapeHtml(duration)}</span>
         <span class="incident-code">${escapeHtml(codeLabel)}</span>
       </div>
-      <div class="incident-note">Checks: ${checks}</div>
+      <div class="incident-note">${escapeHtml(t("app.incidents.checks", { n: checks }, `Checks: ${checks}`))}</div>
     `;
 
     list.appendChild(item);
@@ -278,29 +346,67 @@ function updateIncidents(incidents) {
   if (Number.isFinite(incidents.lookbackDays)) {
     const note = document.createElement("div");
     note.className = "incident-note incident-footnote";
-    note.textContent = `Zeigt Vorfälle der letzten ${incidents.lookbackDays} Tage.`;
+    note.textContent = t(
+      "status.incidents.footnote",
+      { days: incidents.lookbackDays },
+      `Shows incidents from the last ${incidents.lookbackDays} days.`
+    );
     incidentsList.appendChild(note);
   }
 }
 
 function updateUpdatedAt() {
   if (!updatedAt) return;
-  updatedAt.textContent = `Zuletzt aktualisiert: ${new Intl.DateTimeFormat("de-DE", {
+  const time = new Intl.DateTimeFormat(i18nLocale(), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-  }).format(new Date())}`;
+  }).format(new Date());
+  updatedAt.textContent = t("status.updated_at_with_time", { time }, `Last updated: ${time}`);
+}
+
+function shortUnit(unit) {
+  const lang = i18nLang();
+  if (lang === "en") {
+    if (unit === "second") return "sec";
+    if (unit === "minute") return "min";
+    if (unit === "hour") return "hr";
+    if (unit === "day") return "days";
+  }
+  if (unit === "second") return "Sek.";
+  if (unit === "minute") return "Min.";
+  if (unit === "hour") return "Std.";
+  if (unit === "day") return "Tage";
+  return unit;
+}
+
+function formatTimeAgo(ms) {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return rtf().format(0, "second");
+  }
+
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return rtf().format(-seconds, "second");
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return rtf().format(-minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return rtf().format(-hours, "hour");
+
+  const days = Math.round(hours / 24);
+  return rtf().format(-days, "day");
 }
 
 function formatInterval(ms) {
-  if (ms < 60000) return `${Math.round(ms / 1000)} Sek.`;
-  if (ms < 3600000) return `${Math.round(ms / 60000)} Min.`;
-  return `${Math.round(ms / 3600000)} Std.`;
+  if (ms < 60000) return `${Math.round(ms / 1000)} ${shortUnit("second")}`;
+  if (ms < 3600000) return `${Math.round(ms / 60000)} ${shortUnit("minute")}`;
+  return `${Math.round(ms / 3600000)} ${shortUnit("hour")}`;
 }
 
 function formatDateTime(ts) {
   if (!Number.isFinite(ts)) return "-";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -310,12 +416,14 @@ function formatDateTime(ts) {
 }
 
 function formatRelative(ms) {
-  if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))} Sek.`;
-  if (ms < 3600000) return `${Math.round(ms / 60000)} Min.`;
-  return `${Math.round(ms / 3600000)} Std.`;
+  if (!Number.isFinite(ms) || ms < 0) return `0 ${shortUnit("second")}`;
+  if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))} ${shortUnit("second")}`;
+  if (ms < 3600000) return `${Math.round(ms / 60000)} ${shortUnit("minute")}`;
+  return `${Math.round(ms / 3600000)} ${shortUnit("hour")}`;
 }
 
 function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return `0 ${shortUnit("second")}`;
   const totalSeconds = Math.floor(ms / 1000);
   const seconds = totalSeconds % 60;
   const totalMinutes = Math.floor(totalSeconds / 60);
@@ -323,22 +431,25 @@ function formatDuration(ms) {
   const hours = Math.floor(totalMinutes / 60);
 
   if (hours > 0) {
-    return `${hours} Std. ${minutes} Min.`;
+    return `${hours} ${shortUnit("hour")} ${minutes} ${shortUnit("minute")}`;
   }
   if (minutes > 0) {
-    return `${minutes} Min. ${seconds} Sek.`;
+    return `${minutes} ${shortUnit("minute")} ${seconds} ${shortUnit("second")}`;
   }
-  return `${seconds} Sek.`;
+  return `${seconds} ${shortUnit("second")}`;
 }
 
 function formatIncidentRange(startTs, endTs, ongoing) {
   const start = new Date(startTs);
   const end = endTs ? new Date(endTs) : null;
-  const timeFmt = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
-  const dateFmt = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeFmt = new Intl.DateTimeFormat(i18nLocale(), { hour: "2-digit", minute: "2-digit" });
+  const dateFmt = new Intl.DateTimeFormat(i18nLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 
   if (!end) {
-    return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${ongoing ? "läuft noch" : "offen"}`;
+    const suffix = ongoing
+      ? t("app.incidents.ongoing", null, "ongoing")
+      : t("app.incidents.open", null, "open");
+    return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${suffix}`;
   }
 
   const sameDay = start.toDateString() === end.toDateString();

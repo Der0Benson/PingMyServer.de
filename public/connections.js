@@ -42,6 +42,15 @@ let loadingDomains = false;
 let canUsePasswordlessAccountActions = false;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+const rtf = () =>
+  I18N && typeof I18N.rtf === "function"
+    ? I18N.rtf()
+    : new Intl.RelativeTimeFormat(i18nLocale(), { numeric: "auto" });
+
 function syncOwnerLinks() {
   const isOwner = !!user?.isOwner;
   for (const link of ownerLinks) {
@@ -103,7 +112,7 @@ function setDomainsSummary(text) {
 
 function applyCredentialModeUi() {
   const requireCurrentPassword = !canUsePasswordlessAccountActions;
-  const optionalPlaceholder = "Optional bei App-Login";
+  const optionalPlaceholder = t("connections.password.placeholder_optional", null, "Optional with app login");
 
   if (currentPasswordEl) {
     currentPasswordEl.required = requireCurrentPassword;
@@ -117,14 +126,22 @@ function applyCredentialModeUi() {
 
   if (passwordModeHintEl) {
     passwordModeHintEl.textContent = requireCurrentPassword
-      ? "Aktuelles Passwort ist erforderlich."
-      : "Bei verbundener App-Connection ist das aktuelle Passwort optional (frische Anmeldung erforderlich).";
+      ? t("connections.password.hint_required", null, "Current password is required.")
+      : t(
+          "connections.password.hint_optional",
+          null,
+          "When an app connection is linked, the current password is optional (fresh sign-in required)."
+        );
   }
 
   if (deleteModeHintEl) {
     deleteModeHintEl.textContent = requireCurrentPassword
-      ? "Aktuelles Passwort ist erforderlich."
-      : "Bei verbundener App-Connection kannst du auch ohne Passwort löschen (frische Anmeldung erforderlich).";
+      ? t("connections.password.hint_required", null, "Current password is required.")
+      : t(
+          "connections.delete.hint_optional",
+          null,
+          "When an app connection is linked, you can also delete without a password (fresh sign-in required)."
+        );
   }
 }
 
@@ -136,7 +153,7 @@ function syncCredentialModeFromConnections() {
 
 function formatDateTime(ts) {
   if (!Number.isFinite(ts)) return "-";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -145,31 +162,52 @@ function formatDateTime(ts) {
   }).format(new Date(ts));
 }
 
+function formatTimeAgo(ms) {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return rtf().format(0, "second");
+  }
+
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return rtf().format(-seconds, "second");
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return rtf().format(-minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return rtf().format(-hours, "hour");
+
+  const days = Math.round(hours / 24);
+  return rtf().format(-days, "day");
+}
+
+function formatTimeIn(ms) {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return rtf().format(0, "second");
+  }
+
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return rtf().format(seconds, "second");
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return rtf().format(minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return rtf().format(hours, "hour");
+
+  const days = Math.round(hours / 24);
+  return rtf().format(days, "day");
+}
+
 function formatRelative(ts) {
-  if (!Number.isFinite(ts)) return "unbekannt";
+  if (!Number.isFinite(ts)) return t("common.unknown", null, "unknown");
   const diffMs = Math.max(0, Date.now() - ts);
-  const totalSeconds = Math.floor(diffMs / 1000);
-  if (totalSeconds < 60) return `vor ${totalSeconds} Sek.`;
-
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  if (totalMinutes < 60) return `vor ${totalMinutes} Min.`;
-
-  const totalHours = Math.floor(totalMinutes / 60);
-  if (totalHours < 24) return `vor ${totalHours} Std.`;
-
-  const totalDays = Math.floor(totalHours / 24);
-  return `vor ${totalDays} Tag${totalDays === 1 ? "" : "en"}`;
+  return formatTimeAgo(diffMs);
 }
 
 function formatExpiresIn(seconds) {
-  if (!Number.isFinite(seconds)) return "unbekannt";
-  if (seconds <= 0) return "läuft ab";
-  const totalMinutes = Math.floor(seconds / 60);
-  if (totalMinutes < 60) return `in ${totalMinutes} Min.`;
-  const totalHours = Math.floor(totalMinutes / 60);
-  if (totalHours < 24) return `in ${totalHours} Std.`;
-  const totalDays = Math.floor(totalHours / 24);
-  return `in ${totalDays} Tag${totalDays === 1 ? "" : "en"}`;
+  if (!Number.isFinite(seconds)) return t("common.unknown", null, "unknown");
+  if (seconds <= 0) return t("connections.sessions.expires_now", null, "expiring");
+  return formatTimeIn(seconds * 1000);
 }
 
 function escapeHtml(value) {
@@ -214,17 +252,25 @@ function renderEmptyDomains(title, text) {
 function formatDomainSubtitle(item) {
   const verifiedAt = Number(item?.verifiedAt);
   if (Number.isFinite(verifiedAt) && verifiedAt > 0) {
-    return `Verifiziert am ${formatDateTime(verifiedAt)}.`;
+    return t(
+      "connections.domains.subtitle.verified_at",
+      { date: formatDateTime(verifiedAt) },
+      `Verified on ${formatDateTime(verifiedAt)}.`
+    );
   }
 
   const lastCheckedAt = Number(item?.lastCheckedAt);
   const lastError = String(item?.lastCheckError || "").trim();
   if (Number.isFinite(lastCheckedAt) && lastCheckedAt > 0) {
-    const base = `Letzter Check: ${formatDateTime(lastCheckedAt)} (${formatRelative(lastCheckedAt)})`;
+    const base = t(
+      "connections.domains.subtitle.last_check",
+      { date: formatDateTime(lastCheckedAt), relative: formatRelative(lastCheckedAt) },
+      `Last check: ${formatDateTime(lastCheckedAt)} (${formatRelative(lastCheckedAt)})`
+    );
     return lastError ? `${base} · ${lastError}` : `${base}.`;
   }
 
-  return "TXT Record setzen und dann verifizieren.";
+  return t("connections.domains.subtitle.set_txt", null, "Set the TXT record and then verify.");
 }
 
 function renderDomains() {
@@ -232,14 +278,23 @@ function renderDomains() {
   const list = Array.isArray(domains) ? domains : [];
 
   if (!list.length) {
-    renderEmptyDomains("Keine Domains.", "Wenn du eine Domain hinzufügst, erscheint sie hier.");
-    setDomainsSummary("0 Domains");
+    renderEmptyDomains(
+      t("connections.domains.empty_title", null, "No domains."),
+      t("connections.domains.empty_body", null, "Once you add a domain, it will show up here.")
+    );
+    setDomainsSummary(t("connections.domains.summary.zero", null, "0 domains"));
     return;
   }
 
   domainsListEl.innerHTML = "";
   const verifiedCount = list.filter((entry) => Number.isFinite(Number(entry?.verifiedAt)) && Number(entry.verifiedAt) > 0).length;
-  setDomainsSummary(`${verifiedCount} von ${list.length} Domains verifiziert`);
+  setDomainsSummary(
+    t(
+      "connections.domains.summary.verified",
+      { verified: verifiedCount, total: list.length },
+      `${verifiedCount}/${list.length} domains verified`
+    )
+  );
 
   for (const item of list) {
     const id = Number(item?.id);
@@ -248,10 +303,19 @@ function renderDomains() {
 
     const verified = Number.isFinite(Number(item?.verifiedAt)) && Number(item.verifiedAt) > 0;
     const badgeClass = verified ? " verified" : " pending";
-    const badgeText = verified ? "Verifiziert" : "Ausstehend";
+    const badgeText = verified
+      ? t("connections.domains.badge.verified", null, "Verified")
+      : t("connections.domains.badge.pending", null, "Pending");
 
     const recordName = String(item?.recordName || "").trim() || `_pingmyserver-challenge.${domain}`;
     const recordValue = String(item?.recordValue || "").trim();
+    const hintHtml = t(
+      "connections.domains.record.hint_html",
+      { host: `<span class="domain-code">${escapeHtml("_pingmyserver-challenge")}</span>` },
+      `Depending on your DNS provider, the host can be just <span class="domain-code">${escapeHtml(
+        "_pingmyserver-challenge"
+      )}</span>.`
+    );
 
     const row = document.createElement("article");
     row.className = "domain-item";
@@ -266,26 +330,32 @@ function renderDomains() {
 
       <div class="domain-record">
         <div class="domain-record-row">
-          <div class="domain-record-key">Name/Host</div>
+          <div class="domain-record-key">${escapeHtml(t("connections.domains.record.name_host", null, "Name/Host"))}</div>
           <div class="domain-code">${escapeHtml(recordName)}</div>
         </div>
         <div class="domain-record-row">
-          <div class="domain-record-key">TXT Wert</div>
-          <div class="domain-code">${escapeHtml(recordValue || "(Token wird geladen...)")}</div>
+          <div class="domain-record-key">${escapeHtml(t("connections.domains.record.txt_value", null, "TXT value"))}</div>
+          <div class="domain-code">${escapeHtml(
+            recordValue || t("connections.domains.record.token_loading", null, "(token loading...)")
+          )}</div>
         </div>
-        <div class="muted domain-hint">Je nach DNS-Provider reicht als Host auch nur <span class="domain-code">${escapeHtml(
-          "_pingmyserver-challenge"
-        )}</span>.</div>
+        <div class="muted domain-hint">${hintHtml}</div>
       </div>
 
       <div class="domain-actions">
         <button class="btn ghost" type="button" data-domain-verify-id="${escapeHtml(String(id))}" ${
       verified ? "disabled" : ""
-    }>${verified ? "Verifiziert" : "Verifizieren"}</button>
+    }>${escapeHtml(
+      verified
+        ? t("connections.domains.button.verified", null, "Verified")
+        : t("connections.domains.button.verify", null, "Verify")
+    )}</button>
         <button class="btn ghost" type="button" data-domain-reset-domain="${escapeHtml(domain)}" ${
       verified ? "disabled" : ""
-    }>Token neu erstellen</button>
-        <button class="btn ghost danger-btn" type="button" data-domain-delete-id="${escapeHtml(String(id))}">Entfernen</button>
+    }>${escapeHtml(t("connections.domains.button.reset_token", null, "Regenerate token"))}</button>
+        <button class="btn ghost danger-btn" type="button" data-domain-delete-id="${escapeHtml(String(id))}">${escapeHtml(
+          t("connections.domains.button.remove", null, "Remove")
+        )}</button>
       </div>
     `;
 
@@ -298,20 +368,33 @@ function renderAppConnections() {
   const list = Array.isArray(appConnections) ? appConnections : [];
 
   if (!list.length) {
-    renderEmptyAppConnections("Keine App Connections.", "Sobald Provider aktiv sind, erscheinen sie hier.");
-    setAppConnectionsSummary("0 App Connections");
+    renderEmptyAppConnections(
+      t("connections.app_connections.empty_title", null, "No app connections."),
+      t("connections.app_connections.empty_body", null, "Once providers are enabled, they will show up here.")
+    );
+    setAppConnectionsSummary(t("connections.app_connections.summary.zero", null, "0 app connections"));
     return;
   }
 
   appConnectionsListEl.innerHTML = "";
   const connected = list.filter((entry) => !!entry.connected).length;
-  setAppConnectionsSummary(`${connected} von ${list.length} App Connections verbunden`);
+  setAppConnectionsSummary(
+    t(
+      "connections.app_connections.summary.connected",
+      { connected, total: list.length },
+      `${connected}/${list.length} connected`
+    )
+  );
 
   for (const item of list) {
     const provider = String(item.provider || "").trim().toLowerCase();
     const label = String(item.label || provider || "Provider");
     const connectedState = !!item.connected;
-    const status = String(item.status || "").trim() || (connectedState ? "verbunden" : "nicht verbunden");
+    const status =
+      String(item.status || "").trim() ||
+      (connectedState
+        ? t("connections.app_connections.status.connected", null, "connected")
+        : t("connections.app_connections.status.disconnected", null, "not connected"));
     const account = String(item.account || "").trim();
     const available = !!item.available;
 
@@ -320,12 +403,12 @@ function renderAppConnections() {
 
     const badgeClass = connectedState ? " connected" : available ? "" : " pending";
     const subtitle = account
-      ? `Verbunden als @${account}`
+      ? t("connections.app_connections.subtitle.connected_as", { account }, `Connected as @${account}`)
       : connectedState
-      ? "Verbunden"
+      ? t("connections.app_connections.subtitle.connected", null, "Connected")
       : available
-      ? "Noch nicht verbunden"
-      : "Bald verfügbar";
+      ? t("connections.app_connections.subtitle.not_connected", null, "Not connected yet")
+      : t("connections.app_connections.subtitle.coming_soon", null, "Coming soon");
 
     row.innerHTML = `
       <div class="app-connection-head">
@@ -338,13 +421,17 @@ function renderAppConnections() {
       <div class="app-connection-meta">${escapeHtml(
         provider === "google"
           ? available
-            ? "Google Login (Gmail) kann über die Login-Seite verbunden werden."
-            : "Google Login (Gmail) ist derzeit deaktiviert."
+            ? t(
+                "connections.app_connections.meta.google_enabled",
+                null,
+                "Google login (Gmail) can be linked via the login page."
+              )
+            : t("connections.app_connections.meta.google_disabled", null, "Google login (Gmail) is currently disabled.")
           : provider === "discord"
           ? available
-            ? "Discord Login kann über die Login-Seite verbunden werden."
-            : "Discord Login ist derzeit deaktiviert."
-          : "Provider-Status wird über dein Konto verwaltet."
+            ? t("connections.app_connections.meta.discord_enabled", null, "Discord login can be linked via the login page.")
+            : t("connections.app_connections.meta.discord_disabled", null, "Discord login is currently disabled.")
+          : t("connections.app_connections.meta.generic", null, "Provider status is managed via your account.")
       )}</div>
     `;
 
@@ -357,8 +444,11 @@ function renderSessions() {
   const list = Array.isArray(sessions) ? sessions : [];
 
   if (!list.length) {
-    renderEmptySessions("Keine aktiven Sitzungen.", "Sobald du dich anmeldest, erscheinen Sitzungen hier.");
-    setSessionsSummary("0 aktive Sitzungen");
+    renderEmptySessions(
+      t("connections.sessions.empty_title", null, "No active sessions."),
+      t("connections.sessions.empty_body", null, "Once you sign in, sessions will appear here.")
+    );
+    setSessionsSummary(t("connections.sessions.summary.zero", null, "0 active sessions"));
     if (revokeOthersButton) revokeOthersButton.disabled = true;
     return;
   }
@@ -368,33 +458,47 @@ function renderSessions() {
   if (revokeOthersButton) {
     revokeOthersButton.disabled = otherCount <= 0;
   }
-  setSessionsSummary(`${list.length} aktive Sitzungen, ${otherCount} weitere Sitzung${otherCount === 1 ? "" : "en"}`);
+  setSessionsSummary(
+    t(
+      otherCount === 1 ? "connections.sessions.summary.one_other" : "connections.sessions.summary.many_other",
+      { total: list.length, others: otherCount },
+      `${list.length} active sessions, ${otherCount} other`
+    )
+  );
 
   for (const session of list) {
     const createdAt = Number(session.createdAt);
     const expiresAt = Number(session.expiresAt);
     const expiresInSeconds = Number(session.expiresInSeconds);
     const isCurrent = !!session.current;
+    const shortId = session.shortId || String(session.id || "").slice(0, 12);
+    const sessionTitle = t("connections.sessions.row.title", { id: shortId }, `Session ${shortId}`);
+    const sessionSubtitle = isCurrent
+      ? t("connections.sessions.row.subtitle.current", null, "This session")
+      : t("connections.sessions.row.subtitle.other", null, "Other session");
+    const sessionBadge = isCurrent
+      ? t("connections.sessions.row.badge.current", null, "Current")
+      : t("connections.sessions.row.badge.active", null, "Active");
 
     const row = document.createElement("article");
     row.className = "session-item";
     row.innerHTML = `
       <div class="session-head">
         <div>
-          <div class="session-title">Session ${escapeHtml(session.shortId || String(session.id || "").slice(0, 12))}</div>
-          <div class="session-subtitle">${isCurrent ? "Diese Sitzung" : "Weitere Sitzung"}</div>
+          <div class="session-title">${escapeHtml(sessionTitle)}</div>
+          <div class="session-subtitle">${escapeHtml(sessionSubtitle)}</div>
         </div>
-        <span class="session-badge${isCurrent ? " current" : ""}">${isCurrent ? "Aktuell" : "Aktiv"}</span>
+        <span class="session-badge${isCurrent ? " current" : ""}">${escapeHtml(sessionBadge)}</span>
       </div>
       <div class="session-meta">
         <div class="session-meta-item">
-          <div class="session-meta-key">Erstellt</div>
+          <div class="session-meta-key">${escapeHtml(t("connections.sessions.row.created", null, "Created"))}</div>
           <div class="session-meta-value">${escapeHtml(formatDateTime(createdAt))} (${escapeHtml(
       formatRelative(createdAt)
     )})</div>
         </div>
         <div class="session-meta-item">
-          <div class="session-meta-key">Läuft ab</div>
+          <div class="session-meta-key">${escapeHtml(t("connections.sessions.row.expires", null, "Expires"))}</div>
           <div class="session-meta-value">${escapeHtml(formatDateTime(expiresAt))} (${escapeHtml(
       formatExpiresIn(expiresInSeconds)
     )})</div>
@@ -409,10 +513,10 @@ function renderSessions() {
     actionButton.className = "btn ghost";
 
     if (isCurrent) {
-      actionButton.textContent = "Diese Sitzung";
+      actionButton.textContent = t("connections.sessions.row.action.current", null, "This session");
       actionButton.disabled = true;
     } else {
-      actionButton.textContent = "Entbinden";
+      actionButton.textContent = t("connections.sessions.row.action.disconnect", null, "Disconnect");
       actionButton.dataset.disconnectSessionId = String(session.id || "");
     }
 
@@ -465,7 +569,7 @@ async function ensureAuthenticated() {
     user = payload.user;
     syncOwnerLinks();
     if (currentUserEmail) {
-      currentUserEmail.textContent = user.email || "eingeloggt";
+      currentUserEmail.textContent = user.email || t("common.signed_in", null, "signed in");
     }
     return true;
   } catch (error) {
@@ -476,7 +580,7 @@ async function ensureAuthenticated() {
 async function loadSessions() {
   if (loadingSessions) return;
   loadingSessions = true;
-  setSessionsSummary("Lade aktive Sitzungen...");
+  setSessionsSummary(t("connections.sessions.loading", null, "Loading active sessions..."));
   setPanelMessage(sessionsMessageEl, "");
 
   try {
@@ -487,8 +591,11 @@ async function loadSessions() {
     }
     if (!response.ok || !payload?.ok) {
       sessions = [];
-      renderEmptySessions("Fehler beim Laden.", "Bitte später erneut versuchen.");
-      setSessionsSummary("Fehler beim Laden");
+      renderEmptySessions(
+        t("common.error_loading", null, "Error while loading."),
+        t("common.try_again_later", null, "Please try again later.")
+      );
+      setSessionsSummary(t("common.error_loading", null, "Error while loading."));
       return;
     }
 
@@ -496,8 +603,11 @@ async function loadSessions() {
     renderSessions();
   } catch (error) {
     sessions = [];
-    renderEmptySessions("Verbindung fehlgeschlagen.", "Bitte später erneut versuchen.");
-    setSessionsSummary("Verbindung fehlgeschlagen");
+    renderEmptySessions(
+      t("common.connection_failed", null, "Connection failed."),
+      t("common.try_again_later", null, "Please try again later.")
+    );
+    setSessionsSummary(t("common.connection_failed", null, "Connection failed."));
   } finally {
     loadingSessions = false;
   }
@@ -506,7 +616,7 @@ async function loadSessions() {
 async function loadAppConnections() {
   if (loadingAppConnections) return;
   loadingAppConnections = true;
-  setAppConnectionsSummary("Lade App Connections...");
+  setAppConnectionsSummary(t("connections.app_connections.loading", null, "Loading app connections..."));
   setPanelMessage(appConnectionsMessageEl, "");
 
   try {
@@ -517,8 +627,11 @@ async function loadAppConnections() {
     }
     if (!response.ok || !payload?.ok) {
       appConnections = [];
-      renderEmptyAppConnections("Fehler beim Laden.", "Bitte später erneut versuchen.");
-      setAppConnectionsSummary("Fehler beim Laden");
+      renderEmptyAppConnections(
+        t("common.error_loading", null, "Error while loading."),
+        t("common.try_again_later", null, "Please try again later.")
+      );
+      setAppConnectionsSummary(t("common.error_loading", null, "Error while loading."));
       return;
     }
 
@@ -526,8 +639,11 @@ async function loadAppConnections() {
     renderAppConnections();
   } catch (error) {
     appConnections = [];
-    renderEmptyAppConnections("Verbindung fehlgeschlagen.", "Bitte später erneut versuchen.");
-    setAppConnectionsSummary("Verbindung fehlgeschlagen");
+    renderEmptyAppConnections(
+      t("common.connection_failed", null, "Connection failed."),
+      t("common.try_again_later", null, "Please try again later.")
+    );
+    setAppConnectionsSummary(t("common.connection_failed", null, "Connection failed."));
   } finally {
     syncCredentialModeFromConnections();
     loadingAppConnections = false;
@@ -537,7 +653,7 @@ async function loadAppConnections() {
 async function loadDomains() {
   if (loadingDomains) return;
   loadingDomains = true;
-  setDomainsSummary("Lade Domains...");
+  setDomainsSummary(t("connections.domains.loading", null, "Loading domains..."));
   setPanelMessage(domainsMessageEl, "");
 
   try {
@@ -548,8 +664,11 @@ async function loadDomains() {
     }
     if (!response.ok || !payload?.ok) {
       domains = [];
-      renderEmptyDomains("Fehler beim Laden.", "Bitte später erneut versuchen.");
-      setDomainsSummary("Fehler beim Laden");
+      renderEmptyDomains(
+        t("common.error_loading", null, "Error while loading."),
+        t("common.try_again_later", null, "Please try again later.")
+      );
+      setDomainsSummary(t("common.error_loading", null, "Error while loading."));
       return;
     }
 
@@ -557,8 +676,11 @@ async function loadDomains() {
     renderDomains();
   } catch (error) {
     domains = [];
-    renderEmptyDomains("Verbindung fehlgeschlagen.", "Bitte später erneut versuchen.");
-    setDomainsSummary("Verbindung fehlgeschlagen");
+    renderEmptyDomains(
+      t("common.connection_failed", null, "Connection failed."),
+      t("common.try_again_later", null, "Please try again later.")
+    );
+    setDomainsSummary(t("common.connection_failed", null, "Connection failed."));
   } finally {
     loadingDomains = false;
   }
@@ -569,7 +691,7 @@ async function createDomainChallenge(domain, options = {}) {
   if (!rawDomain) return;
 
   const force = options.force === true;
-  setPanelMessage(domainsMessageEl, "DNS-Challenge wird erstellt...");
+  setPanelMessage(domainsMessageEl, t("connections.domains.msg.creating_challenge", null, "Creating DNS challenge..."));
 
   if (domainInputEl) domainInputEl.disabled = true;
 
@@ -586,26 +708,50 @@ async function createDomainChallenge(domain, options = {}) {
     }
 
     if (response.status === 409) {
-      setPanelMessage(domainsMessageEl, "Diese Domain ist bereits in einem anderen Konto verifiziert.", "error");
+      setPanelMessage(
+        domainsMessageEl,
+        t(
+          "connections.domains.msg.conflict",
+          null,
+          "This domain is already verified in another account."
+        ),
+        "error"
+      );
       return;
     }
 
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(domainsMessageEl, "Challenge konnte nicht erstellt werden. Bitte Eingabe prüfen.", "error");
+      setPanelMessage(
+        domainsMessageEl,
+        t(
+          "connections.domains.msg.create_failed_input",
+          null,
+          "Challenge could not be created. Please check your input."
+        ),
+        "error"
+      );
       return;
     }
 
     const alreadyVerified = !!payload?.alreadyVerified;
     if (alreadyVerified) {
-      setPanelMessage(domainsMessageEl, "Domain ist bereits verifiziert.", "success");
+      setPanelMessage(domainsMessageEl, t("connections.domains.msg.already_verified", null, "Domain is already verified."), "success");
     } else {
-      setPanelMessage(domainsMessageEl, "Challenge erstellt. TXT Record setzen und danach verifizieren.", "success");
+      setPanelMessage(
+        domainsMessageEl,
+        t(
+          "connections.domains.msg.challenge_created",
+          null,
+          "Challenge created. Set the TXT record and then verify."
+        ),
+        "success"
+      );
     }
 
     if (domainInputEl) domainInputEl.value = "";
     await loadDomains();
   } catch (error) {
-    setPanelMessage(domainsMessageEl, "Challenge konnte nicht erstellt werden.", "error");
+    setPanelMessage(domainsMessageEl, t("connections.domains.msg.create_failed", null, "Challenge could not be created."), "error");
   } finally {
     if (domainInputEl) domainInputEl.disabled = false;
   }
@@ -615,7 +761,7 @@ async function verifyDomain(id) {
   const numericId = Number(id);
   if (!Number.isFinite(numericId) || numericId <= 0) return;
 
-  setPanelMessage(domainsMessageEl, "DNS wird geprüft...");
+  setPanelMessage(domainsMessageEl, t("connections.domains.msg.verifying_dns", null, "Checking DNS..."));
 
   try {
     const { response, payload } = await fetchJson("/api/account/domains/verify", {
@@ -630,7 +776,13 @@ async function verifyDomain(id) {
     }
 
     if (response.ok && payload?.ok) {
-      setPanelMessage(domainsMessageEl, payload?.alreadyVerified ? "Domain ist bereits verifiziert." : "Domain verifiziert.", "success");
+      setPanelMessage(
+        domainsMessageEl,
+        payload?.alreadyVerified
+          ? t("connections.domains.msg.already_verified", null, "Domain is already verified.")
+          : t("connections.domains.msg.verified", null, "Domain verified."),
+        "success"
+      );
       await loadDomains();
       return;
     }
@@ -639,7 +791,11 @@ async function verifyDomain(id) {
     if (errorCode === "dns not ready") {
       setPanelMessage(
         domainsMessageEl,
-        "TXT Record noch nicht gefunden. Bitte 1-5 Minuten warten (oder länger) und erneut verifizieren.",
+        t(
+          "connections.domains.msg.dns_not_ready",
+          null,
+          "TXT record not found yet. Please wait a few minutes and try verifying again."
+        ),
         "error"
       );
       await loadDomains();
@@ -647,19 +803,23 @@ async function verifyDomain(id) {
     }
 
     if (errorCode === "dns lookup failed") {
-      setPanelMessage(domainsMessageEl, "DNS Lookup fehlgeschlagen. Bitte später erneut versuchen.", "error");
+      setPanelMessage(
+        domainsMessageEl,
+        t("connections.domains.msg.dns_lookup_failed", null, "DNS lookup failed. Please try again later."),
+        "error"
+      );
       return;
     }
 
     if (response.status === 404) {
-      setPanelMessage(domainsMessageEl, "Domain nicht gefunden.", "error");
+      setPanelMessage(domainsMessageEl, t("connections.domains.msg.not_found", null, "Domain not found."), "error");
       await loadDomains();
       return;
     }
 
-    setPanelMessage(domainsMessageEl, "Verifizierung fehlgeschlagen.", "error");
+    setPanelMessage(domainsMessageEl, t("connections.domains.msg.verify_failed", null, "Verification failed."), "error");
   } catch (error) {
-    setPanelMessage(domainsMessageEl, "Verifizierung fehlgeschlagen.", "error");
+    setPanelMessage(domainsMessageEl, t("connections.domains.msg.verify_failed", null, "Verification failed."), "error");
   }
 }
 
@@ -667,10 +827,12 @@ async function deleteDomain(id) {
   const numericId = Number(id);
   if (!Number.isFinite(numericId) || numericId <= 0) return;
 
-  const confirmed = window.confirm("Domain-Verifizierung wirklich entfernen?");
+  const confirmed = window.confirm(
+    t("connections.domains.confirm_remove", null, "Remove domain verification?")
+  );
   if (!confirmed) return;
 
-  setPanelMessage(domainsMessageEl, "Domain wird entfernt...");
+  setPanelMessage(domainsMessageEl, t("connections.domains.msg.removing", null, "Removing domain..."));
 
   try {
     const { response, payload } = await fetchJson(`/api/account/domains/${encodeURIComponent(String(numericId))}`, {
@@ -683,14 +845,14 @@ async function deleteDomain(id) {
     }
 
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(domainsMessageEl, "Domain konnte nicht entfernt werden.", "error");
+      setPanelMessage(domainsMessageEl, t("connections.domains.msg.remove_failed", null, "Domain could not be removed."), "error");
       return;
     }
 
-    setPanelMessage(domainsMessageEl, "Domain entfernt.", "success");
+    setPanelMessage(domainsMessageEl, t("connections.domains.msg.removed", null, "Domain removed."), "success");
     await loadDomains();
   } catch (error) {
-    setPanelMessage(domainsMessageEl, "Domain konnte nicht entfernt werden.", "error");
+    setPanelMessage(domainsMessageEl, t("connections.domains.msg.remove_failed", null, "Domain could not be removed."), "error");
   }
 }
 
@@ -698,7 +860,7 @@ async function disconnectSession(sessionId) {
   const id = String(sessionId || "").trim().toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(id)) return;
 
-  setPanelMessage(sessionsMessageEl, "Sitzung wird getrennt...");
+  setPanelMessage(sessionsMessageEl, t("connections.sessions.msg.disconnecting", null, "Disconnecting session..."));
 
   try {
     const { response, payload } = await fetchJson(`/api/account/sessions/${encodeURIComponent(id)}`, {
@@ -709,7 +871,11 @@ async function disconnectSession(sessionId) {
       return;
     }
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(sessionsMessageEl, "Sitzung konnte nicht getrennt werden.", "error");
+      setPanelMessage(
+        sessionsMessageEl,
+        t("connections.sessions.msg.disconnect_failed", null, "Session could not be disconnected."),
+        "error"
+      );
       return;
     }
 
@@ -718,15 +884,19 @@ async function disconnectSession(sessionId) {
       return;
     }
 
-    setPanelMessage(sessionsMessageEl, "Sitzung wurde getrennt.", "success");
+    setPanelMessage(sessionsMessageEl, t("connections.sessions.msg.disconnected", null, "Session disconnected."), "success");
     await loadSessions();
   } catch (error) {
-    setPanelMessage(sessionsMessageEl, "Sitzung konnte nicht getrennt werden.", "error");
+    setPanelMessage(
+      sessionsMessageEl,
+      t("connections.sessions.msg.disconnect_failed", null, "Session could not be disconnected."),
+      "error"
+    );
   }
 }
 
 async function revokeOtherSessions() {
-  setPanelMessage(sessionsMessageEl, "Andere Sitzungen werden getrennt...");
+  setPanelMessage(sessionsMessageEl, t("connections.sessions.msg.revoking_others", null, "Disconnecting other sessions..."));
   if (revokeOthersButton) revokeOthersButton.disabled = true;
 
   try {
@@ -738,19 +908,31 @@ async function revokeOtherSessions() {
       return;
     }
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(sessionsMessageEl, "Andere Sitzungen konnten nicht getrennt werden.", "error");
+      setPanelMessage(
+        sessionsMessageEl,
+        t("connections.sessions.msg.revoke_failed", null, "Other sessions could not be disconnected."),
+        "error"
+      );
       return;
     }
 
     const revoked = Number(payload.revoked || 0);
     setPanelMessage(
       sessionsMessageEl,
-      `${revoked} Sitzung${revoked === 1 ? "" : "en"} getrennt. Aktuelle Sitzung bleibt aktiv.`,
+      t(
+        revoked === 1 ? "connections.sessions.msg.revoked_one" : "connections.sessions.msg.revoked_many",
+        { n: revoked },
+        `${revoked} session(s) disconnected. Current session stays active.`
+      ),
       "success"
     );
     await loadSessions();
   } catch (error) {
-    setPanelMessage(sessionsMessageEl, "Andere Sitzungen konnten nicht getrennt werden.", "error");
+    setPanelMessage(
+      sessionsMessageEl,
+      t("connections.sessions.msg.revoke_failed", null, "Other sessions could not be disconnected."),
+      "error"
+    );
   } finally {
     if (revokeOthersButton) {
       const otherCount = (Array.isArray(sessions) ? sessions : []).filter((entry) => !entry.current).length;
@@ -764,7 +946,7 @@ async function handleDomainSubmit(event) {
 
   const domain = String(domainInputEl?.value || "").trim();
   if (!domain) {
-    setPanelMessage(domainsMessageEl, "Bitte Domain eingeben.", "error");
+    setPanelMessage(domainsMessageEl, t("connections.domains.msg.enter_domain", null, "Please enter a domain."), "error");
     return;
   }
 
@@ -779,27 +961,31 @@ async function handlePasswordSubmit(event) {
   const repeatPassword = repeatPasswordEl?.value || "";
 
   if (!currentPassword && !canUsePasswordlessAccountActions) {
-    setPanelMessage(passwordMessageEl, "Bitte aktuelles Passwort eingeben.", "error");
+    setPanelMessage(passwordMessageEl, t("connections.password.msg.enter_current", null, "Please enter your current password."), "error");
     return;
   }
   if (newPassword.length < PASSWORD_MIN_LENGTH || newPassword.length > PASSWORD_MAX_LENGTH) {
     setPanelMessage(
       passwordMessageEl,
-      `Neues Passwort muss ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} Zeichen lang sein.`,
+      t(
+        "connections.password.msg.invalid_length",
+        { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH },
+        `New password must be ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} characters long.`
+      ),
       "error"
     );
     return;
   }
   if (newPassword !== repeatPassword) {
-    setPanelMessage(passwordMessageEl, "Neue Passwörter stimmen nicht überein.", "error");
+    setPanelMessage(passwordMessageEl, t("connections.password.msg.mismatch", null, "New passwords do not match."), "error");
     return;
   }
   if (currentPassword && newPassword === currentPassword) {
-    setPanelMessage(passwordMessageEl, "Neues Passwort muss sich unterscheiden.", "error");
+    setPanelMessage(passwordMessageEl, t("connections.password.msg.must_differ", null, "New password must be different."), "error");
     return;
   }
 
-  setPanelMessage(passwordMessageEl, "Passwort wird gespeichert...");
+  setPanelMessage(passwordMessageEl, t("connections.password.msg.saving", null, "Saving password..."));
 
   try {
     const { response, payload } = await fetchJson("/api/account/password", {
@@ -812,9 +998,13 @@ async function handlePasswordSubmit(event) {
 
     if (response.status === 401) {
       if (payload?.error === "invalid credentials") {
-        setPanelMessage(passwordMessageEl, "Aktuelles Passwort ist falsch.", "error");
+        setPanelMessage(passwordMessageEl, t("connections.password.msg.current_wrong", null, "Current password is incorrect."), "error");
       } else if (payload?.error === "reauth required") {
-        setPanelMessage(passwordMessageEl, "Bitte neu anmelden und den Vorgang direkt wiederholen.", "error");
+        setPanelMessage(
+          passwordMessageEl,
+          t("connections.password.msg.reauth_required", null, "Please sign in again and retry the action."),
+          "error"
+        );
       } else {
         window.location.href = "/login";
       }
@@ -823,32 +1013,37 @@ async function handlePasswordSubmit(event) {
 
     if (!response.ok || !payload?.ok) {
       if (payload?.error === "same password") {
-        setPanelMessage(passwordMessageEl, "Neues Passwort darf nicht identisch sein.", "error");
+        setPanelMessage(passwordMessageEl, t("connections.password.msg.same_password", null, "New password must not be the same."), "error");
       } else if (payload?.error === "current password required") {
-        setPanelMessage(passwordMessageEl, "Aktuelles Passwort ist erforderlich.", "error");
+        setPanelMessage(passwordMessageEl, t("connections.password.msg.current_required", null, "Current password is required."), "error");
       } else if (payload?.error === "invalid input") {
-        setPanelMessage(passwordMessageEl, "Bitte Eingaben prüfen.", "error");
+        setPanelMessage(passwordMessageEl, t("connections.password.msg.invalid_input", null, "Please check your input."), "error");
       } else {
-        setPanelMessage(passwordMessageEl, "Passwort konnte nicht geändert werden.", "error");
+        setPanelMessage(passwordMessageEl, t("connections.password.msg.change_failed", null, "Password could not be changed."), "error");
       }
       return;
     }
 
     const revoked = Number(payload.revoked || 0);
-    setPanelMessage(
-      passwordMessageEl,
-      `${currentPassword ? "Passwort gespeichert." : "Passwort gesetzt."} ${revoked} weitere Session${
-        revoked === 1 ? "" : "s"
-      } getrennt.`,
-      "success"
-    );
+    const base = currentPassword
+      ? t("connections.password.msg.saved", null, "Password saved.")
+      : t("connections.password.msg.set", null, "Password set.");
+    const suffix =
+      revoked <= 0
+        ? ""
+        : t(
+            revoked === 1 ? "connections.password.msg.revoked_one" : "connections.password.msg.revoked_many",
+            { n: revoked },
+            `${revoked} other session(s) disconnected.`
+          );
+    setPanelMessage(passwordMessageEl, suffix ? `${base} ${suffix}` : base, "success");
 
     if (currentPasswordEl) currentPasswordEl.value = "";
     if (newPasswordEl) newPasswordEl.value = "";
     if (repeatPasswordEl) repeatPasswordEl.value = "";
     await loadSessions();
   } catch (error) {
-    setPanelMessage(passwordMessageEl, "Passwort konnte nicht geändert werden.", "error");
+    setPanelMessage(passwordMessageEl, t("connections.password.msg.change_failed", null, "Password could not be changed."), "error");
   }
 }
 
@@ -857,16 +1052,24 @@ async function handleDeleteAccountSubmit(event) {
 
   const currentPassword = deleteAccountPasswordEl?.value || "";
   if (!currentPassword && !canUsePasswordlessAccountActions) {
-    setPanelMessage(deleteAccountMessageEl, "Bitte aktuelles Passwort eingeben.", "error");
+    setPanelMessage(
+      deleteAccountMessageEl,
+      t("connections.delete.msg.enter_current", null, "Please enter your current password."),
+      "error"
+    );
     return;
   }
 
   const confirmed = window.confirm(
-    "Willst du dein Konto wirklich dauerhaft löschen? Alle Monitore und Sessions werden entfernt."
+    t(
+      "connections.delete.confirm",
+      null,
+      "Do you really want to permanently delete your account? All monitors and sessions will be removed."
+    )
   );
   if (!confirmed) return;
 
-  setPanelMessage(deleteAccountMessageEl, "Konto wird gelöscht...");
+  setPanelMessage(deleteAccountMessageEl, t("connections.delete.msg.deleting", null, "Deleting account..."));
   if (deleteAccountButton) deleteAccountButton.disabled = true;
 
   try {
@@ -883,9 +1086,17 @@ async function handleDeleteAccountSubmit(event) {
 
     if (response.status === 401) {
       if (payload?.error === "invalid credentials") {
-        setPanelMessage(deleteAccountMessageEl, "Aktuelles Passwort ist falsch.", "error");
+        setPanelMessage(
+          deleteAccountMessageEl,
+          t("connections.delete.msg.current_wrong", null, "Current password is incorrect."),
+          "error"
+        );
       } else if (payload?.error === "reauth required") {
-        setPanelMessage(deleteAccountMessageEl, "Bitte neu anmelden und den Vorgang direkt wiederholen.", "error");
+        setPanelMessage(
+          deleteAccountMessageEl,
+          t("connections.password.msg.reauth_required", null, "Please sign in again and retry the action."),
+          "error"
+        );
       } else {
         window.location.href = "/login";
       }
@@ -894,17 +1105,29 @@ async function handleDeleteAccountSubmit(event) {
 
     if (!response.ok || !payload?.ok) {
       if (payload?.error === "invalid input" || payload?.error === "current password required") {
-        setPanelMessage(deleteAccountMessageEl, "Bitte Eingaben prüfen.", "error");
+        setPanelMessage(
+          deleteAccountMessageEl,
+          t("connections.password.msg.invalid_input", null, "Please check your input."),
+          "error"
+        );
       } else {
-        setPanelMessage(deleteAccountMessageEl, "Konto konnte nicht gelöscht werden.", "error");
+        setPanelMessage(
+          deleteAccountMessageEl,
+          t("connections.delete.msg.delete_failed", null, "Account could not be deleted."),
+          "error"
+        );
       }
       return;
     }
 
-    setPanelMessage(deleteAccountMessageEl, "Konto gelöscht. Weiterleitung ...", "success");
+    setPanelMessage(deleteAccountMessageEl, t("connections.delete.msg.deleted", null, "Account deleted. Redirecting..."), "success");
     window.location.href = "/login";
   } catch (error) {
-    setPanelMessage(deleteAccountMessageEl, "Konto konnte nicht gelöscht werden.", "error");
+    setPanelMessage(
+      deleteAccountMessageEl,
+      t("connections.delete.msg.delete_failed", null, "Account could not be deleted."),
+      "error"
+    );
   } finally {
     if (deleteAccountButton) deleteAccountButton.disabled = false;
     if (deleteAccountPasswordEl) deleteAccountPasswordEl.value = "";

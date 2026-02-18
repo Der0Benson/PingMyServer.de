@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Onboarding in PingMyServer: ersten Monitor anlegen und Monitoring starten." />
+    <meta
+      name="description"
+      data-i18n-content="meta.onboarding.description"
+      content="Onboarding in PingMyServer: ersten Monitor anlegen und Monitoring starten."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Onboarding · PingMyServer</title>
+    <title data-i18n="meta.onboarding.title">Onboarding · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,6 +22,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/onboarding.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
@@ -28,14 +33,41 @@
           <span class="wordmark-name">PingMyServer.de</span>
         </a>
 
-        <h1>Welche Website willst du überwachen?</h1>
+        <div class="lang-bar">
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <h1 data-i18n="onboarding.h1">Welche Website willst du überwachen?</h1>
         <p>
-          Gib eine Domain oder URL an. Beispiele: <code>example.com</code> oder
-          <code>https://example.com</code>.
+          <span data-i18n="onboarding.p1">Gib eine Domain oder URL an. Beispiele:</span> <code>example.com</code>
+          <span data-i18n="onboarding.p2">oder</span> <code>https://example.com</code>.
         </p>
 
         <form id="onboarding-form" novalidate>
-          <label for="monitor-url">URL oder Domain</label>
+          <label for="monitor-url" data-i18n="onboarding.label.url">URL oder Domain</label>
           <input
             id="monitor-url"
             name="url"
@@ -45,31 +77,33 @@
             required
           />
 
-          <label for="monitor-name">Name (optional)</label>
+          <label for="monitor-name" data-i18n="onboarding.label.name">Name (optional)</label>
           <input
             id="monitor-name"
             name="name"
             type="text"
+            data-i18n-placeholder="onboarding.placeholder.name"
             placeholder="Mein Shop"
             maxlength="255"
           />
 
-          <button type="submit">Monitor erstellen</button>
+          <button type="submit" data-i18n="onboarding.button.create">Monitor erstellen</button>
         </form>
 
         <p id="onboarding-message" class="message"></p>
       </section>
 
       <footer class="site-footer">
-        <span class="site-footer-note">Rechtliches</span>
+        <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
         <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-          <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-          <a href="/datenschutz">Datenschutz</a>
-          <a href="/impressum">Impressum</a>
+          <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+          <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+          <a href="/impressum" data-i18n="common.imprint">Impressum</a>
         </nav>
       </footer>
     </main>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/onboarding.js"></script>
   </body>
 </html>

@@ -1,0 +1,2319 @@
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "pms.lang";
+  const DEFAULT_LANG = "de";
+  const SUPPORTED = new Set(["de", "en"]);
+
+  const LOCALE_MAP = {
+    de: "de-DE",
+    en: "en-US",
+  };
+
+  const STRINGS = {
+    de: {
+      meta: {
+        login: {
+          title: "Login - PingMyServer",
+          description: "Login zu PingMyServer für Monitoring, Vorfälle und Benachrichtigungen.",
+        },
+        onboarding: {
+          title: "Onboarding · PingMyServer",
+          description: "Onboarding in PingMyServer: ersten Monitor anlegen und Monitoring starten.",
+        },
+        landing: {
+          title: "PingMyServer - Uptime Monitoring für Websites, APIs und Services",
+          description:
+            "PingMyServer überwacht Websites, APIs und Services rund um die Uhr. Erhalte Ausfall-Alerts per Discord, E-Mail und Webhook in Sekunden.",
+          og_title: "PingMyServer - Uptime Monitoring für Websites, APIs und Services",
+          og_description: "Uptime-Monitoring für Websites, APIs und Services mit schnellen Alerts und öffentlicher Statusseite.",
+          twitter_title: "PingMyServer - Uptime Monitoring",
+          twitter_description: "Überwache Websites und APIs 24/7 und erhalte Alerts in Sekunden.",
+        },
+        app: {
+          title: "Dashboard · PingMyServer",
+          description: "Dashboard von PingMyServer für Monitoring, Uptime-Verlauf und Alarmierung.",
+        },
+        incidents: {
+          title: "Vorfälle · PingMyServer",
+          description: "Vorfallsübersicht in PingMyServer mit Verlauf und Ausfalldetails.",
+        },
+        notifications: {
+          title: "Benachrichtigungen · PingMyServer",
+          description: "Benachrichtigungskanäle in PingMyServer konfigurieren und verwalten.",
+        },
+        connections: {
+          title: "Connections · PingMyServer",
+          description: "Verbindungen und Integrationen in PingMyServer verwalten.",
+        },
+        privacy: {
+          title: "Datenschutz · PingMyServer",
+          description:
+            "Datenschutzerklärung von PingMyServer: Informationen zur Verarbeitung, Speicherung und deinen Rechten nach DSGVO.",
+          og_title: "Datenschutz · PingMyServer",
+          og_description: "Datenschutzerklärung von PingMyServer.",
+          twitter_title: "Datenschutz · PingMyServer",
+          twitter_description: "Datenschutzerklärung von PingMyServer.",
+        },
+        imprint: {
+          title: "Impressum · PingMyServer",
+          description: "Impressum von PingMyServer mit allen Pflichtangaben nach § 5 TMG und Kontaktinformationen.",
+          og_title: "Impressum · PingMyServer",
+          og_description: "Impressum von PingMyServer.",
+          twitter_title: "Impressum · PingMyServer",
+          twitter_description: "Impressum von PingMyServer.",
+        },
+        terms: {
+          title: "Nutzungsbedingungen · PingMyServer",
+          description: "Nutzungsbedingungen von PingMyServer mit Regelungen zu Nutzung, Leistungsumfang, Kündigung und Haftung.",
+          og_title: "Nutzungsbedingungen · PingMyServer",
+          og_description: "Nutzungsbedingungen von PingMyServer.",
+          twitter_title: "Nutzungsbedingungen · PingMyServer",
+          twitter_description: "Nutzungsbedingungen von PingMyServer.",
+        },
+        owner: {
+          title: "Owner Ops · PingMyServer",
+          description: "Owner-Übersicht von PingMyServer für operative Kennzahlen und Top-Monitore.",
+        },
+        status: {
+          title: "Statusseite · PingMyServer",
+          description: "Live-Statusseite von PingMyServer mit Uptime, Vorfällen und letzten Checks in Echtzeit.",
+          og_title: "PingMyServer Statusseite",
+          og_description: "Live-Statusseite mit Uptime, Vorfällen und letzten Checks.",
+          twitter_title: "PingMyServer Statusseite",
+          twitter_description: "Live-Statusseite mit Uptime und Vorfällen.",
+        },
+      },
+      onboarding: {
+        h1: "Welche Website willst du überwachen?",
+        p1: "Gib eine Domain oder URL an. Beispiele:",
+        p2: "oder",
+        label: {
+          url: "URL oder Domain",
+          name: "Name (optional)",
+        },
+        placeholder: {
+          name: "Mein Shop",
+        },
+        button: {
+          create: "Monitor erstellen",
+        },
+        msg: {
+          enter_url: "Bitte eine Domain oder URL eingeben.",
+          creating: "Monitor wird erstellt...",
+          created_redirect: "Monitor erstellt. Weiterleitung...",
+        },
+        error: {
+          local_target_forbidden: "Lokale Ziele wie localhost sind aus Sicherheitsgründen nicht erlaubt.",
+          private_target_forbidden: "Private IP-Ziele sind nicht erlaubt. Bitte den Host zur Private-Allowlist hinzufügen.",
+          mixed_target_forbidden:
+            "Die Domain löst sowohl auf öffentliche als auch private DNS-Ziele auf. Bitte MONITOR_PRIVATE_TARGET_POLICY=all_private setzen.",
+          invalid_protocol: "Nur http:// oder https:// sind erlaubt.",
+          invalid_url: "Die URL ist ungültig. Bitte Eingabe prüfen.",
+          target_blocked: "Das Ziel wurde durch die Security-Policy blockiert.",
+          invalid_input: "Bitte URL/Domain prüfen.",
+          monitor_limit_reached: "Monitor-Limit erreicht. Bitte alte Monitore löschen oder Limit erhöhen.",
+          internal_error: "Interner Fehler beim Erstellen des Monitors. Bitte später erneut versuchen.",
+          backend_503: "Backend ist aktuell nicht verfügbar (HTTP 503). Bitte Server-Service neu starten.",
+          proxy_502: "Proxy-Fehler zum Backend (HTTP 502). Bitte Server-Service und Apache Proxy prüfen.",
+          bad_request_400: "Der Webserver hat die Anfrage als ungültig abgewiesen (HTTP 400).",
+          forbidden_403: "Der Webserver hat die Anfrage blockiert (HTTP 403).",
+          unauthorized_401: "Session ist nicht mehr gültig. Bitte erneut anmelden.",
+          webserver_rejected: "Die Anfrage wurde vom Webserver abgewiesen.",
+          create_failed: "Monitor konnte nicht erstellt werden.",
+        },
+      },
+      login: {
+        h1: "Anmelden oder registrieren",
+        sub: "GitHub-, Google- und Discord-Login sind verfügbar, sobald OAuth aktiviert ist.",
+        divider: "oder mit E-Mail",
+        aria: {
+          auth: "Authentifizierung",
+        },
+        mode: {
+          login: "Login",
+          register: "Register",
+        },
+        label: {
+          email: "E-Mail",
+          password: "Passwort",
+        },
+        button: {
+          sign_in: "Einloggen",
+          create_account: "Konto erstellen",
+        },
+        msg: {
+          invalid_email_password: "Bitte gib eine gültige E-Mail und ein Passwort mit {min}-{max} Zeichen ein.",
+          signing_in: "Einloggen ...",
+          too_many_attempts: "Zu viele Versuche. Bitte später erneut versuchen.",
+          too_many_attempts_retry: "Zu viele Versuche. Bitte in {seconds} Sekunden erneut versuchen.",
+          invalid_credentials: "E-Mail oder Passwort ist falsch.",
+          login_failed: "Login fehlgeschlagen.",
+          login_success: "Login erfolgreich. Weiterleitung ...",
+          registering: "Konto wird erstellt ...",
+          register_failed: "Registrierung fehlgeschlagen.",
+          register_success: "Konto erstellt. Weiterleitung ...",
+          oauth_coming_soon: "{provider}-Login ist verfügbar, sobald OAuth aktiviert ist.",
+        },
+        oauth: {
+          default: "OAuth-Anmeldung fehlgeschlagen.",
+          discord_disabled: "Discord-Login ist aktuell deaktiviert.",
+          discord_denied: "Discord-Anmeldung wurde abgebrochen.",
+          discord_state: "Discord-Anmeldung ist abgelaufen. Bitte erneut versuchen.",
+          discord_code: "Discord-Anmeldung fehlgeschlagen (kein Code erhalten).",
+          discord_token: "Discord-Token konnte nicht abgerufen werden.",
+          discord_scope: "Discord hat den E-Mail-Scope nicht freigegeben. Bitte erneut autorisieren.",
+          discord_profile: "Discord-Profil konnte nicht gelesen werden.",
+          discord_email_missing: "Keine verifizierte E-Mail bei Discord gefunden.",
+          discord_conflict: "Diese E-Mail ist bereits mit einem anderen Discord-Konto verknüpft.",
+          discord_error: "Discord-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
+          github_disabled: "GitHub-Login ist aktuell deaktiviert.",
+          github_denied: "GitHub-Anmeldung wurde abgebrochen.",
+          github_state: "GitHub-Anmeldung ist abgelaufen. Bitte erneut versuchen.",
+          github_code: "GitHub-Anmeldung fehlgeschlagen (kein Code erhalten).",
+          github_token: "GitHub-Token konnte nicht abgerufen werden.",
+          github_scope:
+            "GitHub hat den E-Mail-Scope nicht freigegeben. Bitte App-Berechtigung entfernen und erneut anmelden.",
+          github_email_permission:
+            "GitHub App braucht die Berechtigung 'Email addresses: Read-only'. Bitte in GitHub App setzen und neu autorisieren.",
+          github_profile: "GitHub-Profil konnte nicht gelesen werden.",
+          github_email_missing: "Keine verifizierte E-Mail bei GitHub gefunden.",
+          github_conflict: "Diese E-Mail ist bereits mit einem anderen GitHub-Konto verknüpft.",
+          github_error: "GitHub-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
+          google_disabled: "Google-Login ist aktuell deaktiviert.",
+          google_denied: "Google-Anmeldung wurde abgebrochen.",
+          google_state: "Google-Anmeldung ist abgelaufen. Bitte erneut versuchen.",
+          google_code: "Google-Anmeldung fehlgeschlagen (kein Code erhalten).",
+          google_token: "Google-Token konnte nicht abgerufen werden.",
+          google_scope: "Google hat den E-Mail-Scope nicht freigegeben. Bitte erneut autorisieren.",
+          google_profile: "Google-Profil konnte nicht gelesen werden.",
+          google_email_missing: "Keine verifizierte E-Mail bei Google gefunden.",
+          google_conflict: "Diese E-Mail ist bereits mit einem anderen Google-Konto verknüpft.",
+          google_error: "Google-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
+        },
+      },
+      landing: {
+        nav: {
+          features: "Features",
+          pricing: "Preise",
+          faq: "FAQ",
+          status: "Statusseite",
+          login: "Anmelden",
+          dashboard: "Dashboard",
+          cta: "Kostenlos starten",
+        },
+        hero: {
+          badge: "Jetzt im Early Access",
+          h1: {
+            line1: "Ausfälle früh erkennen,",
+            highlight: "bevor Nutzer",
+            line2: "sie melden",
+          },
+          lead:
+            "PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr. Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.",
+          benefit: {
+            setup: "Setup in unter 60 Sekunden",
+            no_cc: "Keine Kreditkarte erforderlich",
+            public_status: "Öffentliche Statusseite inklusive",
+          },
+          cta_primary: "Early Access starten ->",
+          cta_secondary: "Live-Demo ansehen",
+          note: "Komplett kostenlos während Early Access • Made in Germany",
+        },
+        live: {
+          title: "Live Status",
+          overall_loading: "Lade Monitor-Daten ...",
+          monitor_loading: "Monitor wird geladen ...",
+          checking: "Prüfung ...",
+          response_placeholder: "Response: --",
+          response_value: "Response: {ms}ms",
+          uptime_placeholder: "--% Uptime",
+          uptime_value: "{uptime}% Uptime",
+          no_monitor: "Kein Monitor verfügbar",
+          overall: {
+            no_data: "Keine Monitor-Daten verfügbar",
+            operational: "Alle Systeme betriebsbereit",
+            offline: {
+              one: "{n} Monitor offline",
+              many: "{n} Monitore offline",
+            },
+          },
+          alert_title: "Recent Alert",
+          alert_now: "gerade eben",
+          alert_none: "Noch keine Vorfälle gefunden.",
+          alert: {
+            none_full: "Keine aktuellen Vorfälle gefunden.",
+            offline: "{label} ist aktuell offline{code}",
+            outage: "{label} hatte einen Ausfall{code}",
+          },
+        },
+        social: {
+          h3: "Von Entwicklern, für Entwickler",
+          sub: "Ein Azubi-Projekt mit professionellem Anspruch",
+          stat: {
+            monitoring: "Monitoring",
+            interval: "Check-Intervall",
+            uptime: "Ziel-Uptime",
+            made_in: "Made in Germany",
+          },
+        },
+        features: {
+          h2: "Alles, was du für professionelles Monitoring brauchst",
+          lead:
+            "Von einfachen HTTP-Checks bis zu komplexen API-Überwachungen – PingMyServer bietet alle Tools für zuverlässiges Uptime-Monitoring",
+          cards: {
+            fast_checks: {
+              title: "Blitzschnelle Checks",
+              body:
+                "Überwache deine Endpoints alle 60 Sekunden. Erhalte Alerts innerhalb von Sekunden nach einem Ausfall – bevor deine Kunden es merken.",
+            },
+            incident_history: {
+              title: "Detaillierte Incident-Historie",
+              body: "Vollständige Aufzeichnung aller Vorfälle mit Dauer, Fehlerquote und Verlauf. Perfekt für Postmortems und Reporting.",
+            },
+            alerts: {
+              title: "Multi-Channel Alerts",
+              body: "Discord, Slack, E-Mail, Webhooks, Telegram – wähle deinen bevorzugten Kanal. Oder nutze alle gleichzeitig.",
+            },
+            ssl: {
+              title: "SSL-Zertifikat Monitoring",
+              body: "Automatische Überwachung deiner SSL-Zertifikate. Werde rechtzeitig benachrichtigt, bevor ein Zertifikat abläuft.",
+            },
+            locations: {
+              title: "Globale Monitoring-Standorte",
+              body: "Überwache deine Services von mehreren Standorten weltweit. Erkenne regionale Ausfälle sofort.",
+            },
+            public_status: {
+              title: "Öffentliche Statusseite",
+              body: "Branded Statusseite für deine Kunden. Zeige Transparenz mit Echtzeit-Status und Incident-Updates.",
+            },
+          },
+        },
+        about: {
+          h2: "Warum wir PingMyServer gebaut haben",
+          sub: "Ein Student-Projekt mit echter Mission",
+          founder_title: "Gründer & Developer",
+          story: {
+            p1:
+              "Nach dem Gymnasium bin ich jetzt in der Ausbildung und habe nebenbei angefangen, eigene Web-Projekte zu bauen. Das Problem: Meine Seiten sind öfter mal ausgefallen, ohne dass ich es mitbekommen habe. Erst wenn sich Nutzer gemeldet haben, wusste ich Bescheid – und das war mir echt peinlich.",
+            p2:
+              "Die bestehenden Monitoring-Tools waren entweder zu teuer für mein Azubi-Budget oder viel zu kompliziert für meine Bedürfnisse. Also habe ich PingMyServer gebaut: Ein simples, zuverlässiges Tool, das genau das macht, was es soll – ohne Schnickschnack.",
+            p3:
+              "Jetzt will ich es mit anderen Azubis, Studenten und Developern teilen. Feedback und Verbesserungsvorschläge sind herzlich willkommen!",
+          },
+          values: {
+            open: {
+              title: "Open Development",
+              body: "Wir entwickeln transparent und hören auf unser Community-Feedback",
+            },
+            heart: {
+              title: "Made with Herz",
+              body: "Gebaut mit moderner Technologie und Leidenschaft fürs Detail",
+            },
+            join: {
+              title: "Join Early",
+              body: "Sei dabei von Anfang an und forme die Zukunft des Tools mit",
+            },
+          },
+          contact_prompt: "Du hast Fragen oder Feedback?",
+          contact_cta: "Kontakt per E-Mail ->",
+        },
+        pricing: {
+          h2: "Preise",
+          sub: "Beta ist komplett kostenlos. Starter und Pro / Team kommen bald.",
+          per_month: "/Monat",
+          coming_soon: "Kommt bald",
+          planned_button: "In Planung",
+          beta: {
+            name: "Beta",
+            tagline: "Komplett kostenlos",
+            per: "/während Beta",
+            features: {
+              unlimited: "Unbegrenzte Monitore",
+              checks_60: "60-Sekunden-Checks",
+              alert_channels: "Alle Alert-Kanäle",
+              public_status: "Öffentliche Statusseite",
+              ssl: "SSL-Monitoring",
+            },
+            cta: "Jetzt Beta-Zugang sichern",
+            no_cc: "Keine Kreditkarte erforderlich",
+          },
+          starter: {
+            name: "Starter",
+            tagline: "Geplant für später",
+            features: {
+              more_monitors: "Mehr Monitore",
+              checks_30: "Schnellere Checks (30s)",
+              stats: "Erweiterte Statistiken",
+              api: "API-Zugang",
+              support: "Priority Support",
+            },
+          },
+          pro: {
+            name: "Pro / Team",
+            tagline: "Für später",
+            features: {
+              unlimited: "Unbegrenzte Monitore",
+              team: "Team-Kollaboration",
+              branding: "Custom Branding",
+              locations: "Dedizierte Standorte",
+              support: "Premium Support",
+            },
+          },
+          note: "Beta: kostenlos. Starter und Pro / Team: in Planung.",
+        },
+        faq: {
+          h2: "Häufige Fragen",
+          sub: "Alles, was du über PingMyServer wissen musst",
+          items: {
+            private: {
+              q: "Kann ich auch private Webseiten monitoren?",
+              a: "Ja, aber direkte private oder lokale IP-Ziele sind aus Sicherheitsgründen blockiert. Du kannst aber HTTP-Authentifizierung nutzen oder Custom Headers setzen.",
+            },
+            speed: {
+              q: "Wie schnell wird ein Ausfall erkannt?",
+              a: "Bei 60-Sekunden-Checks (Standard) innerhalb von rund einer Minute. Bei bezahlten Plänen kannst du die Check-Intervalle auf bis zu 30 Sekunden reduzieren, sodass Ausfälle noch schneller erkannt werden.",
+            },
+            share: {
+              q: "Wie teile ich den Status mit Kunden?",
+              a: "Jeder Monitor hat eine öffentliche Statusseite, die direkt verlinkt werden kann. Die Seite zeigt Echtzeit-Status, Uptime-Statistiken und vergangene Incidents. Du kannst sie auch mit deinem eigenen Branding versehen (in bezahlten Plänen).",
+            },
+            gdpr: {
+              q: "Ist PingMyServer DSGVO-konform?",
+              a: "Ja, absolut. Alle Daten werden in der EU gehostet (Frankfurt, Deutschland). Wir sammeln nur notwendige Monitoring-Daten und geben nichts an Dritte weiter. Du kannst deine Daten jederzeit exportieren oder löschen.",
+            },
+            cancel: {
+              q: "Was passiert, wenn ich kündige?",
+              a: "Du kannst jederzeit mit einem Klick kündigen. Dein Account bleibt bis zum Ende der bezahlten Periode aktiv. Danach werden deine Monitore deaktiviert, aber deine Daten bleiben für 90 Tage gespeichert, falls du zurückkommen möchtest.",
+            },
+            api: {
+              q: "Gibt es eine API?",
+              a: "Ja! Ab dem Starter-Plan hast du Zugriff auf unsere REST API. Damit kannst du Monitore programmgesteuert erstellen, Status abfragen und Incidents abrufen. Perfekt für CI/CD-Integration.",
+            },
+          },
+        },
+        cta: {
+          h2: "Bereit, Teil der Community zu werden?",
+          p1: "Sichere dir jetzt deinen kostenlosen Beta-Zugang und hilf uns dabei,",
+          p2: "das beste Uptime-Monitoring-Tool für Developer zu bauen.",
+          primary: "Beta-Zugang sichern ->",
+          secondary: "Statusseite ansehen",
+          note: "Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany",
+        },
+        footer: {
+          pitch: "Professionelles Uptime-Monitoring für Websites, APIs und Services.",
+          product: "Produkt",
+          api_docs: "API Docs",
+          status: "Status",
+          company: "Unternehmen",
+          about: "Über uns",
+          commits: "Commits",
+          contact: "Kontakt",
+          legal: "Legal",
+          terms_short: "AGB",
+          gdpr: "DSGVO",
+          email: "E-Mail",
+        },
+      },
+      app: {
+        dashboard: {
+          current_status: "Aktueller Status",
+          last_check: "Letzter Check",
+          check_interval_placeholder: "Prüfintervall: 1 Min.",
+          check_interval: "Prüfintervall: {interval}",
+          waiting_first_check: "Warte auf ersten Check",
+          online_for: "Online seit {duration}",
+          offline_for: "Offline seit {duration}",
+          last_24h: "Letzte 24 Stunden",
+          uptime_placeholder: "0 Vorfälle, 0 Min. Ausfall",
+          uptime_title: "Uptime",
+          summary: {
+            one: "{incidents} Vorfall, {minutes} Min. Ausfall",
+            many: "{incidents} Vorfälle, {minutes} Min. Ausfall",
+          },
+          last_7_days: "Letzte 7 Tage",
+          last_30_days: "Letzte 30 Tage",
+          last_365_days: "Letzte 365 Tage",
+          choose_range: "Zeitraum wählen",
+          range_default: "Letzte 30 Tage",
+          range_last_days: "Letzte {days} Tage",
+          daily_overview: "Tagesübersicht.",
+        },
+        state: {
+          online: "Online",
+          offline: "Offline",
+        },
+        monitor: {
+          no_check: "noch kein Check",
+          target_https: "HTTPS-Monitor für {target}",
+          delete_title: "Löscht den Monitor inklusive aller Daten",
+          delete_aria: "Monitor {name} löschen",
+          delete_failed: "Monitor konnte nicht gelöscht werden. Bitte später erneut versuchen.",
+          delete_confirm:
+            "Monitor \"{name}\" wirklich löschen?\n\nDabei werden alle Daten dieses Monitors dauerhaft entfernt:\n- Checks\n- Uptime-Historie\n- Vorfälle\n- Tagesstatistiken\n\nDieser Vorgang kann nicht rückgängig gemacht werden.",
+        },
+        interval: {
+          custom: "Benutzerdefiniert ({value})",
+        },
+        week: {
+          mo_short: "Mo",
+          wed_short: "Mi",
+          fri_short: "Fr",
+        },
+        legend: {
+          ok: "Keine Fehler",
+          warn: "Kleine Fehler",
+          down: "Ausfall",
+        },
+        errors: {
+          no_response_label: "keine Antwort",
+          no_response_single: "Fehlercode: keine Antwort",
+          http_code: "HTTP-Code: {codes}",
+          http_codes: "HTTP-Codes: {codes}",
+          codes: "Fehlercodes: {codes}",
+        },
+        response: {
+          title: "Antwortzeit.",
+          last_hour: "Letzte Stunde",
+          avg: "Durchschnitt",
+          min: "Minimum",
+          max: "Maximum",
+        },
+        domain_ssl: {
+          title: "Domain & SSL.",
+          domain_valid_until: "Domain gültig bis",
+          ssl_valid_until: "SSL-Zertifikat gültig bis",
+          source_rdap: "Quelle: RDAP",
+          ip_target: "IP-Monitor (keine Domain)",
+          public_unavailable: "Öffentlich nicht verfügbar",
+          registry_no_expiry: "Die Registry veröffentlicht kein Ablaufdatum",
+          no_https_target: "Kein HTTPS-Ziel",
+          issuer: "Issuer: {issuer}",
+        },
+        regions: {
+          title: "Regionen.",
+          map_alt: "Weltkarte",
+          location_loading: "Standort wird geladen…",
+          unavailable: "Standort nicht verfügbar",
+          scope: {
+            edge: "Edge-Standort{provider}",
+            origin: "Serverstandort",
+            generic: "Standort",
+          },
+          geodata_unavailable: "{scope}: Geodaten nicht verfügbar",
+          ip_location: "IP-Standort",
+          asn_org: "ASN/Org",
+        },
+        incidents: {
+          title: "Letzte Vorfälle.",
+          empty_title: "👍 Gute Arbeit, keine Vorfälle.",
+          empty_body: "Bisher gab es keine Vorfälle. Weiter so!",
+          outage: "Ausfall",
+          daily: "Täglicher Vorfall",
+          aggregated: "aggregiert",
+          failed_checks: "Fehlchecks: {n}",
+          checks: "Checks: {n}",
+          ongoing: "läuft noch",
+          open: "offen",
+          unknown_day: "Tag unbekannt",
+          footnote: "Zeigt die letzten 2 Vorfälle (Fenster: {days} Tage).",
+          badge: {
+            ongoing: "laufend",
+            ended: "beendet",
+          },
+        },
+        advanced: {
+          title: "Mehr Einstellungen",
+          meta: "HTTP-Assertions · Wartungen",
+        },
+        assertions: {
+          title: "HTTP-Assertions.",
+          desc: "Optional: prüfe Statuscode, Redirects, Content-Type oder Wörter im Body.",
+          enable: "Aktivieren",
+          expected_codes: "Erwartete Statuscodes",
+          follow_redirects: "Redirects folgen",
+          max_redirects: "Max Redirects",
+          content_type_contains: "Content-Type enthält",
+          body_contains: "Body enthält",
+          timeout_ms: "Timeout (ms)",
+          placeholder: {
+            codes: "z.B. 200-299,304",
+            content_type: "z.B. text/html",
+            body: "z.B. Willkommen",
+          },
+          msg_saving: "Speichern ...",
+          msg_saved: "Gespeichert.",
+          msg_failed: "Speichern fehlgeschlagen.",
+        },
+        maintenance: {
+          title: "Wartungen.",
+          desc: "Plane Wartungen, um Kunden auf der Statusseite vorab zu warnen. Erfordert eine verifizierte Domain.",
+          badge: {
+            scheduled: "geplant",
+            active: "aktiv",
+            completed: "abgeschlossen",
+            cancelled: "abgebrochen",
+          },
+          label: {
+            title: "Titel",
+            start: "Start",
+            end: "Ende",
+            note_optional: "Hinweis (optional)",
+          },
+          placeholder: {
+            title: "z.B. Datenbank-Update",
+            note: "Kurze Info für Kunden...",
+          },
+          button: {
+            schedule: "Wartung planen",
+            verify_domain: "Domain verifizieren",
+          },
+          default_title: "Wartung",
+          meta: {
+            starts: " (startet in {remaining})",
+            ends: " (endet in {remaining})",
+          },
+          disabled_title: "Wartungen sind noch nicht aktiv.",
+          disabled_body: "Dein Server liefert noch keine Wartungsdaten (Backend-Update/Neustart fehlt).",
+          empty_title: "Keine Wartungen.",
+          empty_body: "Sobald du eine Wartung planst, erscheint sie hier.",
+          msg_set_start_end: "Bitte Start und Ende setzen.",
+          msg_end_after_start: "Ende muss nach dem Start liegen.",
+          msg_scheduling: "Wartung wird geplant ...",
+          msg_domain_not_verified: "Domain{host} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.",
+          msg_request_blocked:
+            "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen.",
+          msg_invalid_target:
+            "Monitor-Ziel ist ungültig (z.B. IP/localhost) und kann nicht per Domain-Verifizierung freigeschaltet werden.",
+          msg_starts_past:
+            "Startzeit liegt in der Vergangenheit. Bitte eine zukünftige Zeit wählen (oder bei laufender Wartung: Ende in die Zukunft setzen).",
+          msg_starts_too_far: "Startzeit liegt zu weit in der Zukunft. Bitte einen näheren Zeitpunkt wählen.",
+          msg_duration_too_short: "Wartung ist zu kurz. Mindestdauer sind 5 Minuten.",
+          msg_duration_too_long: "Wartung ist zu lang. Maximal sind 30 Tage erlaubt.",
+          msg_invalid_input: "Bitte Eingaben prüfen: Ende muss nach dem Start liegen.",
+          msg_invalid_start: "Start ist ungültig. Bitte Datum/Uhrzeit neu setzen.",
+          msg_invalid_end: "Ende ist ungültig. Bitte Datum/Uhrzeit neu setzen.",
+          msg_endpoint_not_found:
+            "Endpoint nicht gefunden (HTTP 404). Das Feature ist auf dem Server vermutlich noch nicht deployed oder der Node-Prozess läuft noch mit altem Code.",
+          msg_failed_http: "Wartung konnte nicht geplant werden. (HTTP {status})",
+          msg_failed_detail: "Wartung konnte nicht geplant werden. ({detail})",
+          msg_failed_network: "Wartung konnte nicht geplant werden.{detail}",
+          msg_scheduled: "Wartung geplant.",
+          msg_cancelling: "Wartung wird abgebrochen ...",
+          msg_cancel_failed: "Wartung konnte nicht abgebrochen werden.",
+          msg_cancelled: "Wartung abgebrochen.",
+        },
+      },
+      incidents: {
+        title: "Vorfall-Log",
+        sub: "Alle Vorfälle mit Details und Sortierung",
+        empty_title: "Keine Vorfälle gefunden.",
+        empty_body: "Passe Filter oder Zeitraum an.",
+        no_data_body: "Vorfälle konnten nicht geladen werden.",
+        summary: "Zeitraum: {days} Tage · Angezeigt: {shown} · Gesamt: {total}",
+        all_monitors: "Alle Monitore",
+        badge: {
+          aggregated: "aggregiert",
+          raw: "roh",
+        },
+        detail: {
+          range: "Zeitraum",
+          duration: "Dauer",
+          failed_checks: "Fehlchecks",
+          monitor_id: "Monitor ID",
+          status_codes: "Statuscodes",
+          error_codes: "Fehlercodes",
+        },
+        controls: {
+          title: "Filter & Sortierung",
+          sort_by: "Sortieren nach",
+          order: "Reihenfolge",
+          range: "Zeitraum",
+          max_entries: "Max. Einträge",
+        },
+        sort: {
+          start: "Startzeit",
+          duration: "Dauer",
+          checks: "Fehlchecks",
+        },
+        lookback: {
+          30: "30 Tage",
+          90: "90 Tage",
+          365: "365 Tage",
+          730: "730 Tage",
+        },
+        loading: "Lade Vorfälle…",
+        list: {
+          title: "Alle Vorfälle",
+        },
+      },
+      notifications: {
+        title: "Benachrichtigungen",
+        sub: "Discord Webhook für Statuswechsel deiner Monitore",
+        discord: {
+          title: "Discord Webhook",
+          copy: "Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Discord Webhook.",
+          state_disconnected: "Nicht verbunden",
+          state_active: "Aktiv",
+          state_configured_disabled: "Konfiguriert (deaktiviert)",
+          no_webhook: "Kein Webhook hinterlegt.",
+          webhook_configured: "Webhook konfiguriert.",
+          label_url: "Webhook URL",
+          enable: "Benachrichtigungen aktivieren",
+          test: "Test senden",
+          remove: "Webhook entfernen",
+          confirm_remove: "Discord Webhook entfernen?",
+          msg: {
+            loading: "Lade Benachrichtigungen...",
+            load_failed: "Einstellungen konnten nicht geladen werden.",
+            webhook_required: "Bitte eine gültige Discord Webhook URL eingeben.",
+            webhook_required_first: "Bitte zuerst einen Webhook hinzufügen.",
+            saving: "Einstellungen werden gespeichert...",
+            saved: "Discord Benachrichtigungen gespeichert.",
+            save_failed: "Einstellungen konnten nicht gespeichert werden.",
+            invalid_webhook: "Ungültige Discord Webhook URL.",
+            testing: "Testnachricht wird gesendet...",
+            test_sent: "Testnachricht gesendet.",
+            test_failed: "Test konnte nicht gesendet werden.",
+            removing: "Webhook wird entfernt...",
+            removed: "Webhook entfernt.",
+            remove_failed: "Webhook konnte nicht entfernt werden.",
+          },
+        },
+        billing: {
+          copy: "Upgrade auf einen bezahlten Plan und verwalte dein Abo im Stripe Customer Portal.",
+          state_inactive: "Nicht aktiv",
+          no_subscription: "Kein aktives Abo.",
+          upgrade: "Mit Stripe upgraden",
+          manage: "Abo verwalten",
+          badge: {
+            unavailable: "Nicht verfügbar",
+            active: "Aktiv",
+            action_needed: "Aktion nötig",
+            free: "Kostenlos",
+          },
+          text: {
+            unavailable: "Stripe Billing ist aktuell nicht aktiviert.",
+            active: "Abo-Status: {status}.{suffix}",
+            renewal: " Nächste Verlängerung: {date}.",
+            action_needed: "Eine Zahlung ist überfällig. Bitte im Portal aktualisieren.",
+            free: "Du nutzt aktuell den kostenlosen Plan.",
+          },
+          msg: {
+            loading: "Lade Billing...",
+            load_failed: "Billing konnte nicht geladen werden.",
+            checkout_preparing: "Stripe Checkout wird vorbereitet...",
+            already_subscribed: "Abo ist bereits aktiv. Bitte im Portal verwalten.",
+            stripe_disabled: "Stripe ist aktuell deaktiviert.",
+            checkout_failed: "Checkout konnte nicht gestartet werden.",
+            portal_opening: "Stripe Portal wird geöffnet...",
+            portal_failed: "Portal konnte nicht geöffnet werden.",
+            checkout_success: "Checkout abgeschlossen. Abo wird aktualisiert.",
+            checkout_cancelled: "Checkout wurde abgebrochen.",
+          },
+        },
+      },
+      connections: {
+        title: "Connections & Sicherheit",
+        sub: "Aktive Sitzungen verwalten, Domains verifizieren und Passwort ändern",
+        revoke_others: "Alle anderen trennen",
+        app_connections: {
+          title: "App Connections",
+          loading: "Lade App Connections...",
+          empty_title: "Keine App Connections.",
+          empty_body: "Sobald Provider aktiviert sind, erscheinen sie hier.",
+          summary: {
+            zero: "0 App Connections",
+            connected: "{connected}/{total} verbunden",
+          },
+          status: {
+            connected: "verbunden",
+            disconnected: "nicht verbunden",
+          },
+          subtitle: {
+            connected_as: "Verbunden als @{account}",
+            connected: "Verbunden",
+            not_connected: "Noch nicht verbunden",
+            coming_soon: "Kommt bald",
+          },
+          meta: {
+            google_enabled: "Google Login (Gmail) kann über die Login-Seite verknüpft werden.",
+            google_disabled: "Google Login (Gmail) ist aktuell deaktiviert.",
+            discord_enabled: "Discord Login kann über die Login-Seite verknüpft werden.",
+            discord_disabled: "Discord Login ist aktuell deaktiviert.",
+            generic: "Provider-Status wird über dein Konto verwaltet.",
+          },
+        },
+        domains: {
+          title: "Domain-Verifizierung",
+          loading: "Lade Domains...",
+          label: "Domain",
+          create_challenge: "DNS-Challenge erstellen",
+          empty_title: "Keine Domains.",
+          empty_body: "Sobald du eine Domain hinzufügst, erscheint sie hier.",
+          summary: {
+            zero: "0 Domains",
+            verified: "{verified}/{total} verifiziert",
+          },
+          badge: {
+            verified: "Verifiziert",
+            pending: "Ausstehend",
+          },
+          button: {
+            verify: "Verifizieren",
+            verified: "Verifiziert",
+            reset_token: "Token neu generieren",
+            remove: "Entfernen",
+          },
+          confirm_remove: "Domain-Verifizierung entfernen?",
+          msg: {
+            creating_challenge: "DNS-Challenge wird erstellt ...",
+            conflict: "Diese Domain ist bereits in einem anderen Konto verifiziert.",
+            create_failed_input: "Challenge konnte nicht erstellt werden. Bitte Eingabe prüfen.",
+            already_verified: "Domain ist bereits verifiziert.",
+            challenge_created: "Challenge erstellt. TXT-Record setzen und anschließend verifizieren.",
+            create_failed: "Challenge konnte nicht erstellt werden.",
+            verifying_dns: "DNS wird geprüft ...",
+            verified: "Domain verifiziert.",
+            dns_not_ready: "DNS ist noch nicht bereit. Bitte später erneut versuchen.",
+            dns_lookup_failed: "DNS-Lookup fehlgeschlagen. Bitte später erneut versuchen.",
+            not_found: "Domain nicht gefunden.",
+            verify_failed: "Verifizierung fehlgeschlagen.",
+            removing: "Domain wird entfernt ...",
+            removed: "Domain entfernt.",
+            remove_failed: "Domain konnte nicht entfernt werden.",
+            enter_domain: "Bitte eine Domain eingeben.",
+          },
+          record: {
+            name_host: "Name/Host",
+            txt_value: "TXT-Wert",
+            token_loading: "(Token wird geladen...)",
+            hint_html:
+              "Je nach DNS-Provider kann der Host auch nur {host} sein.",
+          },
+          subtitle: {
+            verified_at: "Verifiziert am {date}.",
+            last_check: "Letzter Check: {date} ({relative})",
+            set_txt: "TXT-Record setzen und anschließend verifizieren.",
+          },
+        },
+        sessions: {
+          title: "Aktive Sitzungen",
+          loading: "Lade aktive Sitzungen...",
+          empty_title: "Keine aktiven Sitzungen.",
+          empty_body: "Sobald du dich anmeldest, erscheinen Sitzungen hier.",
+          summary: {
+            zero: "0 aktive Sitzungen",
+            one_other: "{total} aktive Sitzungen, {others} weitere",
+            many_other: "{total} aktive Sitzungen, {others} weitere",
+          },
+          expires_now: "läuft ab",
+          row: {
+            title: "Sitzung {id}",
+            subtitle: {
+              current: "Diese Sitzung",
+              other: "Andere Sitzung",
+            },
+            badge: {
+              current: "Aktuell",
+              active: "Aktiv",
+            },
+            created: "Erstellt",
+            expires: "Läuft ab",
+            action: {
+              current: "Diese Sitzung",
+              disconnect: "Trennen",
+            },
+          },
+          msg: {
+            disconnecting: "Sitzung wird getrennt ...",
+            disconnected: "Sitzung getrennt.",
+            disconnect_failed: "Sitzung konnte nicht getrennt werden.",
+            revoking_others: "Andere Sitzungen werden getrennt ...",
+            revoked_one: "{n} Sitzung getrennt. Aktuelle Sitzung bleibt aktiv.",
+            revoked_many: "{n} Sitzungen getrennt. Aktuelle Sitzung bleibt aktiv.",
+            revoke_failed: "Andere Sitzungen konnten nicht getrennt werden.",
+          },
+        },
+        password: {
+          title: "Passwort ändern",
+          hint_required: "Aktuelles Passwort ist erforderlich.",
+          hint_optional: "Optional (bei Login via App-Provider).",
+          current: "Aktuelles Passwort",
+          placeholder_optional: "Optional bei App-Login",
+          new: "Neues Passwort",
+          repeat: "Neues Passwort wiederholen",
+          save: "Passwort speichern",
+          msg: {
+            enter_current: "Bitte aktuelles Passwort eingeben.",
+            invalid_length: "Neues Passwort muss {min}-{max} Zeichen lang sein.",
+            mismatch: "Neue Passwörter stimmen nicht überein.",
+            must_differ: "Neues Passwort muss anders sein.",
+            saving: "Passwort wird gespeichert ...",
+            current_wrong: "Aktuelles Passwort ist falsch.",
+            reauth_required: "Bitte erneut anmelden und die Aktion wiederholen.",
+            same_password: "Neues Passwort darf nicht identisch sein.",
+            current_required: "Aktuelles Passwort ist erforderlich.",
+            invalid_input: "Bitte Eingaben prüfen.",
+            change_failed: "Passwort konnte nicht geändert werden.",
+            saved: "Passwort gespeichert.",
+            set: "Passwort gesetzt.",
+            revoked_one: "{n} andere Sitzung getrennt.",
+            revoked_many: "{n} andere Sitzungen getrennt.",
+          },
+        },
+        delete: {
+          title: "Konto löschen",
+          desc: "Dadurch werden dein Konto, alle Monitore und alle aktiven Sitzungen dauerhaft gelöscht.",
+          confirm: "Konto dauerhaft löschen",
+          hint_optional: "Optional (bei Login via App-Provider).",
+          msg: {
+            enter_current: "Bitte aktuelles Passwort eingeben.",
+            deleting: "Konto wird gelöscht ...",
+            current_wrong: "Aktuelles Passwort ist falsch.",
+            delete_failed: "Konto konnte nicht gelöscht werden.",
+            deleted: "Konto gelöscht. Weiterleitung ...",
+          },
+        },
+      },
+      owner: {
+        crumb: "Owner",
+        title: "Owner Ops Dashboard",
+        sub: "Serverlast, Monitorkosten und Schwachpunkte in Echtzeit",
+        badge: "Owner",
+        badge_id: "Owner #{id}",
+        cards: {
+          server_load: {
+            title: "Serverlast",
+            sub: "Laufzeitmetriken seit Prozessstart",
+          },
+          check_engine: {
+            title: "Check-Engine",
+            sub: "Scheduler, Durchsatz und parallele Checks",
+          },
+          database: {
+            title: "Datenbank",
+            sub: "Pool-Auslastung und Query-Verhalten",
+          },
+          costs: {
+            title: "Teuerste Monitore (24h)",
+            sub: "Sortiert nach Cost-Score (Checks, Antwortzeit, Fehler, Timeouts)",
+          },
+          security: {
+            title: "Security-Insights",
+            sub: "Blockierungen, Auth-Risiken und häufige Fehlerbilder",
+          },
+        },
+        table: {
+          user: "User",
+          status: "Status",
+          checks_24h: "Checks 24h",
+          error_rate: "Fehlerquote",
+          avg_ms: "Ø ms",
+          timeouts: "Timeouts",
+          score: "Score",
+          no_monitor_data: "Keine Monitor-Daten verfügbar.",
+        },
+        stats: {
+          cpu_avg: "CPU Ø",
+          cpu_p95: "CPU p95",
+          event_loop_p95: "Event Loop p95",
+          rss: "RSS",
+          heap_used: "Heap genutzt",
+          uptime: "Uptime",
+          monitors_active: "Monitore (aktiv)",
+          checks_10m: "Checks 10 Min.",
+          failure_rate_10m: "Fehlerrate 10 Min.",
+          check_p95_duration: "Check p95 Dauer",
+          in_flight: "In Flight",
+          scheduler_drift_p95: "Scheduler Drift p95",
+          queries_total: "Queries gesamt",
+          slow_queries: "Slow Queries",
+          db_query_p95: "DB Query p95",
+          db_ops_active: "DB Ops aktiv",
+          acquire_wait_p95: "Acquire Wait p95",
+          pool_busy: "Pool busy",
+          pool_free: "Pool free",
+          pool_queue: "Pool queue",
+          pool_max_busy: "Pool max busy",
+        },
+        value: {
+          seconds: "{value} Sek.",
+          in_flight: "{current} (max {max})",
+        },
+        status: {
+          paused: "pausiert",
+        },
+        security: {
+          runtime: "Runtime Security Counter",
+          top_errors: "Top Fehlermeldungen (24h)",
+          failing_monitors: "Auffällige Monitore (24h)",
+          auth: "Auth-Lage",
+          invalid_origin_blocked: "Invalid-Origin blockiert: {value}",
+          rate_limited_blocked: "Rate-Limit geblockt: {value}",
+          oauth_state_rejected: "OAuth-State abgewiesen: {value}",
+          target_blocked: "Target-Blockierungen: {value}",
+          block_reason: "Blockgrund {key}: {value}",
+          failing_monitor_line: "{name} · User {user} · {rate} ({failed}/{total})",
+          auth_lockouts: "Aktive Lockouts: {value}",
+          auth_failures_24h: "Auth-Fehler (24h): {value}",
+          auth_tracked_failures: "Verfolgte Failure-Records: {value}",
+        },
+      },
+      status: {
+        h1: "PingMyServer Statusseite",
+        brand: {
+          title: "Statusseite",
+        },
+        unavailable: {
+          target: "Kein Monitor ausgewählt",
+          label: "Kein Monitor verfügbar",
+          state: "Nicht verfügbar",
+          hint: "Bitte öffne die Statusseite aus deinem Dashboard.",
+        },
+        checking: "Prüfe Status…",
+        state: {
+          maintenance_running: "Wartung läuft",
+          operational: "Alle Systeme betriebsbereit",
+          outage_detected: "Ausfall erkannt",
+        },
+        duration: {
+          online_for: "Online seit {duration}",
+          offline_for: "Offline seit {duration}",
+          maintenance_until: "Wartung bis {until} (endet in {remaining})",
+        },
+        waiting_first_check: "Warte auf ersten Check",
+        check_interval: "Prüfintervall: {interval}",
+        maintenance: {
+          title: "Wartung",
+          planned: "Geplant",
+          active: "Aktiv",
+          meta: {
+            ends: "{start} – {end} · endet in {remaining}",
+            starts: "{start} – {end} · startet in {remaining}",
+          },
+        },
+        hero: {
+          current_status: "Aktueller Status",
+          last_check: "Letzter Check",
+          last_24h: "Letzte 24 Stunden",
+        },
+        range: {
+          last_7_days: "Letzte 7 Tage",
+          last_30_days: "Letzte 30 Tage",
+          last_365_days: "Letzte 365 Tage",
+          choose: "Zeitraum wählen",
+          default: "Letzte 30 Tage",
+          last_days: "Letzte {days} Tage",
+          more_soon: "Weitere Auswertungen folgen",
+        },
+        incidents: {
+          title: "Letzte Vorfälle",
+          empty_title: "👍 Gute Arbeit, keine Vorfälle.",
+          empty_body: "Bisher gab es keine Vorfälle. Weiter so!",
+          footnote: "Zeigt Vorfälle der letzten {days} Tage.",
+        },
+        updated_at: "Zuletzt aktualisiert: –",
+        updated_at_with_time: "Zuletzt aktualisiert: {time}",
+      },
+      common: {
+        language: "Sprache",
+        lang_de: "Deutsch",
+        lang_en: "Englisch",
+        aria: {
+          home: "PingMyServer Startseite",
+          profile_settings: "Connections und Kontoeinstellungen",
+        },
+        account: "Konto",
+        legal: "Rechtliches",
+        terms: "Nutzungsbedingungen",
+        privacy: "Datenschutz",
+        imprint: "Impressum",
+        back_home: "Zur Startseite",
+        status_page: "Statusseite",
+        monitoring: "Monitoring",
+        monitor: "Monitor",
+        interval: "Intervall",
+        new_monitor: "Neuer Monitor",
+        public_status_page: "Öffentliche Statusseite",
+        save: "Speichern",
+        refresh: "Aktualisieren",
+        asc: "Aufsteigend",
+        desc: "Absteigend",
+        incidents: "Vorfälle",
+        notifications: "Benachrichtigungen",
+        connections: "Connections",
+        owner_ops: "Owner Ops",
+        your_monitors: "Deine Monitore",
+        signed_in: "eingeloggt",
+        logout: "Abmelden",
+        loading: "wird geladen…",
+        loading_data: "Lade Daten...",
+        please_wait: "Bitte kurz warten.",
+        error_loading: "Fehler beim Laden.",
+        try_again: "Bitte erneut versuchen.",
+        try_again_later: "Bitte später erneut versuchen.",
+        no_data: "Keine Daten",
+        no_data_available: "Keine Daten verfügbar.",
+        not_available: "k.A.",
+        unknown: "unbekannt",
+        none: "keine",
+        delete: "Löschen",
+        cancel: "Abbrechen",
+        connection_failed: "Verbindung fehlgeschlagen.",
+      },
+    },
+    en: {
+      meta: {
+        login: {
+          title: "Sign in - PingMyServer",
+          description: "Sign in to PingMyServer to manage monitoring, incidents and notifications.",
+        },
+        onboarding: {
+          title: "Onboarding · PingMyServer",
+          description: "Onboarding in PingMyServer: create your first monitor and start monitoring.",
+        },
+        landing: {
+          title: "PingMyServer - Uptime Monitoring for Websites, APIs and Services",
+          description:
+            "PingMyServer monitors websites, APIs and services 24/7. Get outage alerts via Discord, email and webhook in seconds.",
+          og_title: "PingMyServer - Uptime Monitoring for Websites, APIs and Services",
+          og_description: "Uptime monitoring for websites, APIs and services with fast alerts and a public status page.",
+          twitter_title: "PingMyServer - Uptime Monitoring",
+          twitter_description: "Monitor websites and APIs 24/7 and receive alerts in seconds.",
+        },
+        app: {
+          title: "Dashboard · PingMyServer",
+          description: "PingMyServer dashboard for monitoring, uptime history and alerts.",
+        },
+        incidents: {
+          title: "Incidents · PingMyServer",
+          description: "Incident overview in PingMyServer with history and outage details.",
+        },
+        notifications: {
+          title: "Notifications · PingMyServer",
+          description: "Configure and manage notification channels in PingMyServer.",
+        },
+        connections: {
+          title: "Connections · PingMyServer",
+          description: "Manage connections and integrations in PingMyServer.",
+        },
+        privacy: {
+          title: "Privacy policy · PingMyServer",
+          description: "PingMyServer privacy policy: information about processing, storage and your rights under GDPR.",
+          og_title: "Privacy policy · PingMyServer",
+          og_description: "PingMyServer privacy policy.",
+          twitter_title: "Privacy policy · PingMyServer",
+          twitter_description: "PingMyServer privacy policy.",
+        },
+        imprint: {
+          title: "Imprint · PingMyServer",
+          description: "PingMyServer imprint with provider information and contact details.",
+          og_title: "Imprint · PingMyServer",
+          og_description: "PingMyServer imprint.",
+          twitter_title: "Imprint · PingMyServer",
+          twitter_description: "PingMyServer imprint.",
+        },
+        terms: {
+          title: "Terms · PingMyServer",
+          description: "PingMyServer terms with rules on usage, service scope, cancellation and liability.",
+          og_title: "Terms · PingMyServer",
+          og_description: "PingMyServer terms.",
+          twitter_title: "Terms · PingMyServer",
+          twitter_description: "PingMyServer terms.",
+        },
+        owner: {
+          title: "Owner Ops · PingMyServer",
+          description: "PingMyServer owner overview for operational metrics and top monitors.",
+        },
+        status: {
+          title: "Status page · PingMyServer",
+          description: "PingMyServer live status page with uptime, incidents and recent checks in real time.",
+          og_title: "PingMyServer Status page",
+          og_description: "Live status page with uptime, incidents and recent checks.",
+          twitter_title: "PingMyServer Status page",
+          twitter_description: "Live status page with uptime and incidents.",
+        },
+      },
+      onboarding: {
+        h1: "Which site do you want to monitor?",
+        p1: "Enter a domain or URL. Examples:",
+        p2: "or",
+        label: {
+          url: "URL or domain",
+          name: "Name (optional)",
+        },
+        placeholder: {
+          name: "My shop",
+        },
+        button: {
+          create: "Create monitor",
+        },
+        msg: {
+          enter_url: "Please enter a domain or URL.",
+          creating: "Creating monitor...",
+          created_redirect: "Monitor created. Redirecting...",
+        },
+        error: {
+          local_target_forbidden: "Local targets like localhost are not allowed for security reasons.",
+          private_target_forbidden: "Private IP targets are not allowed. Please add the host to the private allowlist.",
+          mixed_target_forbidden:
+            "The domain resolves to both public and private DNS targets. Please set MONITOR_PRIVATE_TARGET_POLICY=all_private.",
+          invalid_protocol: "Only http:// or https:// are allowed.",
+          invalid_url: "The URL is invalid. Please check your input.",
+          target_blocked: "The target was blocked by the security policy.",
+          invalid_input: "Please check the URL/domain.",
+          monitor_limit_reached: "Monitor limit reached. Please delete old monitors or increase your limit.",
+          internal_error: "Internal error while creating the monitor. Please try again later.",
+          backend_503: "Backend is currently unavailable (HTTP 503). Please restart the server service.",
+          proxy_502: "Proxy error to backend (HTTP 502). Please check the server service and Apache proxy.",
+          bad_request_400: "The web server rejected the request as invalid (HTTP 400).",
+          forbidden_403: "The web server blocked the request (HTTP 403).",
+          unauthorized_401: "Session is no longer valid. Please sign in again.",
+          webserver_rejected: "The request was rejected by the web server.",
+          create_failed: "Monitor could not be created.",
+        },
+      },
+      login: {
+        h1: "Sign in or create an account",
+        sub: "GitHub, Google and Discord login are available once OAuth is enabled.",
+        divider: "or with email",
+        aria: {
+          auth: "Authentication",
+        },
+        mode: {
+          login: "Sign in",
+          register: "Create account",
+        },
+        label: {
+          email: "Email",
+          password: "Password",
+        },
+        button: {
+          sign_in: "Sign in",
+          create_account: "Create account",
+        },
+        msg: {
+          invalid_email_password: "Please enter a valid email and a password with {min}-{max} characters.",
+          signing_in: "Signing in...",
+          too_many_attempts: "Too many attempts. Please try again later.",
+          too_many_attempts_retry: "Too many attempts. Try again in {seconds} seconds.",
+          invalid_credentials: "Invalid email or password.",
+          login_failed: "Sign in failed.",
+          login_success: "Signed in. Redirecting...",
+          registering: "Creating account...",
+          register_failed: "Registration failed.",
+          register_success: "Account created. Redirecting...",
+          oauth_coming_soon: "{provider} sign-in will be available once OAuth is enabled.",
+        },
+        oauth: {
+          default: "OAuth sign-in failed.",
+          discord_disabled: "Discord login is currently disabled.",
+          discord_denied: "Discord sign-in was cancelled.",
+          discord_state: "Discord sign-in has expired. Please try again.",
+          discord_code: "Discord sign-in failed (no code received).",
+          discord_token: "Discord token could not be retrieved.",
+          discord_scope: "Discord did not grant email scope. Please authorize again.",
+          discord_profile: "Discord profile could not be read.",
+          discord_email_missing: "No verified email found on Discord.",
+          discord_conflict: "This email is already linked to another Discord account.",
+          discord_error: "Discord sign-in failed. Please try again.",
+          github_disabled: "GitHub login is currently disabled.",
+          github_denied: "GitHub sign-in was cancelled.",
+          github_state: "GitHub sign-in has expired. Please try again.",
+          github_code: "GitHub sign-in failed (no code received).",
+          github_token: "GitHub token could not be retrieved.",
+          github_scope:
+            "GitHub did not grant email scope. Please remove the app permission and sign in again.",
+          github_email_permission:
+            "The GitHub app needs permission 'Email addresses: Read-only'. Please enable it and authorize again.",
+          github_profile: "GitHub profile could not be read.",
+          github_email_missing: "No verified email found on GitHub.",
+          github_conflict: "This email is already linked to another GitHub account.",
+          github_error: "GitHub sign-in failed. Please try again.",
+          google_disabled: "Google login is currently disabled.",
+          google_denied: "Google sign-in was cancelled.",
+          google_state: "Google sign-in has expired. Please try again.",
+          google_code: "Google sign-in failed (no code received).",
+          google_token: "Google token could not be retrieved.",
+          google_scope: "Google did not grant email scope. Please authorize again.",
+          google_profile: "Google profile could not be read.",
+          google_email_missing: "No verified email found on Google.",
+          google_conflict: "This email is already linked to another Google account.",
+          google_error: "Google sign-in failed. Please try again.",
+        },
+      },
+      landing: {
+        nav: {
+          features: "Features",
+          pricing: "Pricing",
+          faq: "FAQ",
+          status: "Status page",
+          login: "Sign in",
+          dashboard: "Dashboard",
+          cta: "Start free",
+        },
+        hero: {
+          badge: "Now in early access",
+          h1: {
+            line1: "Detect outages early,",
+            highlight: "before users",
+            line2: "report them",
+          },
+          lead:
+            "PingMyServer monitors your websites, APIs and services around the clock. Get instant notifications during outages via Discord, webhook or email.",
+          benefit: {
+            setup: "Setup in under 60 seconds",
+            no_cc: "No credit card required",
+            public_status: "Public status page included",
+          },
+          cta_primary: "Start early access ->",
+          cta_secondary: "View live demo",
+          note: "Completely free during early access • Made in Germany",
+        },
+        live: {
+          title: "Live Status",
+          overall_loading: "Loading monitor data ...",
+          monitor_loading: "Loading monitor ...",
+          checking: "Checking ...",
+          response_placeholder: "Response: --",
+          response_value: "Response: {ms}ms",
+          uptime_placeholder: "--% Uptime",
+          uptime_value: "{uptime}% Uptime",
+          no_monitor: "No monitor available",
+          overall: {
+            no_data: "No monitor data available",
+            operational: "All systems operational",
+            offline: {
+              one: "{n} monitor offline",
+              many: "{n} monitors offline",
+            },
+          },
+          alert_title: "Recent Alert",
+          alert_now: "just now",
+          alert_none: "No incidents found yet.",
+          alert: {
+            none_full: "No recent incidents found.",
+            offline: "{label} is currently offline{code}",
+            outage: "{label} had an outage{code}",
+          },
+        },
+        social: {
+          h3: "Built by developers, for developers",
+          sub: "An apprenticeship project with professional standards",
+          stat: {
+            monitoring: "Monitoring",
+            interval: "Check interval",
+            uptime: "Target uptime",
+            made_in: "Made in Germany",
+          },
+        },
+        features: {
+          h2: "Everything you need for professional monitoring",
+          lead:
+            "From simple HTTP checks to complex API monitoring: PingMyServer gives you all the tools for reliable uptime monitoring.",
+          cards: {
+            fast_checks: {
+              title: "Lightning-fast checks",
+              body:
+                "Monitor your endpoints every 60 seconds. Get alerts within seconds after an outage, before your customers notice.",
+            },
+            incident_history: {
+              title: "Detailed incident history",
+              body: "Complete log of all incidents with duration, error rate and timeline. Perfect for postmortems and reporting.",
+            },
+            alerts: {
+              title: "Multi-channel alerts",
+              body: "Discord, Slack, email, webhooks, Telegram: choose your preferred channel, or use all of them at once.",
+            },
+            ssl: {
+              title: "SSL certificate monitoring",
+              body: "Automatic SSL certificate monitoring. Get notified in time before a certificate expires.",
+            },
+            locations: {
+              title: "Global monitoring locations",
+              body: "Monitor your services from multiple locations worldwide and detect regional outages instantly.",
+            },
+            public_status: {
+              title: "Public status page",
+              body: "Branded status page for your customers. Show transparency with real-time status and incident updates.",
+            },
+          },
+        },
+        about: {
+          h2: "Why we built PingMyServer",
+          sub: "A student project with a real mission",
+          founder_title: "Founder & Developer",
+          story: {
+            p1:
+              "After high school, I'm now doing an apprenticeship and started building web projects on the side. The problem: my sites went down from time to time without me noticing. I only knew once users reported it, and that was embarrassing.",
+            p2:
+              "Existing monitoring tools were either too expensive for my apprentice budget or far too complex for my needs. So I built PingMyServer: a simple, reliable tool that does exactly what it should, without the fluff.",
+            p3:
+              "Now I want to share it with other apprentices, students and developers. Feedback and improvement suggestions are very welcome!",
+          },
+          values: {
+            open: {
+              title: "Open Development",
+              body: "We build transparently and listen to our community's feedback",
+            },
+            heart: {
+              title: "Made with heart",
+              body: "Built with modern technology and attention to detail",
+            },
+            join: {
+              title: "Join early",
+              body: "Be there from the start and help shape the future of the tool",
+            },
+          },
+          contact_prompt: "Got questions or feedback?",
+          contact_cta: "Contact via email ->",
+        },
+        pricing: {
+          h2: "Pricing",
+          sub: "Beta is completely free. Starter and Pro / Team are coming soon.",
+          per_month: "/month",
+          coming_soon: "Coming soon",
+          planned_button: "Planned",
+          beta: {
+            name: "Beta",
+            tagline: "Completely free",
+            per: "/during beta",
+            features: {
+              unlimited: "Unlimited monitors",
+              checks_60: "60-second checks",
+              alert_channels: "All alert channels",
+              public_status: "Public status page",
+              ssl: "SSL monitoring",
+            },
+            cta: "Get beta access",
+            no_cc: "No credit card required",
+          },
+          starter: {
+            name: "Starter",
+            tagline: "Planned for later",
+            features: {
+              more_monitors: "More monitors",
+              checks_30: "Faster checks (30s)",
+              stats: "Advanced statistics",
+              api: "API access",
+              support: "Priority support",
+            },
+          },
+          pro: {
+            name: "Pro / Team",
+            tagline: "For later",
+            features: {
+              unlimited: "Unlimited monitors",
+              team: "Team collaboration",
+              branding: "Custom branding",
+              locations: "Dedicated locations",
+              support: "Premium support",
+            },
+          },
+          note: "Beta: free. Starter and Pro / Team: planned.",
+        },
+        faq: {
+          h2: "FAQ",
+          sub: "Everything you need to know about PingMyServer",
+          items: {
+            private: {
+              q: "Can I monitor private websites too?",
+              a: "Yes, but direct private or local IP targets are blocked for security reasons. You can use HTTP authentication or set custom headers.",
+            },
+            speed: {
+              q: "How quickly is an outage detected?",
+              a: "With 60-second checks (default) within about a minute. On paid plans you can reduce intervals down to 30 seconds so outages are detected even faster.",
+            },
+            share: {
+              q: "How do I share status with customers?",
+              a: "Each monitor has a public status page you can link to. It shows real-time status, uptime statistics and past incidents. You can also add your own branding (on paid plans).",
+            },
+            gdpr: {
+              q: "Is PingMyServer GDPR compliant?",
+              a: "Yes. All data is hosted in the EU (Frankfurt, Germany). We only collect required monitoring data and do not share it with third parties. You can export or delete your data at any time.",
+            },
+            cancel: {
+              q: "What happens if I cancel?",
+              a: "You can cancel anytime with one click. Your account stays active until the end of the paid period. Afterwards, monitors are disabled but your data is kept for 90 days in case you come back.",
+            },
+            api: {
+              q: "Is there an API?",
+              a: "Yes. Starting with the Starter plan, you get access to our REST API. Create monitors programmatically, check status and fetch incidents, perfect for CI/CD integration.",
+            },
+          },
+        },
+        cta: {
+          h2: "Ready to join the community?",
+          p1: "Get your free beta access now and help us",
+          p2: "build the best uptime monitoring tool for developers.",
+          primary: "Get beta access ->",
+          secondary: "View status page",
+          note: "Completely free • No credit card • Made with heart in Germany",
+        },
+        footer: {
+          pitch: "Professional uptime monitoring for websites, APIs and services.",
+          product: "Product",
+          api_docs: "API Docs",
+          status: "Status",
+          company: "Company",
+          about: "About",
+          commits: "Commits",
+          contact: "Contact",
+          legal: "Legal",
+          terms_short: "Terms",
+          gdpr: "GDPR",
+          email: "Email",
+        },
+      },
+      app: {
+        dashboard: {
+          current_status: "Current status",
+          last_check: "Last check",
+          check_interval_placeholder: "Check interval: 1 min.",
+          check_interval: "Check interval: {interval}",
+          waiting_first_check: "Waiting for first check",
+          online_for: "Online for {duration}",
+          offline_for: "Offline for {duration}",
+          last_24h: "Last 24 hours",
+          uptime_placeholder: "0 incidents, 0 min downtime",
+          uptime_title: "Uptime",
+          summary: {
+            one: "{incidents} incident, {minutes} min downtime",
+            many: "{incidents} incidents, {minutes} min downtime",
+          },
+          last_7_days: "Last 7 days",
+          last_30_days: "Last 30 days",
+          last_365_days: "Last 365 days",
+          choose_range: "Choose range",
+          range_default: "Last 30 days",
+          range_last_days: "Last {days} days",
+          daily_overview: "Daily overview.",
+        },
+        state: {
+          online: "Online",
+          offline: "Offline",
+        },
+        monitor: {
+          no_check: "no check yet",
+          target_https: "HTTPS monitor for {target}",
+          delete_title: "Deletes the monitor including all data",
+          delete_aria: "Delete monitor {name}",
+          delete_failed: "Monitor could not be deleted. Please try again later.",
+          delete_confirm:
+            "Delete monitor \"{name}\"?\n\nThis will permanently remove all data for this monitor:\n- Checks\n- Uptime history\n- Incidents\n- Daily statistics\n\nThis action cannot be undone.",
+        },
+        interval: {
+          custom: "Custom ({value})",
+        },
+        week: {
+          mo_short: "Mon",
+          wed_short: "Wed",
+          fri_short: "Fri",
+        },
+        legend: {
+          ok: "No errors",
+          warn: "Minor issues",
+          down: "Outage",
+        },
+        errors: {
+          no_response_label: "no response",
+          no_response_single: "Error code: no response",
+          http_code: "HTTP code: {codes}",
+          http_codes: "HTTP codes: {codes}",
+          codes: "Error codes: {codes}",
+        },
+        response: {
+          title: "Response time.",
+          last_hour: "Last hour",
+          avg: "Average",
+          min: "Minimum",
+          max: "Maximum",
+        },
+        domain_ssl: {
+          title: "Domain & SSL.",
+          domain_valid_until: "Domain valid until",
+          ssl_valid_until: "SSL certificate valid until",
+          source_rdap: "Source: RDAP",
+          ip_target: "IP monitor (no domain)",
+          public_unavailable: "Publicly unavailable",
+          registry_no_expiry: "The registry does not publish an expiry date",
+          no_https_target: "No HTTPS target",
+          issuer: "Issuer: {issuer}",
+        },
+        regions: {
+          title: "Regions.",
+          map_alt: "World map",
+          location_loading: "Loading location…",
+          unavailable: "Location unavailable",
+          scope: {
+            edge: "Edge location{provider}",
+            origin: "Server location",
+            generic: "Location",
+          },
+          geodata_unavailable: "{scope}: Geodata unavailable",
+          ip_location: "IP location",
+          asn_org: "ASN/Org",
+        },
+        incidents: {
+          title: "Recent incidents.",
+          empty_title: "👍 Nice work, no incidents.",
+          empty_body: "No incidents so far. Keep it up!",
+          outage: "Outage",
+          daily: "Daily incident",
+          aggregated: "aggregated",
+          failed_checks: "Failed checks: {n}",
+          checks: "Checks: {n}",
+          ongoing: "ongoing",
+          open: "open",
+          unknown_day: "Unknown day",
+          footnote: "Shows the last 2 incidents (window: {days} days).",
+          badge: {
+            ongoing: "ongoing",
+            ended: "ended",
+          },
+        },
+        advanced: {
+          title: "More settings",
+          meta: "HTTP assertions · Maintenance",
+        },
+        assertions: {
+          title: "HTTP assertions.",
+          desc: "Optional: check status code, redirects, content type, or words in the body.",
+          enable: "Enable",
+          expected_codes: "Expected status codes",
+          follow_redirects: "Follow redirects",
+          max_redirects: "Max redirects",
+          content_type_contains: "Content type contains",
+          body_contains: "Body contains",
+          timeout_ms: "Timeout (ms)",
+          placeholder: {
+            codes: "e.g. 200-299,304",
+            content_type: "e.g. text/html",
+            body: "e.g. Welcome",
+          },
+          msg_saving: "Saving ...",
+          msg_saved: "Saved.",
+          msg_failed: "Save failed.",
+        },
+        maintenance: {
+          title: "Maintenance.",
+          desc: "Schedule maintenance to warn customers on the status page. Requires a verified domain.",
+          badge: {
+            scheduled: "scheduled",
+            active: "active",
+            completed: "completed",
+            cancelled: "cancelled",
+          },
+          label: {
+            title: "Title",
+            start: "Start",
+            end: "End",
+            note_optional: "Note (optional)",
+          },
+          placeholder: {
+            title: "e.g. Database update",
+            note: "Short note for customers...",
+          },
+          button: {
+            schedule: "Schedule maintenance",
+            verify_domain: "Verify domain",
+          },
+          default_title: "Maintenance",
+          meta: {
+            starts: " (starts in {remaining})",
+            ends: " (ends in {remaining})",
+          },
+          disabled_title: "Maintenances are not active yet.",
+          disabled_body: "Your server is not providing maintenance data yet (backend update/restart is missing).",
+          empty_title: "No maintenance.",
+          empty_body: "Once you schedule maintenance, it will show up here.",
+          msg_set_start_end: "Please set start and end.",
+          msg_end_after_start: "End must be after start.",
+          msg_scheduling: "Scheduling maintenance ...",
+          msg_domain_not_verified: "Domain{host} is not verified. Please verify it to schedule maintenances.",
+          msg_request_blocked:
+            "Request was blocked (Origin/Referer). Please open the site directly via pingmyserver.de and check proxy/CSP.",
+          msg_invalid_target:
+            "Monitor target is invalid (e.g. IP/localhost) and cannot be unlocked via domain verification.",
+          msg_starts_past:
+            "Start time is in the past. Please choose a future time (or for ongoing maintenance: set end in the future).",
+          msg_starts_too_far: "Start time is too far in the future. Please choose a closer time.",
+          msg_duration_too_short: "Maintenance is too short. Minimum duration is 5 minutes.",
+          msg_duration_too_long: "Maintenance is too long. Maximum is 30 days.",
+          msg_invalid_input: "Please check your input: end must be after start.",
+          msg_invalid_start: "Start is invalid. Please set date/time again.",
+          msg_invalid_end: "End is invalid. Please set date/time again.",
+          msg_endpoint_not_found:
+            "Endpoint not found (HTTP 404). The feature is probably not deployed yet or the node process is running old code.",
+          msg_failed_http: "Maintenance could not be scheduled. (HTTP {status})",
+          msg_failed_detail: "Maintenance could not be scheduled. ({detail})",
+          msg_failed_network: "Maintenance could not be scheduled.{detail}",
+          msg_scheduled: "Maintenance scheduled.",
+          msg_cancelling: "Cancelling maintenance ...",
+          msg_cancel_failed: "Maintenance could not be cancelled.",
+          msg_cancelled: "Maintenance cancelled.",
+        },
+      },
+      incidents: {
+        title: "Incident log",
+        sub: "All incidents with details and sorting",
+        empty_title: "No incidents found.",
+        empty_body: "Adjust filters or the time range.",
+        no_data_body: "Incidents could not be loaded.",
+        summary: "Range: {days} days · Showing: {shown} · Total: {total}",
+        all_monitors: "All monitors",
+        badge: {
+          aggregated: "aggregated",
+          raw: "raw",
+        },
+        detail: {
+          range: "Range",
+          duration: "Duration",
+          failed_checks: "Failed checks",
+          monitor_id: "Monitor ID",
+          status_codes: "Status codes",
+          error_codes: "Error codes",
+        },
+        controls: {
+          title: "Filters & sorting",
+          sort_by: "Sort by",
+          order: "Order",
+          range: "Range",
+          max_entries: "Max entries",
+        },
+        sort: {
+          start: "Start time",
+          duration: "Duration",
+          checks: "Failed checks",
+        },
+        lookback: {
+          30: "30 days",
+          90: "90 days",
+          365: "365 days",
+          730: "730 days",
+        },
+        loading: "Loading incidents…",
+        list: {
+          title: "All incidents",
+        },
+      },
+      notifications: {
+        title: "Notifications",
+        sub: "Discord webhook for monitor status changes",
+        discord: {
+          title: "Discord webhook",
+          copy: "When a monitor changes status (online/offline), we send a message to your Discord webhook.",
+          state_disconnected: "Not connected",
+          state_active: "Active",
+          state_configured_disabled: "Configured (disabled)",
+          no_webhook: "No webhook configured.",
+          webhook_configured: "Webhook configured.",
+          label_url: "Webhook URL",
+          enable: "Enable notifications",
+          test: "Send test",
+          remove: "Remove webhook",
+          confirm_remove: "Remove Discord webhook?",
+          msg: {
+            loading: "Loading notifications...",
+            load_failed: "Settings could not be loaded.",
+            webhook_required: "Please enter a valid Discord webhook URL.",
+            webhook_required_first: "Please add a webhook first.",
+            saving: "Saving settings...",
+            saved: "Discord notifications saved.",
+            save_failed: "Settings could not be saved.",
+            invalid_webhook: "Invalid Discord webhook URL.",
+            testing: "Sending test message...",
+            test_sent: "Test message sent.",
+            test_failed: "Test could not be sent.",
+            removing: "Removing webhook...",
+            removed: "Webhook removed.",
+            remove_failed: "Webhook could not be removed.",
+          },
+        },
+        billing: {
+          copy: "Upgrade to a paid plan and manage your subscription in the Stripe Customer Portal.",
+          state_inactive: "Inactive",
+          no_subscription: "No active subscription.",
+          upgrade: "Upgrade with Stripe",
+          manage: "Manage subscription",
+          badge: {
+            unavailable: "Unavailable",
+            active: "Active",
+            action_needed: "Action needed",
+            free: "Free",
+          },
+          text: {
+            unavailable: "Stripe billing is currently not enabled.",
+            active: "Subscription status: {status}.{suffix}",
+            renewal: " Next renewal: {date}.",
+            action_needed: "A payment is past due. Please update it in the portal.",
+            free: "You are currently on the free plan.",
+          },
+          msg: {
+            loading: "Loading billing...",
+            load_failed: "Billing could not be loaded.",
+            checkout_preparing: "Preparing Stripe Checkout...",
+            already_subscribed: "Subscription is already active. Please manage it in the portal.",
+            stripe_disabled: "Stripe is currently disabled.",
+            checkout_failed: "Checkout could not be started.",
+            portal_opening: "Opening Stripe portal...",
+            portal_failed: "Portal could not be opened.",
+            checkout_success: "Checkout completed. Subscription will be updated.",
+            checkout_cancelled: "Checkout was cancelled.",
+          },
+        },
+      },
+      connections: {
+        title: "Connections & Security",
+        sub: "Manage active sessions, verify domains and change your password",
+        revoke_others: "Disconnect others",
+        app_connections: {
+          title: "App connections",
+          loading: "Loading app connections...",
+          empty_title: "No app connections.",
+          empty_body: "Once providers are enabled, they will show up here.",
+          summary: {
+            zero: "0 app connections",
+            connected: "{connected}/{total} connected",
+          },
+          status: {
+            connected: "connected",
+            disconnected: "not connected",
+          },
+          subtitle: {
+            connected_as: "Connected as @{account}",
+            connected: "Connected",
+            not_connected: "Not connected yet",
+            coming_soon: "Coming soon",
+          },
+          meta: {
+            google_enabled: "Google login (Gmail) can be linked via the login page.",
+            google_disabled: "Google login (Gmail) is currently disabled.",
+            discord_enabled: "Discord login can be linked via the login page.",
+            discord_disabled: "Discord login is currently disabled.",
+            generic: "Provider status is managed via your account.",
+          },
+        },
+        domains: {
+          title: "Domain verification",
+          loading: "Loading domains...",
+          label: "Domain",
+          create_challenge: "Create DNS challenge",
+          empty_title: "No domains.",
+          empty_body: "Once you add a domain, it will show up here.",
+          summary: {
+            zero: "0 domains",
+            verified: "{verified}/{total} verified",
+          },
+          badge: {
+            verified: "Verified",
+            pending: "Pending",
+          },
+          button: {
+            verify: "Verify",
+            verified: "Verified",
+            reset_token: "Regenerate token",
+            remove: "Remove",
+          },
+          confirm_remove: "Remove domain verification?",
+          msg: {
+            creating_challenge: "Creating DNS challenge...",
+            conflict: "This domain is already verified in another account.",
+            create_failed_input: "Challenge could not be created. Please check your input.",
+            already_verified: "Domain is already verified.",
+            challenge_created: "Challenge created. Set the TXT record and then verify.",
+            create_failed: "Challenge could not be created.",
+            verifying_dns: "Checking DNS...",
+            verified: "Domain verified.",
+            dns_not_ready: "DNS is not ready yet. Please try again later.",
+            dns_lookup_failed: "DNS lookup failed. Please try again later.",
+            not_found: "Domain not found.",
+            verify_failed: "Verification failed.",
+            removing: "Removing domain...",
+            removed: "Domain removed.",
+            remove_failed: "Domain could not be removed.",
+            enter_domain: "Please enter a domain.",
+          },
+          record: {
+            name_host: "Name/Host",
+            txt_value: "TXT value",
+            token_loading: "(token loading...)",
+            hint_html: "Depending on your DNS provider, the host can be just {host}.",
+          },
+          subtitle: {
+            verified_at: "Verified on {date}.",
+            last_check: "Last check: {date} ({relative})",
+            set_txt: "Set the TXT record and then verify.",
+          },
+        },
+        sessions: {
+          title: "Active sessions",
+          loading: "Loading active sessions...",
+          empty_title: "No active sessions.",
+          empty_body: "Once you sign in, sessions will appear here.",
+          summary: {
+            zero: "0 active sessions",
+            one_other: "{total} active sessions, {others} other",
+            many_other: "{total} active sessions, {others} others",
+          },
+          expires_now: "expiring",
+          row: {
+            title: "Session {id}",
+            subtitle: {
+              current: "This session",
+              other: "Other session",
+            },
+            badge: {
+              current: "Current",
+              active: "Active",
+            },
+            created: "Created",
+            expires: "Expires",
+            action: {
+              current: "This session",
+              disconnect: "Disconnect",
+            },
+          },
+          msg: {
+            disconnecting: "Disconnecting session...",
+            disconnected: "Session disconnected.",
+            disconnect_failed: "Session could not be disconnected.",
+            revoking_others: "Disconnecting other sessions...",
+            revoked_one: "{n} session disconnected. Current session stays active.",
+            revoked_many: "{n} sessions disconnected. Current session stays active.",
+            revoke_failed: "Other sessions could not be disconnected.",
+          },
+        },
+        password: {
+          title: "Change password",
+          hint_required: "Current password is required.",
+          hint_optional: "Optional with app login.",
+          current: "Current password",
+          placeholder_optional: "Optional with app login",
+          new: "New password",
+          repeat: "Repeat new password",
+          save: "Save password",
+          msg: {
+            enter_current: "Please enter your current password.",
+            invalid_length: "New password must be {min}-{max} characters long.",
+            mismatch: "New passwords do not match.",
+            must_differ: "New password must be different.",
+            saving: "Saving password...",
+            current_wrong: "Current password is incorrect.",
+            reauth_required: "Please sign in again and retry the action.",
+            same_password: "New password must not be the same.",
+            current_required: "Current password is required.",
+            invalid_input: "Please check your input.",
+            change_failed: "Password could not be changed.",
+            saved: "Password saved.",
+            set: "Password set.",
+            revoked_one: "{n} other session disconnected.",
+            revoked_many: "{n} other sessions disconnected.",
+          },
+        },
+        delete: {
+          title: "Delete account",
+          desc: "This will permanently delete your account, all monitors and all active sessions.",
+          confirm: "Permanently delete account",
+          hint_optional: "Optional with app login.",
+          msg: {
+            enter_current: "Please enter your current password.",
+            deleting: "Deleting account...",
+            current_wrong: "Current password is incorrect.",
+            delete_failed: "Account could not be deleted.",
+            deleted: "Account deleted. Redirecting...",
+          },
+        },
+      },
+      owner: {
+        crumb: "Owner",
+        title: "Owner Ops Dashboard",
+        sub: "Server load, monitor costs and hotspots in real time",
+        badge: "Owner",
+        badge_id: "Owner #{id}",
+        cards: {
+          server_load: {
+            title: "Server load",
+            sub: "Runtime metrics since process start",
+          },
+          check_engine: {
+            title: "Check engine",
+            sub: "Scheduler, throughput and concurrent checks",
+          },
+          database: {
+            title: "Database",
+            sub: "Pool utilization and query behavior",
+          },
+          costs: {
+            title: "Most expensive monitors (24h)",
+            sub: "Sorted by cost score (checks, response time, errors, timeouts)",
+          },
+          security: {
+            title: "Security insights",
+            sub: "Blocks, auth risks and common error patterns",
+          },
+        },
+        table: {
+          user: "User",
+          status: "Status",
+          checks_24h: "Checks (24h)",
+          error_rate: "Error rate",
+          avg_ms: "Avg ms",
+          timeouts: "Timeouts",
+          score: "Score",
+          no_monitor_data: "No monitor data available.",
+        },
+        stats: {
+          cpu_avg: "CPU avg",
+          cpu_p95: "CPU p95",
+          event_loop_p95: "Event loop p95",
+          rss: "RSS",
+          heap_used: "Heap used",
+          uptime: "Uptime",
+          monitors_active: "Monitors (active)",
+          checks_10m: "Checks (10m)",
+          failure_rate_10m: "Failure rate (10m)",
+          check_p95_duration: "Check p95 duration",
+          in_flight: "In flight",
+          scheduler_drift_p95: "Scheduler drift p95",
+          queries_total: "Total queries",
+          slow_queries: "Slow queries",
+          db_query_p95: "DB query p95",
+          db_ops_active: "Active DB ops",
+          acquire_wait_p95: "Acquire wait p95",
+          pool_busy: "Pool busy",
+          pool_free: "Pool free",
+          pool_queue: "Pool queue",
+          pool_max_busy: "Pool max busy",
+        },
+        value: {
+          seconds: "{value} s",
+          in_flight: "{current} (max {max})",
+        },
+        status: {
+          paused: "paused",
+        },
+        security: {
+          runtime: "Runtime security counter",
+          top_errors: "Top errors (24h)",
+          failing_monitors: "Failing monitors (24h)",
+          auth: "Auth status",
+          invalid_origin_blocked: "Invalid origin blocked: {value}",
+          rate_limited_blocked: "Rate limited: {value}",
+          oauth_state_rejected: "OAuth state rejected: {value}",
+          target_blocked: "Target blocks: {value}",
+          block_reason: "Block reason {key}: {value}",
+          failing_monitor_line: "{name} · User {user} · {rate} ({failed}/{total})",
+          auth_lockouts: "Active lockouts: {value}",
+          auth_failures_24h: "Auth failures (24h): {value}",
+          auth_tracked_failures: "Tracked failure records: {value}",
+        },
+      },
+      status: {
+        h1: "PingMyServer status page",
+        brand: {
+          title: "Status page",
+        },
+        unavailable: {
+          target: "No monitor selected",
+          label: "No monitor available",
+          state: "Unavailable",
+          hint: "Please open the status page from your dashboard.",
+        },
+        checking: "Checking status…",
+        state: {
+          maintenance_running: "Maintenance ongoing",
+          operational: "All systems operational",
+          outage_detected: "Outage detected",
+        },
+        duration: {
+          online_for: "Online for {duration}",
+          offline_for: "Offline for {duration}",
+          maintenance_until: "Maintenance until {until} (ends in {remaining})",
+        },
+        waiting_first_check: "Waiting for first check",
+        check_interval: "Check interval: {interval}",
+        maintenance: {
+          title: "Maintenance",
+          planned: "Scheduled",
+          active: "Active",
+          meta: {
+            ends: "{start} – {end} · ends in {remaining}",
+            starts: "{start} – {end} · starts in {remaining}",
+          },
+        },
+        hero: {
+          current_status: "Current status",
+          last_check: "Last check",
+          last_24h: "Last 24 hours",
+        },
+        range: {
+          last_7_days: "Last 7 days",
+          last_30_days: "Last 30 days",
+          last_365_days: "Last 365 days",
+          choose: "Choose range",
+          default: "Last 30 days",
+          last_days: "Last {days} days",
+          more_soon: "More analytics coming soon",
+        },
+        incidents: {
+          title: "Recent incidents",
+          empty_title: "👍 Nice work, no incidents.",
+          empty_body: "No incidents so far. Keep it up!",
+          footnote: "Shows incidents from the last {days} days.",
+        },
+        updated_at: "Last updated: –",
+        updated_at_with_time: "Last updated: {time}",
+      },
+      common: {
+        language: "Language",
+        lang_de: "German",
+        lang_en: "English",
+        aria: {
+          home: "PingMyServer homepage",
+          profile_settings: "Connections and account settings",
+        },
+        account: "Account",
+        legal: "Legal",
+        terms: "Terms",
+        privacy: "Privacy",
+        imprint: "Imprint",
+        back_home: "Back to home",
+        status_page: "Status page",
+        monitoring: "Monitoring",
+        monitor: "Monitor",
+        interval: "Interval",
+        new_monitor: "New monitor",
+        public_status_page: "Public status page",
+        save: "Save",
+        refresh: "Refresh",
+        asc: "Ascending",
+        desc: "Descending",
+        incidents: "Incidents",
+        notifications: "Notifications",
+        connections: "Connections",
+        owner_ops: "Owner Ops",
+        your_monitors: "Your monitors",
+        signed_in: "signed in",
+        logout: "Log out",
+        loading: "Loading…",
+        loading_data: "Loading...",
+        please_wait: "Please wait.",
+        error_loading: "Failed to load.",
+        try_again: "Please try again.",
+        try_again_later: "Please try again later.",
+        no_data: "No data",
+        no_data_available: "No data available.",
+        not_available: "n/a",
+        unknown: "unknown",
+        none: "none",
+        delete: "Delete",
+        cancel: "Cancel",
+        connection_failed: "Connection failed.",
+      },
+    },
+  };
+
+  function normalizeLang(value) {
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return DEFAULT_LANG;
+    if (raw === "de" || raw.startsWith("de-")) return "de";
+    if (raw === "en" || raw.startsWith("en-")) return "en";
+    return DEFAULT_LANG;
+  }
+
+  function detectLang() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      const fromQuery = params.get("lang");
+      if (fromQuery) return normalizeLang(fromQuery);
+    } catch {
+      // ignore
+    }
+
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored) return normalizeLang(stored);
+    } catch {
+      // ignore
+    }
+
+    return normalizeLang(navigator.language || DEFAULT_LANG);
+  }
+
+  function deepGet(obj, path) {
+    const parts = String(path || "").split(".").filter(Boolean);
+    let cur = obj;
+    for (const part of parts) {
+      if (!cur || typeof cur !== "object") return undefined;
+      cur = cur[part];
+    }
+    return cur;
+  }
+
+  function interpolate(template, vars) {
+    if (!template) return "";
+    if (!vars) return template;
+    return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) => {
+      if (vars[name] === undefined || vars[name] === null) return match;
+      return String(vars[name]);
+    });
+  }
+
+  let currentLang = detectLang();
+  if (!SUPPORTED.has(currentLang)) currentLang = DEFAULT_LANG;
+
+  function getLang() {
+    return currentLang;
+  }
+
+  function locale() {
+    return LOCALE_MAP[currentLang] || LOCALE_MAP[DEFAULT_LANG] || "de-DE";
+  }
+
+  function t(key, vars, fallback) {
+    const primary = deepGet(STRINGS[currentLang], key);
+    const secondary = deepGet(STRINGS[DEFAULT_LANG], key);
+    const value =
+      typeof primary === "string"
+        ? primary
+        : typeof secondary === "string"
+          ? secondary
+          : typeof fallback === "string"
+            ? fallback
+            : "";
+    return interpolate(value, vars);
+  }
+
+  let cachedRtfLocale = null;
+  let cachedRtf = null;
+
+  function getRtf() {
+    const loc = locale();
+    if (cachedRtf && cachedRtfLocale === loc) return cachedRtf;
+    cachedRtfLocale = loc;
+    cachedRtf = new Intl.RelativeTimeFormat(loc, { numeric: "auto" });
+    return cachedRtf;
+  }
+
+  function applyTranslations(root = document) {
+    document.documentElement.setAttribute("lang", currentLang);
+    document.documentElement.setAttribute("data-lang", currentLang);
+
+    for (const el of root.querySelectorAll("[data-lang-block]")) {
+      const blockLang = normalizeLang(el.getAttribute("data-lang-block"));
+      el.hidden = blockLang !== currentLang;
+    }
+
+    for (const el of root.querySelectorAll("[data-i18n]")) {
+      const key = el.getAttribute("data-i18n");
+      const value = t(key, null, "");
+      if (value) el.textContent = value;
+    }
+
+    for (const el of root.querySelectorAll("[data-i18n-placeholder]")) {
+      const key = el.getAttribute("data-i18n-placeholder");
+      const value = t(key, null, "");
+      if (value) el.setAttribute("placeholder", value);
+    }
+
+    for (const el of root.querySelectorAll("[data-i18n-title]")) {
+      const key = el.getAttribute("data-i18n-title");
+      const value = t(key, null, "");
+      if (value) el.setAttribute("title", value);
+    }
+
+    for (const el of root.querySelectorAll("[data-i18n-alt]")) {
+      const key = el.getAttribute("data-i18n-alt");
+      const value = t(key, null, "");
+      if (value) el.setAttribute("alt", value);
+    }
+
+    for (const el of root.querySelectorAll("[data-i18n-aria-label]")) {
+      const key = el.getAttribute("data-i18n-aria-label");
+      const value = t(key, null, "");
+      if (value) el.setAttribute("aria-label", value);
+    }
+
+    for (const el of root.querySelectorAll("[data-i18n-content]")) {
+      const key = el.getAttribute("data-i18n-content");
+      const value = t(key, null, "");
+      if (value) el.setAttribute("content", value);
+    }
+  }
+
+  function bindLanguageSelectors(root = document) {
+    for (const select of root.querySelectorAll("select[data-lang-select]")) {
+      try {
+        select.value = currentLang;
+      } catch {
+        // ignore
+      }
+
+      select.addEventListener("change", () => {
+        const next = normalizeLang(select.value);
+        setLang(next, { reload: true });
+      });
+    }
+
+    for (const btn of root.querySelectorAll("[data-set-lang]")) {
+      btn.addEventListener("click", () => {
+        const next = normalizeLang(btn.getAttribute("data-set-lang"));
+        setLang(next, { reload: true });
+      });
+    }
+  }
+
+  function setLang(nextLang, options = {}) {
+    const { persist = true, reload = true } = options;
+    const normalized = normalizeLang(nextLang);
+    if (!SUPPORTED.has(normalized)) return;
+    currentLang = normalized;
+
+    if (persist) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, currentLang);
+      } catch {
+        // ignore
+      }
+    }
+
+    applyTranslations(document);
+
+    if (reload) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("lang")) {
+          url.searchParams.set("lang", currentLang);
+          window.location.replace(url.toString());
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      window.location.reload();
+    }
+  }
+
+  function init() {
+    applyTranslations(document);
+    bindLanguageSelectors(document);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+
+  window.PMS_I18N = {
+    STRINGS,
+    t,
+    locale,
+    getLang,
+    setLang,
+    applyTranslations,
+    rtf: getRtf,
+  };
+})();

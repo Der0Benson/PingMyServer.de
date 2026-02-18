@@ -3,6 +3,10 @@ const urlInput = document.getElementById("monitor-url");
 const nameInput = document.getElementById("monitor-name");
 const messageEl = document.getElementById("onboarding-message");
 
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+
 function encodeBase64UrlUtf8(input) {
   const value = String(input || "");
   const bytes = new TextEncoder().encode(value);
@@ -33,47 +37,83 @@ function toCreateMonitorErrorMessage(payload, fallbackText = "") {
 
   if (error === "target blocked") {
     if (reason === "local_target_forbidden") {
-      return "Lokale Ziele wie localhost sind aus Sicherheitsgründen nicht erlaubt.";
+      return t(
+        "onboarding.error.local_target_forbidden",
+        null,
+        "Local targets like localhost are not allowed for security reasons."
+      );
     }
     if (reason === "private_target_forbidden" || reason.startsWith("private_target_forbidden:")) {
-      return "Private IP-Ziele sind nicht erlaubt. Bitte den Host auf die Private-Allowlist setzen.";
+      return t(
+        "onboarding.error.private_target_forbidden",
+        null,
+        "Private IP targets are not allowed. Please add the host to the private allowlist."
+      );
     }
     if (reason === "mixed_target_forbidden" || reason.startsWith("mixed_target_forbidden:")) {
-      return "Domain liefert öffentliche und private DNS-Ziele. Bitte MONITOR_PRIVATE_TARGET_POLICY=all_private setzen.";
+      return t(
+        "onboarding.error.mixed_target_forbidden",
+        null,
+        "The domain resolves to both public and private DNS targets. Please set MONITOR_PRIVATE_TARGET_POLICY=all_private."
+      );
     }
     if (reason === "invalid_protocol") {
-      return "Nur http:// oder https:// sind erlaubt.";
+      return t("onboarding.error.invalid_protocol", null, "Only http:// or https:// are allowed.");
     }
     if (reason === "invalid_url") {
-      return "Die URL ist ungültig. Bitte Eingabe prüfen.";
+      return t("onboarding.error.invalid_url", null, "The URL is invalid. Please check your input.");
     }
-    return "Ziel wurde durch die Sicherheitsrichtlinie blockiert.";
+    return t("onboarding.error.target_blocked", null, "The target was blocked by the security policy.");
   }
 
-  if (error === "invalid input") return "Bitte URL/Domain prüfen.";
-  if (error === "monitor limit reached") return "Maximale Monitor-Anzahl erreicht. Bitte alte Monitore löschen oder Limit erhöhen.";
-  if (error === "internal error") return "Interner Fehler beim Anlegen. Bitte später erneut versuchen.";
+  if (error === "invalid input") return t("onboarding.error.invalid_input", null, "Please check the URL/domain.");
+  if (error === "monitor limit reached") {
+    return t(
+      "onboarding.error.monitor_limit_reached",
+      null,
+      "Monitor limit reached. Please delete old monitors or increase your limit."
+    );
+  }
+  if (error === "internal error") {
+    return t(
+      "onboarding.error.internal_error",
+      null,
+      "Internal error while creating the monitor. Please try again later."
+    );
+  }
   if (error) return error;
   if (fallbackLooksLikeHtml) {
     if (normalizedFallback.includes("503 service unavailable")) {
-      return "Backend derzeit nicht erreichbar (HTTP 503). Bitte Serverdienst neu starten.";
+      return t(
+        "onboarding.error.backend_503",
+        null,
+        "Backend is currently unavailable (HTTP 503). Please restart the server service."
+      );
     }
     if (normalizedFallback.includes("502 bad gateway")) {
-      return "Proxy-Fehler zum Backend (HTTP 502). Bitte Serverdienst und Apache-Proxy prüfen.";
+      return t(
+        "onboarding.error.proxy_502",
+        null,
+        "Proxy error to backend (HTTP 502). Please check the server service and Apache proxy."
+      );
     }
     if (normalizedFallback.includes("400 bad request")) {
-      return "Die Anfrage wurde am Webserver als ungültig abgewiesen (HTTP 400).";
+      return t(
+        "onboarding.error.bad_request_400",
+        null,
+        "The web server rejected the request as invalid (HTTP 400)."
+      );
     }
     if (normalizedFallback.includes("403 forbidden")) {
-      return "Die Anfrage wurde am Webserver blockiert (HTTP 403).";
+      return t("onboarding.error.forbidden_403", null, "The web server blocked the request (HTTP 403).");
     }
     if (normalizedFallback.includes("401 unauthorized")) {
-      return "Sitzung nicht mehr gültig. Bitte neu anmelden.";
+      return t("onboarding.error.unauthorized_401", null, "Session is no longer valid. Please sign in again.");
     }
-    return "Die Anfrage wurde am Webserver abgewiesen.";
+    return t("onboarding.error.webserver_rejected", null, "The request was rejected by the web server.");
   }
   if (fallback) return fallback;
-  return "Monitor konnte nicht erstellt werden.";
+  return t("onboarding.error.create_failed", null, "Monitor could not be created.");
 }
 
 function setMessage(text, type = "") {
@@ -184,11 +224,11 @@ async function createMonitor(event) {
   const name = String(nameInput?.value || "").trim();
 
   if (!url) {
-    setMessage("Bitte gib eine Domain oder URL ein.", "error");
+    setMessage(t("onboarding.msg.enter_url", null, "Please enter a domain or URL."), "error");
     return;
   }
 
-  setMessage("Monitor wird erstellt ...");
+  setMessage(t("onboarding.msg.creating", null, "Creating monitor..."));
 
   try {
     const encodedUrl = encodeBase64UrlUtf8(url);
@@ -246,11 +286,11 @@ async function createMonitor(event) {
       return;
     }
 
-    setMessage("Monitor erstellt. Weiterleitung ...", "success");
+    setMessage(t("onboarding.msg.created_redirect", null, "Monitor created. Redirecting..."), "success");
     const monitorId = result.payload.id;
     window.location.href = monitorId ? `/app/monitors/${monitorId}` : "/app";
   } catch (error) {
-    setMessage("Verbindung fehlgeschlagen.", "error");
+    setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
 }
 

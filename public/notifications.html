@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Benachrichtigungskanäle in PingMyServer konfigurieren und verwalten." />
+    <meta
+      name="description"
+      data-i18n-content="meta.notifications.description"
+      content="Benachrichtigungskanäle in PingMyServer konfigurieren und verwalten."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Benachrichtigungen · PingMyServer</title>
+    <title data-i18n="meta.notifications.title">Benachrichtigungen · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,59 +23,94 @@
     />
     <link rel="stylesheet" href="/assets/styles.css" />
     <link rel="stylesheet" href="/assets/notifications.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+        <a
+          class="brand brand-link"
+          href="/"
+          data-i18n-aria-label="common.aria.home"
+          aria-label="PingMyServer Startseite"
+        >
           <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <span class="brand-name">PingMyServer.de</span>
         </a>
         <nav class="side-nav">
-          <a href="/app">Monitoring</a>
-          <a href="/incidents">Vorfälle</a>
-          <a class="active" href="/notifications">Benachrichtigungen</a>
-          <a href="/connections">Connections</a>
-          <a href="/owner" data-owner-link hidden>Owner Ops</a>
-          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+          <a href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a class="active" href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
+          <a href="/connections" data-i18n="common.connections">Connections</a>
+          <a href="/owner" data-owner-link hidden data-i18n="common.owner_ops">Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
         </nav>
         <div class="side-footer">
-          <a class="user-pill profile-link" href="/connections" aria-label="Connections und Kontoeinstellungen">
+          <a
+            class="user-pill profile-link"
+            href="/connections"
+            data-i18n-aria-label="common.aria.profile_settings"
+            aria-label="Connections und Kontoeinstellungen"
+          >
             <span class="avatar small">U</span>
-            <span class="muted" id="current-user-email">eingeloggt</span>
+            <span class="muted" id="current-user-email" data-i18n="common.signed_in">eingeloggt</span>
           </a>
-          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
         </div>
       </aside>
 
       <div class="content">
         <div class="page">
-          <div class="crumb">Benachrichtigungen</div>
+          <div class="crumb" data-i18n="common.notifications">Benachrichtigungen</div>
           <header class="topbar">
             <div class="title-block">
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <div class="title">Benachrichtigungen</div>
-                <div class="subtitle">Discord Webhook für Statuswechsel deiner Monitore</div>
+                <div class="title" data-i18n="notifications.title">Benachrichtigungen</div>
+                <div class="subtitle" data-i18n="notifications.sub">Discord Webhook für Statuswechsel deiner Monitore</div>
               </div>
             </div>
           </header>
 
           <main class="notifications-page">
             <section class="card wide">
-              <div class="card-title">Discord Webhook</div>
-              <p class="muted card-copy">
+              <div class="card-title" data-i18n="notifications.discord.title">Discord Webhook</div>
+              <p class="muted card-copy" data-i18n="notifications.discord.copy">
                 Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Discord Webhook.
               </p>
               <div class="status-row">
-                <span class="status-badge" id="discord-state-badge">Nicht verbunden</span>
-                <span class="muted" id="discord-webhook-mask">Kein Webhook hinterlegt.</span>
+                <span class="status-badge" id="discord-state-badge" data-i18n="notifications.discord.state_disconnected">Nicht verbunden</span>
+                <span class="muted" id="discord-webhook-mask" data-i18n="notifications.discord.no_webhook">Kein Webhook hinterlegt.</span>
               </div>
 
               <form id="discord-form" class="notification-form" novalidate>
                 <label for="discord-webhook-url">
-                  <span>Webhook URL</span>
+                  <span data-i18n="notifications.discord.label_url">Webhook URL</span>
                   <input
                     id="discord-webhook-url"
                     type="url"
@@ -81,12 +120,12 @@
                 </label>
                 <label class="check-row" for="discord-enabled">
                   <input id="discord-enabled" type="checkbox" />
-                  <span>Benachrichtigungen aktivieren</span>
+                  <span data-i18n="notifications.discord.enable">Benachrichtigungen aktivieren</span>
                 </label>
                 <div class="form-actions">
-                  <button class="btn primary" id="save-discord-btn" type="submit">Speichern</button>
-                  <button class="btn ghost" id="test-discord-btn" type="button">Test senden</button>
-                  <button class="btn ghost danger-btn" id="delete-discord-btn" type="button">Webhook entfernen</button>
+                  <button class="btn primary" id="save-discord-btn" type="submit" data-i18n="common.save">Speichern</button>
+                  <button class="btn ghost" id="test-discord-btn" type="button" data-i18n="notifications.discord.test">Test senden</button>
+                  <button class="btn ghost danger-btn" id="delete-discord-btn" type="button" data-i18n="notifications.discord.remove">Webhook entfernen</button>
                 </div>
               </form>
 
@@ -95,33 +134,34 @@
 
             <section class="card wide" id="billing-card">
               <div class="card-title">Billing (Stripe)</div>
-              <p class="muted card-copy">
+              <p class="muted card-copy" data-i18n="notifications.billing.copy">
                 Upgrade auf einen bezahlten Plan und verwalte dein Abo im Stripe Customer Portal.
               </p>
               <div class="status-row">
-                <span class="status-badge" id="billing-state-badge">Nicht aktiv</span>
-                <span class="muted" id="billing-state-text">Kein aktives Abo.</span>
+                <span class="status-badge" id="billing-state-badge" data-i18n="notifications.billing.state_inactive">Nicht aktiv</span>
+                <span class="muted" id="billing-state-text" data-i18n="notifications.billing.no_subscription">Kein aktives Abo.</span>
               </div>
               <div class="form-actions billing-actions">
-                <button class="btn primary" id="billing-upgrade-btn" type="button">Mit Stripe upgraden</button>
-                <button class="btn ghost" id="billing-manage-btn" type="button">Abo verwalten</button>
+                <button class="btn primary" id="billing-upgrade-btn" type="button" data-i18n="notifications.billing.upgrade">Mit Stripe upgraden</button>
+                <button class="btn ghost" id="billing-manage-btn" type="button" data-i18n="notifications.billing.manage">Abo verwalten</button>
               </div>
               <p class="panel-message" id="billing-message"></p>
             </section>
           </main>
 
           <footer class="site-footer">
-            <span class="site-footer-note">Rechtliches</span>
+            <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
             <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-              <a href="/datenschutz">Datenschutz</a>
-              <a href="/impressum">Impressum</a>
+              <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+              <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+              <a href="/impressum" data-i18n="common.imprint">Impressum</a>
             </nav>
           </footer>
         </div>
       </div>
     </div>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/notifications.js"></script>
   </body>
 </html>

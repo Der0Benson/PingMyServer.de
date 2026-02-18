@@ -78,6 +78,16 @@ let lastCheckTime = null;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 const DEFAULT_MONITOR_ICON = "/assets/pingmyserverlogo.png";
 let monitorIconKey = "";
+
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+const i18nLang = () => (I18N && typeof I18N.getLang === "function" ? I18N.getLang() : "de");
+const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+const rtf = () =>
+  I18N && typeof I18N.rtf === "function"
+    ? I18N.rtf()
+    : new Intl.RelativeTimeFormat(i18nLocale(), { numeric: "auto" });
 let assertionsDirty = false;
 let assertionsBoundMonitorId = null;
 let maintenanceBoundMonitorId = null;
@@ -247,7 +257,7 @@ function toDateTimeLocalValue(timestampMs) {
 
 function formatDateTime(ts) {
   if (!Number.isFinite(ts)) return "-";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -258,21 +268,32 @@ function formatDateTime(ts) {
 
 function getMaintenanceStatusBadge(status) {
   const normalized = String(status || "").toLowerCase();
-  if (normalized === "active") return { label: "läuft", cls: "active" };
-  if (normalized === "scheduled") return { label: "geplant", cls: "scheduled" };
-  if (normalized === "completed") return { label: "beendet", cls: "completed" };
-  if (normalized === "cancelled") return { label: "abgebrochen", cls: "cancelled" };
-  return { label: "unbekannt", cls: "" };
+  if (normalized === "active") return { label: t("app.maintenance.badge.active", null, "active"), cls: "active" };
+  if (normalized === "scheduled")
+    return { label: t("app.maintenance.badge.scheduled", null, "scheduled"), cls: "scheduled" };
+  if (normalized === "completed")
+    return { label: t("app.maintenance.badge.completed", null, "completed"), cls: "completed" };
+  if (normalized === "cancelled")
+    return { label: t("app.maintenance.badge.cancelled", null, "cancelled"), cls: "cancelled" };
+  return { label: t("common.unknown", null, "unknown"), cls: "" };
 }
 
 function renderMaintenances(maintenances) {
   if (!maintenanceListEl) return;
 
   if (!maintenances || typeof maintenances !== "object") {
+    const title = escapeHtml(t("app.maintenance.disabled_title", null, "Maintenances are not active yet."));
+    const body = escapeHtml(
+      t(
+        "app.maintenance.disabled_body",
+        null,
+        "Your server is not providing maintenance data yet (backend update/restart is missing)."
+      )
+    );
     maintenanceListEl.innerHTML = `
       <div class="empty-state">
-        <div class="title">Wartungen sind noch nicht aktiv.</div>
-        <div class="muted">Dein Server liefert noch keine Wartungs-Daten (Backend-Update/Restart fehlt).</div>
+        <div class="title">${title}</div>
+        <div class="muted">${body}</div>
       </div>
     `;
     return;
@@ -282,10 +303,12 @@ function renderMaintenances(maintenances) {
   const items = Array.isArray(payload?.items) ? payload.items : [];
 
   if (!items.length) {
+    const title = escapeHtml(t("app.maintenance.empty_title", null, "No maintenances."));
+    const body = escapeHtml(t("app.maintenance.empty_body", null, "Once you schedule a maintenance, it will show up here."));
     maintenanceListEl.innerHTML = `
       <div class="empty-state">
-        <div class="title">Keine Wartungen.</div>
-        <div class="muted">Sobald du eine Wartung planst, erscheint sie hier.</div>
+        <div class="title">${title}</div>
+        <div class="muted">${body}</div>
       </div>
     `;
     return;
@@ -316,16 +339,24 @@ function renderMaintenances(maintenances) {
     const status = String(entry?.status || "").toLowerCase();
     const startsAt = Number(entry?.startsAt);
     const endsAt = Number(entry?.endsAt);
-    const title = String(entry?.title || "Wartung").trim() || "Wartung";
+    const title = String(entry?.title || t("app.maintenance.default_title", null, "Maintenance")).trim() || t("app.maintenance.default_title", null, "Maintenance");
     const note = String(entry?.message || "").trim();
     const badge = getMaintenanceStatusBadge(status);
 
     const range = `${formatDateTime(startsAt)} – ${formatDateTime(endsAt)}`;
     const metaSuffix =
       status === "scheduled" && Number.isFinite(startsAt)
-        ? ` (startet in ${formatRelative(Math.max(0, startsAt - Date.now()))})`
+        ? t(
+            "app.maintenance.meta.starts",
+            { remaining: formatTimeIn(Math.max(0, startsAt - Date.now())) },
+            ` (starts ${formatTimeIn(Math.max(0, startsAt - Date.now()))})`
+          )
         : status === "active" && Number.isFinite(endsAt)
-        ? ` (endet in ${formatRelative(Math.max(0, endsAt - Date.now()))})`
+        ? t(
+            "app.maintenance.meta.ends",
+            { remaining: formatTimeIn(Math.max(0, endsAt - Date.now())) },
+            ` (ends ${formatTimeIn(Math.max(0, endsAt - Date.now()))})`
+          )
         : "";
 
     const canCancel = status === "scheduled" || status === "active";
@@ -346,7 +377,7 @@ function renderMaintenances(maintenances) {
           canCancel
             ? `<button class="btn ghost" type="button" data-maintenance-cancel-id="${escapeHtml(
                 String(id)
-              )}">Abbrechen</button>`
+              )}">${escapeHtml(t("common.cancel", null, "Cancel"))}</button>`
             : ""
         }
       </div>
@@ -401,18 +432,21 @@ async function createMaintenance() {
   const startsAtMs = parseDateTimeLocalInput(maintenanceStartInput?.value);
   const endsAtMs = parseDateTimeLocalInput(maintenanceEndInput?.value);
   if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) {
-    setMaintenanceMessage("Bitte Start und Ende setzen.", "error");
+    setMaintenanceMessage(t("app.maintenance.msg_set_start_end", null, "Bitte Start und Ende setzen."), "error");
     return;
   }
   if (endsAtMs <= startsAtMs) {
-    setMaintenanceMessage("Ende muss nach dem Start liegen.", "error");
+    setMaintenanceMessage(
+      t("app.maintenance.msg_end_after_start", null, "Ende muss nach dem Start liegen."),
+      "error"
+    );
     return;
   }
 
   const title = String(maintenanceTitleInput?.value || "").trim();
   const message = String(maintenanceNoteInput?.value || "").trim();
 
-  setMaintenanceMessage("Wartung wird geplant ...");
+  setMaintenanceMessage(t("app.maintenance.msg_scheduling", null, "Wartung wird geplant ..."));
   setMaintenanceFormDisabled(true);
 
   try {
@@ -430,71 +464,138 @@ async function createMaintenance() {
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.ok) {
         const errorCode = String(payload?.error || "").toLowerCase();
-        if (response.status === 403 && errorCode === "domain not verified") {
-          const hostname = String(payload?.hostname || "").trim();
+         if (response.status === 403 && errorCode === "domain not verified") {
+           const hostname = String(payload?.hostname || "").trim();
+           const host = hostname ? ` (${hostname})` : "";
+           setMaintenanceMessage(
+             t(
+               "app.maintenance.msg_domain_not_verified",
+               { host },
+               `Domain${host} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.`
+             ),
+             "error"
+           );
+           showMaintenanceVerifyLink(hostname);
+         } else if (response.status === 403 && errorCode === "forbidden") {
+           setMaintenanceMessage(
+             t(
+               "app.maintenance.msg_request_blocked",
+               null,
+               "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen."
+             ),
+             "error"
+           );
+         } else if (response.status === 400 && errorCode === "invalid target") {
           setMaintenanceMessage(
-            `Domain${hostname ? ` (${hostname})` : ""} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.`,
+            t(
+              "app.maintenance.msg_invalid_target",
+              null,
+              "Monitor-Ziel ist ungültig (z.B. IP/localhost) und kann nicht per Domain-Verifizierung freigeschaltet werden."
+            ),
             "error"
           );
-          showMaintenanceVerifyLink(hostname);
-        } else if (response.status === 403 && errorCode === "forbidden") {
+        } else if (response.status === 400 && errorCode === "starts in past") {
           setMaintenanceMessage(
-            "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen.",
+            t(
+              "app.maintenance.msg_starts_past",
+              null,
+              "Startzeit liegt in der Vergangenheit. Bitte eine zukünftige Zeit wählen (oder bei laufender Wartung: Ende in die Zukunft setzen)."
+            ),
             "error"
           );
-       } else if (response.status === 400 && errorCode === "invalid target") {
+       } else if (response.status === 400 && errorCode === "starts too far") {
          setMaintenanceMessage(
-           "Monitor-Ziel ist ungültig (z.B. IP/localhost) und kann nicht per Domain-Verifizierung freigeschaltet werden.",
+           t(
+             "app.maintenance.msg_starts_too_far",
+             null,
+             "Startzeit liegt zu weit in der Zukunft. Bitte einen näheren Zeitpunkt wählen."
+           ),
            "error"
          );
-       } else if (response.status === 400 && errorCode === "starts in past") {
+       } else if (response.status === 400 && errorCode === "duration too short") {
          setMaintenanceMessage(
-           "Startzeit liegt in der Vergangenheit. Bitte eine zukünftige Zeit wählen (oder bei laufender Wartung: Ende in die Zukunft setzen).",
+           t("app.maintenance.msg_duration_too_short", null, "Wartung ist zu kurz. Mindestdauer sind 5 Minuten."),
            "error"
          );
-      } else if (response.status === 400 && errorCode === "starts too far") {
-        setMaintenanceMessage("Startzeit liegt zu weit in der Zukunft. Bitte einen näheren Zeitpunkt wählen.", "error");
-      } else if (response.status === 400 && errorCode === "duration too short") {
-        setMaintenanceMessage("Wartung ist zu kurz. Mindestdauer sind 5 Minuten.", "error");
-      } else if (response.status === 400 && errorCode === "duration too long") {
-        setMaintenanceMessage("Wartung ist zu lang. Maximal sind 30 Tage erlaubt.", "error");
-      } else if (response.status === 400 && (errorCode === "ends before start" || errorCode === "invalid input")) {
-        setMaintenanceMessage("Bitte Eingaben prüfen: Ende muss nach dem Start liegen.", "error");
-      } else if (response.status === 400 && (errorCode === "invalid start" || errorCode === "invalid startsat")) {
-        setMaintenanceMessage("Start ist ungültig. Bitte Datum/Uhrzeit neu setzen.", "error");
-      } else if (response.status === 400 && (errorCode === "invalid end" || errorCode === "invalid endsat")) {
-        setMaintenanceMessage("Ende ist ungültig. Bitte Datum/Uhrzeit neu setzen.", "error");
-      } else if (response.status === 403 && !payload) {
-        const hostname = getActiveMonitorHostnameHint();
-        setMaintenanceMessage(
-          `Domain${hostname ? ` (${hostname})` : ""} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.`,
-          "error"
-        );
-        showMaintenanceVerifyLink(hostname);
-      } else if (response.status === 404 && !payload) {
-        setMaintenanceMessage(
-          "Endpoint nicht gefunden (HTTP 404). Das Feature ist auf dem Server vermutlich noch nicht deployed oder der Node-Prozess läuft noch mit altem Code.",
-          "error"
-        );
-      } else if (!payload) {
-        setMaintenanceMessage(`Wartung konnte nicht geplant werden. (HTTP ${response.status})`, "error");
-      } else {
-        setMaintenanceMessage(
-          `Wartung konnte nicht geplant werden. (${payload?.error || `HTTP ${response.status}`})`,
-          "error"
-        );
-      }
-      return;
-    }
+       } else if (response.status === 400 && errorCode === "duration too long") {
+         setMaintenanceMessage(
+           t("app.maintenance.msg_duration_too_long", null, "Wartung ist zu lang. Maximal sind 30 Tage erlaubt."),
+           "error"
+         );
+       } else if (response.status === 400 && (errorCode === "ends before start" || errorCode === "invalid input")) {
+         setMaintenanceMessage(
+           t(
+             "app.maintenance.msg_invalid_input",
+             null,
+             "Bitte Eingaben prüfen: Ende muss nach dem Start liegen."
+           ),
+           "error"
+         );
+       } else if (response.status === 400 && (errorCode === "invalid start" || errorCode === "invalid startsat")) {
+         setMaintenanceMessage(
+           t("app.maintenance.msg_invalid_start", null, "Start ist ungültig. Bitte Datum/Uhrzeit neu setzen."),
+           "error"
+         );
+       } else if (response.status === 400 && (errorCode === "invalid end" || errorCode === "invalid endsat")) {
+         setMaintenanceMessage(
+           t("app.maintenance.msg_invalid_end", null, "Ende ist ungültig. Bitte Datum/Uhrzeit neu setzen."),
+           "error"
+         );
+       } else if (response.status === 403 && !payload) {
+         const hostname = getActiveMonitorHostnameHint();
+         const host = hostname ? ` (${hostname})` : "";
+         setMaintenanceMessage(
+           t(
+             "app.maintenance.msg_domain_not_verified",
+             { host },
+             `Domain${host} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.`
+           ),
+           "error"
+         );
+         showMaintenanceVerifyLink(hostname);
+       } else if (response.status === 404 && !payload) {
+         setMaintenanceMessage(
+           t(
+             "app.maintenance.msg_endpoint_not_found",
+             null,
+             "Endpoint nicht gefunden (HTTP 404). Das Feature ist auf dem Server vermutlich noch nicht deployed oder der Node-Prozess läuft noch mit altem Code."
+           ),
+           "error"
+         );
+       } else if (!payload) {
+         setMaintenanceMessage(
+           t(
+             "app.maintenance.msg_failed_http",
+             { status: response.status },
+             `Wartung konnte nicht geplant werden. (HTTP ${response.status})`
+           ),
+           "error"
+         );
+       } else {
+         setMaintenanceMessage(
+           t(
+             "app.maintenance.msg_failed_detail",
+             { detail: payload?.error || `HTTP ${response.status}` },
+             `Wartung konnte nicht geplant werden. (${payload?.error || `HTTP ${response.status}`})`
+           ),
+           "error"
+         );
+       }
+       return;
+     }
 
-    setMaintenanceMessage("Wartung geplant.", "success");
+    setMaintenanceMessage(t("app.maintenance.msg_scheduled", null, "Wartung geplant."), "success");
     if (maintenanceTitleInput) maintenanceTitleInput.value = "";
     if (maintenanceNoteInput) maintenanceNoteInput.value = "";
     await loadMetrics();
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error || "").trim();
     setMaintenanceMessage(
-      `Wartung konnte nicht geplant werden.${detail ? ` (Netzwerkfehler: ${detail})` : ""}`,
+      t(
+        "app.maintenance.msg_failed_network",
+        { detail },
+        `Wartung konnte nicht geplant werden.${detail ? ` (Netzwerkfehler: ${detail})` : ""}`
+      ),
       "error"
     );
     console.error("maintenance_create_request_failed", error);
@@ -509,7 +610,7 @@ async function cancelMaintenance(id) {
   if (!Number.isFinite(numericId) || numericId <= 0) return;
 
   hideMaintenanceVerifyLink();
-  setMaintenanceMessage("Wartung wird abgebrochen ...");
+  setMaintenanceMessage(t("app.maintenance.msg_cancelling", null, "Wartung wird abgebrochen ..."));
 
   try {
     const response = await fetch(
@@ -524,14 +625,14 @@ async function cancelMaintenance(id) {
 
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) {
-      setMaintenanceMessage("Wartung konnte nicht abgebrochen werden.", "error");
+      setMaintenanceMessage(t("app.maintenance.msg_cancel_failed", null, "Wartung konnte nicht abgebrochen werden."), "error");
       return;
     }
 
-    setMaintenanceMessage("Wartung abgebrochen.", "success");
+    setMaintenanceMessage(t("app.maintenance.msg_cancelled", null, "Wartung abgebrochen."), "success");
     await loadMetrics();
   } catch (error) {
-    setMaintenanceMessage("Wartung konnte nicht abgebrochen werden.", "error");
+    setMaintenanceMessage(t("app.maintenance.msg_cancel_failed", null, "Wartung konnte nicht abgebrochen werden."), "error");
   }
 }
 
@@ -552,7 +653,9 @@ function renderIntervalPicker(selectedMs) {
   options.forEach((ms, index) => {
     const option = document.createElement("option");
     option.value = String(ms);
-    option.textContent = needsCustom && index === 0 ? `Custom (${formatInterval(ms)})` : formatInterval(ms);
+    const label = formatInterval(ms);
+    option.textContent =
+      needsCustom && index === 0 ? t("app.interval.custom", { value: label }, `Custom (${label})`) : label;
     intervalSelect.appendChild(option);
   });
 
@@ -661,7 +764,7 @@ function findMonitor(monitorId) {
 }
 
 function getMonitorDisplayName(monitor) {
-  if (!monitor) return "Monitor";
+  if (!monitor) return t("common.monitor", null, "Monitor");
   return monitor.name || monitor.url || `Monitor ${monitor.id}`;
 }
 
@@ -775,7 +878,9 @@ function renderMonitorPicker() {
 }
 
 function monitorStatusLabel(status) {
-  return status === "offline" ? "Offline" : "Online";
+  return status === "offline"
+    ? t("app.state.offline", null, "Offline")
+    : t("app.state.online", null, "Online");
 }
 
 function renderMonitorList() {
@@ -819,8 +924,8 @@ function renderMonitorList() {
     const meta = document.createElement("span");
     meta.className = "monitor-nav-item-meta";
     const lastCheckLabel = monitor.last_checked_at
-      ? `vor ${formatRelative(Date.now() - monitor.last_checked_at)}`
-      : "noch kein Check";
+      ? formatTimeAgo(Date.now() - monitor.last_checked_at)
+      : t("app.monitor.no_check", null, "noch kein Check");
     meta.textContent = `${monitorStatusLabel(monitor.last_status)} · ${lastCheckLabel}`;
 
     item.appendChild(head);
@@ -834,9 +939,20 @@ function renderMonitorList() {
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "monitor-nav-delete";
-    deleteButton.textContent = "L\u00f6schen";
-    deleteButton.title = "L\u00f6scht den Monitor inklusive aller Daten";
-    deleteButton.setAttribute("aria-label", `Monitor ${getMonitorDisplayName(monitor)} l\u00f6schen`);
+    deleteButton.textContent = t("common.delete", null, "Delete");
+    deleteButton.title = t(
+      "app.monitor.delete_title",
+      null,
+      "L\u00f6scht den Monitor inklusive aller Daten"
+    );
+    deleteButton.setAttribute(
+      "aria-label",
+      t(
+        "app.monitor.delete_aria",
+        { name: getMonitorDisplayName(monitor) },
+        `Monitor ${getMonitorDisplayName(monitor)} l\u00f6schen`
+      )
+    );
     deleteButton.addEventListener("click", (event) => {
       event.stopPropagation();
       deleteMonitor(monitor).catch(() => {
@@ -862,7 +978,11 @@ async function deleteMonitor(monitor) {
 
   const monitorName = getMonitorDisplayName(monitor);
   const confirmed = window.confirm(
-    `Monitor "${monitorName}" wirklich l\u00f6schen?\n\nDabei werden alle Daten dieses Monitors dauerhaft entfernt:\n- Checks\n- Uptime-Historie\n- Vorf\u00e4lle\n- Tagesstatistiken\n\nDieser Vorgang kann nicht r\u00fcckg\u00e4ngig gemacht werden.`
+    t(
+      "app.monitor.delete_confirm",
+      { name: monitorName },
+      `Monitor "${monitorName}" wirklich l\u00f6schen?\n\nDabei werden alle Daten dieses Monitors dauerhaft entfernt:\n- Checks\n- Uptime-Historie\n- Vorf\u00e4lle\n- Tagesstatistiken\n\nDieser Vorgang kann nicht r\u00fcckg\u00e4ngig gemacht werden.`
+    )
   );
   if (!confirmed) return;
 
@@ -877,7 +997,13 @@ async function deleteMonitor(monitor) {
     }
 
     if (!response.ok && response.status !== 404) {
-      window.alert("Monitor konnte nicht gel\u00f6scht werden. Bitte sp\u00e4ter erneut versuchen.");
+      window.alert(
+        t(
+          "app.monitor.delete_failed",
+          null,
+          "Monitor konnte nicht gel\u00f6scht werden. Bitte sp\u00e4ter erneut versuchen."
+        )
+      );
       return;
     }
 
@@ -885,7 +1011,13 @@ async function deleteMonitor(monitor) {
     if (!monitors.length) return;
     await loadMetrics();
   } catch (error) {
-    window.alert("Monitor konnte nicht gel\u00f6scht werden. Bitte sp\u00e4ter erneut versuchen.");
+    window.alert(
+      t(
+        "app.monitor.delete_failed",
+        null,
+        "Monitor konnte nicht gel\u00f6scht werden. Bitte sp\u00e4ter erneut versuchen."
+      )
+    );
   }
 }
 
@@ -1054,7 +1186,11 @@ function updateMonitorInfo(data) {
     monitorNameEl.textContent = data.name;
   }
   if (monitorTargetEl && data.target) {
-    monitorTargetEl.textContent = `HTTPS Monitor für ${data.target}`;
+    monitorTargetEl.textContent = t(
+      "app.monitor.target_https",
+      { target: data.target },
+      `HTTPS monitor for ${data.target}`
+    );
   }
   if (activeMonitorId) {
     setMonitorIcon(activeMonitorId, data.target || "");
@@ -1065,23 +1201,32 @@ function updateStatus(data) {
   if (!data) return;
   if (statusState) {
     const online = data.status === "online";
-    statusState.textContent = online ? "Online" : "Offline";
+    statusState.textContent = online
+      ? t("app.state.online", null, "Online")
+      : t("app.state.offline", null, "Offline");
     statusState.classList.toggle("offline", !online);
   }
   if (statusDuration) {
-    const prefix = data.status === "online" ? "Aktiv seit" : "Offline seit";
+    const online = data.status === "online";
     const since = data.statusSince || statusSince;
-    statusDuration.textContent = `${prefix} ${formatDuration(Date.now() - since)}`;
+    const duration = formatDuration(Date.now() - since);
+    statusDuration.textContent = online
+      ? t("app.dashboard.online_for", { duration }, `Online for ${duration}`)
+      : t("app.dashboard.offline_for", { duration }, `Offline for ${duration}`);
   }
   if (lastCheck) {
     const stamp = data.lastCheckAt || lastCheckTime;
     lastCheck.textContent = stamp
-      ? `vor ${formatRelative(Date.now() - stamp)}`
-      : "warte auf ersten Check";
+      ? formatTimeAgo(Date.now() - stamp)
+      : t("app.dashboard.waiting_first_check", null, "Waiting for first check");
   }
   if (checkInterval) {
     checkInterval.textContent = data.intervalMs
-      ? `Prüfintervall: ${formatInterval(data.intervalMs)}`
+      ? t(
+          "app.dashboard.check_interval",
+          { interval: formatInterval(data.intervalMs) },
+          `Check interval: ${formatInterval(data.intervalMs)}`
+        )
       : "";
   }
 }
@@ -1102,7 +1247,11 @@ function updateUptimeBars(last24h) {
       el.classList.add(bar.status);
     }
     if (Number.isFinite(bar.uptime)) {
-      el.title = `Uptime: ${bar.uptime.toFixed(2)}%`;
+      el.title = t(
+        "app.dashboard.uptime_title",
+        { uptime: bar.uptime.toFixed(2) },
+        `Uptime: ${bar.uptime.toFixed(2)}%`
+      );
     }
     barsContainer.appendChild(el);
   });
@@ -1110,7 +1259,11 @@ function updateUptimeBars(last24h) {
   if (uptimeIncidents) {
     const incidents = Number.isFinite(last24h.incidents) ? last24h.incidents : 0;
     const downMinutes = Number.isFinite(last24h.downMinutes) ? last24h.downMinutes : 0;
-    uptimeIncidents.textContent = `${incidents} Vorfälle, ${downMinutes} Min. Ausfall`;
+    uptimeIncidents.textContent = t(
+      incidents === 1 ? "app.dashboard.summary.one" : "app.dashboard.summary.many",
+      { incidents, minutes: downMinutes },
+      `${incidents} incidents, ${downMinutes} min downtime`
+    );
   }
   if (uptimePercent) {
     uptimePercent.textContent = Number.isFinite(last24h.uptime)
@@ -1126,7 +1279,11 @@ function updateRangeSummaries(ranges) {
   updateRangeCell(ranges.range365, range365Uptime, range365Meta);
 
   if (rangePickerLabel && ranges.range30?.days) {
-    rangePickerLabel.textContent = `Letzte ${ranges.range30.days} Tage`;
+    rangePickerLabel.textContent = t(
+      "app.dashboard.range_last_days",
+      { days: ranges.range30.days },
+      `Last ${ranges.range30.days} days`
+    );
   }
 }
 
@@ -1134,13 +1291,17 @@ function updateRangeCell(summary, uptimeEl, metaEl) {
   if (!uptimeEl || !metaEl) return;
   if (!summary || !Number.isFinite(summary.uptime)) {
     uptimeEl.textContent = "--.--%";
-    metaEl.textContent = "Keine Daten";
+    metaEl.textContent = t("common.no_data", null, "No data");
     return;
   }
   uptimeEl.textContent = `${summary.uptime.toFixed(2)}%`;
   const incidents = Number.isFinite(summary.incidents) ? summary.incidents : 0;
   const downMinutes = Number.isFinite(summary.downMinutes) ? summary.downMinutes : 0;
-  metaEl.textContent = `${incidents} Vorfälle, ${downMinutes} Min. Ausfall`;
+  metaEl.textContent = t(
+    incidents === 1 ? "app.dashboard.summary.one" : "app.dashboard.summary.many",
+    { incidents, minutes: downMinutes },
+    `${incidents} incidents, ${downMinutes} min downtime`
+  );
 }
 
 function renderChart(svg, series) {
@@ -1246,18 +1407,18 @@ function renderHeatmap(heatmap) {
   heatmapMonths.innerHTML = "";
   heatmapCells.innerHTML = "";
 
-  const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
-  monthNames.forEach((name, month) => {
+  const monthFmt = new Intl.DateTimeFormat(i18nLocale(), { month: "short" });
+  for (let month = 0; month < 12; month += 1) {
     const firstDay = new Date(year, month, 1);
     const index = Math.floor((firstDay - start) / 86400000);
     const weekIndex = Math.floor(index / 7) + 1;
     const label = document.createElement("span");
-    label.textContent = name;
+    label.textContent = monthFmt.format(firstDay).replace(".", "");
     label.style.gridColumn = `${weekIndex}`;
     heatmapMonths.appendChild(label);
-  });
+  }
 
-  const formatter = new Intl.DateTimeFormat("de-DE", {
+  const formatter = new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -1277,11 +1438,19 @@ function renderHeatmap(heatmap) {
 
     if (data && data.uptime !== null && data.uptime !== undefined) {
       const dateLabel = formatter.format(day);
-      const statusLabel =
-        status === "ok" ? "Keine Fehler" : status === "warn" ? "Kleine Fehler" : "Ausfall";
-      cell.dataset.uptime = `Uptime: ${Number(data.uptime).toFixed(2)}%`;
-      cell.title = `${dateLabel}: ${statusLabel}`;
-    }
+        const statusLabel =
+          status === "ok"
+            ? t("app.legend.ok", null, "Keine Fehler")
+            : status === "warn"
+              ? t("app.legend.warn", null, "Kleine Fehler")
+              : t("app.legend.down", null, "Ausfall");
+        cell.dataset.uptime = t(
+          "app.dashboard.uptime_title",
+          { uptime: Number(data.uptime).toFixed(2) },
+          `Uptime: ${Number(data.uptime).toFixed(2)}%`
+        );
+        cell.title = `${dateLabel}: ${statusLabel}`;
+      }
 
     heatmapCells.appendChild(cell);
   });
@@ -1290,21 +1459,26 @@ function renderHeatmap(heatmap) {
 function updateMap(location, network) {
   if (!mapEl || !mapLocation || !mapCoords) return;
   if (!location) {
-    mapLocation.textContent = "Standort nicht verfügbar";
+    mapLocation.textContent = t("app.regions.unavailable", null, "Location unavailable");
     mapCoords.textContent = "";
     return;
   }
 
+  const providerSuffix = network?.provider ? ` (${network.provider})` : "";
   const scopeLabel =
     network?.scope === "edge"
-      ? `Edge-Standort${network?.provider ? ` (${network.provider})` : ""}`
+      ? t("app.regions.scope.edge", { provider: providerSuffix }, `Edge location${providerSuffix}`)
       : network?.scope === "origin"
-      ? "Server-Standort"
-      : "Standort";
+      ? t("app.regions.scope.origin", null, "Server location")
+      : t("app.regions.scope.generic", null, "Location");
 
   const hasCoords = Number.isFinite(location.lat) && Number.isFinite(location.lon);
   if (!hasCoords) {
-    mapLocation.textContent = `${scopeLabel}: Geodaten nicht verfügbar`;
+    mapLocation.textContent = t(
+      "app.regions.geodata_unavailable",
+      { scope: scopeLabel },
+      `${scopeLabel}: Geodata unavailable`
+    );
     mapCoords.textContent = [location.host, location.ip ? `IP: ${location.ip}` : ""]
       .filter(Boolean)
       .join(" · ");
@@ -1318,11 +1492,13 @@ function updateMap(location, network) {
   mapEl.style.setProperty("--marker-y", `${y}%`);
 
   const place = [location.city, location.region, location.country].filter(Boolean).join(", ");
-  mapLocation.textContent = place ? `${scopeLabel}: ${place}` : `${scopeLabel}: ${location.host || "IP-Standort"}`;
+  mapLocation.textContent = place
+    ? `${scopeLabel}: ${place}`
+    : `${scopeLabel}: ${location.host || t("app.regions.ip_location", null, "IP location")}`;
   mapCoords.textContent = [
     `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`,
     location.ip || "",
-    location.org ? `ASN/Org: ${location.org}` : "",
+    location.org ? `${t("app.regions.asn_org", null, "ASN/Org")}: ${location.org}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -1331,40 +1507,46 @@ function updateMap(location, network) {
 function updateDomainSslCard(domainSsl) {
   if (!domainExpiry || !sslExpiry || !domainSource || !sslIssuer) return;
   if (!domainSsl) {
-    domainExpiry.textContent = "Nicht verfügbar";
+    domainExpiry.textContent = t("common.not_available", null, "Not available");
     domainSource.textContent = "";
-    sslExpiry.textContent = "Nicht verfügbar";
+    sslExpiry.textContent = t("common.not_available", null, "Not available");
     sslIssuer.textContent = "";
     return;
   }
 
   if (Number.isFinite(domainSsl.domainExpiresAt)) {
     domainExpiry.textContent = formatDateWithRemaining(domainSsl.domainExpiresAt);
-    domainSource.textContent = domainSsl.domainSource ? "Quelle: RDAP" : "";
+    domainSource.textContent = domainSsl.domainSource ? t("app.domain_ssl.source_rdap", null, "Source: RDAP") : "";
   } else if (domainSsl.domainNote === "ip_target" || (domainSsl.host && isIpAddress(domainSsl.host))) {
-    domainExpiry.textContent = "IP-Monitor (keine Domain)";
+    domainExpiry.textContent = t("app.domain_ssl.ip_target", null, "IP monitor (no domain)");
     domainSource.textContent = "";
   } else if (domainSsl.domainNote === "public_unavailable") {
-    domainExpiry.textContent = "Öffentlich nicht verfügbar";
-    domainSource.textContent = "Registry veröffentlicht kein Ablaufdatum";
+    domainExpiry.textContent = t("app.domain_ssl.public_unavailable", null, "Publicly unavailable");
+    domainSource.textContent = t(
+      "app.domain_ssl.registry_no_expiry",
+      null,
+      "The registry does not publish an expiry date"
+    );
   } else {
-    domainExpiry.textContent = "Nicht verfügbar";
+    domainExpiry.textContent = t("common.not_available", null, "Not available");
     domainSource.textContent = "";
   }
 
   if (!domainSsl.sslAvailable) {
-    sslExpiry.textContent = "Kein HTTPS-Ziel";
+    sslExpiry.textContent = t("app.domain_ssl.no_https_target", null, "No HTTPS target");
     sslIssuer.textContent = "";
     return;
   }
 
   if (Number.isFinite(domainSsl.sslExpiresAt)) {
     sslExpiry.textContent = formatDateWithRemaining(domainSsl.sslExpiresAt);
-    sslIssuer.textContent = domainSsl.sslIssuer ? `Aussteller: ${domainSsl.sslIssuer}` : "";
+    sslIssuer.textContent = domainSsl.sslIssuer
+      ? t("app.domain_ssl.issuer", { issuer: domainSsl.sslIssuer }, `Issuer: ${domainSsl.sslIssuer}`)
+      : "";
     return;
   }
 
-  sslExpiry.textContent = "Nicht verfügbar";
+  sslExpiry.textContent = t("common.not_available", null, "Not available");
   sslIssuer.textContent = "";
 }
 
@@ -1373,10 +1555,12 @@ function updateIncidents(incidents) {
   const items = Array.isArray(incidents?.items) ? incidents.items.slice(0, 2) : [];
 
   if (!items.length) {
+    const emptyTitle = escapeHtml(t("app.incidents.empty_title", null, "Good job, no incidents."));
+    const emptyBody = escapeHtml(t("app.incidents.empty_body", null, "No incidents yet. Keep it up!"));
     incidentsList.innerHTML = `
       <div class="incidents-inner">
-        <div class="incidents-title">👍 Gute Arbeit, keine Vorfälle.</div>
-        <div class="muted">Bisher gab es keine Vorfälle. Weiter so!</div>
+        <div class="incidents-title">${emptyTitle}</div>
+        <div class="muted">${emptyBody}</div>
       </div>
     `;
     syncCardHeights();
@@ -1399,36 +1583,46 @@ function updateIncidents(incidents) {
 
       item.innerHTML = `
         <div class="incident-title-row">
-          <span>Tagesvorfall</span>
-          <span class="incident-badge">aggregiert</span>
+          <span>${escapeHtml(t("app.incidents.daily", null, "Daily incident"))}</span>
+          <span class="incident-badge">${escapeHtml(t("app.incidents.aggregated", null, "aggregated"))}</span>
         </div>
         <div class="incident-meta">
           <span>${escapeHtml(dateLabel)}</span>
           <span>⏱ ${escapeHtml(duration)}</span>
           <span class="incident-code">${escapeHtml(codeLabel)}</span>
         </div>
-        <div class="incident-note">Fehlchecks: ${sampleCount}</div>
+        <div class="incident-note">${escapeHtml(
+          t("app.incidents.failed_checks", { n: sampleCount }, `Failed checks: ${sampleCount}`)
+        )}</div>
       `;
     } else {
       const range = formatIncidentRange(incident.startTs, incident.endTs, incident.ongoing);
       const duration = formatDuration(incident.durationMs || 0);
       const codes = (incident.statusCodes || []).filter((code) => Number.isFinite(code));
       const codeLabel = codes.length
-        ? `Fehlercode${codes.length > 1 ? "s" : ""}: ${codes.join(", ")}`
-        : "Fehlercode: keine Antwort";
+        ? t(
+            codes.length > 1 ? "app.errors.http_codes" : "app.errors.http_code",
+            { codes: codes.join(", ") },
+            `HTTP code${codes.length > 1 ? "s" : ""}: ${codes.join(", ")}`
+          )
+        : t("app.errors.no_response_single", null, "Error code: no response");
       const sampleCount = Number.isFinite(Number(incident.samples)) ? Number(incident.samples) : 0;
 
       item.innerHTML = `
         <div class="incident-title-row">
-          <span>Ausfall</span>
-          <span class="incident-badge">${incident.ongoing ? "laufend" : "beendet"}</span>
+          <span>${escapeHtml(t("app.incidents.outage", null, "Outage"))}</span>
+          <span class="incident-badge">${escapeHtml(
+            incident.ongoing
+              ? t("app.incidents.badge.ongoing", null, "ongoing")
+              : t("app.incidents.badge.ended", null, "ended")
+          )}</span>
         </div>
         <div class="incident-meta">
           <span>${escapeHtml(range)}</span>
           <span>⏱ ${escapeHtml(duration)}</span>
           <span class="incident-code">${escapeHtml(codeLabel)}</span>
         </div>
-        <div class="incident-note">Checks: ${sampleCount}</div>
+        <div class="incident-note">${escapeHtml(t("app.incidents.checks", { n: sampleCount }, `Checks: ${sampleCount}`))}</div>
       `;
     }
 
@@ -1440,27 +1634,85 @@ function updateIncidents(incidents) {
   if (Number.isFinite(incidents.lookbackDays)) {
     const note = document.createElement("div");
     note.className = "incident-note incident-footnote";
-    note.textContent = `Zeigt die letzten 2 Vorfälle (Fenster: ${incidents.lookbackDays} Tage).`;
+    note.textContent = t(
+      "app.incidents.footnote",
+      { days: incidents.lookbackDays },
+      `Zeigt die letzten 2 Vorfälle (Fenster: ${incidents.lookbackDays} Tage).`
+    );
     incidentsList.appendChild(note);
   }
 
   syncCardHeights();
 }
 
+function shortUnit(unit) {
+  const lang = i18nLang();
+  if (lang === "en") {
+    if (unit === "second") return "sec";
+    if (unit === "minute") return "min";
+    if (unit === "hour") return "hr";
+    if (unit === "day") return "days";
+  }
+  if (unit === "second") return "Sek.";
+  if (unit === "minute") return "Min.";
+  if (unit === "hour") return "Std.";
+  if (unit === "day") return "Tage";
+  return unit;
+}
+
+function formatTimeAgo(ms) {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return rtf().format(0, "second");
+  }
+
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return rtf().format(-seconds, "second");
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return rtf().format(-minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return rtf().format(-hours, "hour");
+
+  const days = Math.round(hours / 24);
+  return rtf().format(-days, "day");
+}
+
+function formatTimeIn(ms) {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return rtf().format(0, "second");
+  }
+
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return rtf().format(seconds, "second");
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return rtf().format(minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return rtf().format(hours, "hour");
+
+  const days = Math.round(hours / 24);
+  return rtf().format(days, "day");
+}
+
 function formatInterval(ms) {
-  if (ms < 60000) return `${Math.round(ms / 1000)} Sek.`;
-  if (ms < 3600000) return `${Math.round(ms / 60000)} Min.`;
-  return `${Math.round(ms / 3600000)} Std.`;
+  if (ms < 60000) return `${Math.round(ms / 1000)} ${shortUnit("second")}`;
+  if (ms < 3600000) return `${Math.round(ms / 60000)} ${shortUnit("minute")}`;
+  return `${Math.round(ms / 3600000)} ${shortUnit("hour")}`;
 }
 
 function formatIncidentRange(startTs, endTs, ongoing) {
   const start = new Date(startTs);
   const end = endTs ? new Date(endTs) : null;
-  const timeFmt = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
-  const dateFmt = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeFmt = new Intl.DateTimeFormat(i18nLocale(), { hour: "2-digit", minute: "2-digit" });
+  const dateFmt = new Intl.DateTimeFormat(i18nLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 
   if (!end) {
-    return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${ongoing ? "läuft noch" : "offen"}`;
+    const suffix = ongoing
+      ? t("app.incidents.ongoing", null, "läuft noch")
+      : t("app.incidents.open", null, "offen");
+    return `${dateFmt.format(start)} ${timeFmt.format(start)} – ${suffix}`;
   }
 
   const sameDay = start.toDateString() === end.toDateString();
@@ -1472,18 +1724,18 @@ function formatIncidentRange(startTs, endTs, ongoing) {
 }
 
 function formatIncidentDay(value) {
-  if (!value) return "Tag unbekannt";
+  if (!value) return t("app.incidents.unknown_day", null, "Tag unbekannt");
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const date = new Date(`${value}T00:00:00.000Z`);
-    return new Intl.DateTimeFormat("de-DE", {
+    return new Intl.DateTimeFormat(i18nLocale(), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     }).format(date);
   }
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Tag unbekannt";
-  return new Intl.DateTimeFormat("de-DE", {
+  if (Number.isNaN(date.getTime())) return t("app.incidents.unknown_day", null, "Tag unbekannt");
+  return new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -1492,16 +1744,17 @@ function formatIncidentDay(value) {
 
 function formatErrorCodeSummary(errorCodes) {
   const items = Array.isArray(errorCodes) ? errorCodes : [];
-  if (!items.length) return "Fehlercode: keine Antwort";
+  if (!items.length) return t("app.errors.no_response_single", null, "Fehlercode: keine Antwort");
   const parts = items
     .slice(0, 5)
     .map((item) => {
       const code = String(item.code || "NO_RESPONSE");
       const hits = Number(item.hits || 0);
-      const label = code === "NO_RESPONSE" ? "keine Antwort" : code;
+      const label =
+        code === "NO_RESPONSE" ? t("app.errors.no_response_label", null, "keine Antwort") : code;
       return hits > 0 ? `${label} (${hits}x)` : label;
     });
-  return `Fehlercodes: ${parts.join(", ")}`;
+  return t("app.errors.codes", { codes: parts.join(", ") }, `Fehlercodes: ${parts.join(", ")}`);
 }
 
 function escapeHtml(value) {
@@ -1514,10 +1767,10 @@ function escapeHtml(value) {
 }
 
 function formatRelative(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return "0 Sek.";
-  if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))} Sek.`;
-  if (ms < 3600000) return `${Math.round(ms / 60000)} Min.`;
-  return `${Math.round(ms / 3600000)} Std.`;
+  if (!Number.isFinite(ms) || ms < 0) return `0 ${shortUnit("second")}`;
+  if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))} ${shortUnit("second")}`;
+  if (ms < 3600000) return `${Math.round(ms / 60000)} ${shortUnit("minute")}`;
+  return `${Math.round(ms / 3600000)} ${shortUnit("hour")}`;
 }
 
 function formatDuration(ms) {
@@ -1528,12 +1781,12 @@ function formatDuration(ms) {
   const hours = Math.floor(totalMinutes / 60);
 
   if (hours > 0) {
-    return `${hours} Std. ${minutes} Min.`;
+    return `${hours} ${shortUnit("hour")} ${minutes} ${shortUnit("minute")}`;
   }
   if (minutes > 0) {
-    return `${minutes} Min. ${seconds} Sek.`;
+    return `${minutes} ${shortUnit("minute")} ${seconds} ${shortUnit("second")}`;
   }
-  return `${seconds} Sek.`;
+  return `${seconds} ${shortUnit("second")}`;
 }
 
 function formatMs(value) {
@@ -1543,17 +1796,15 @@ function formatMs(value) {
 
 function formatDateWithRemaining(timestamp) {
   const date = new Date(timestamp);
-  const dateLabel = new Intl.DateTimeFormat("de-DE", {
+  const dateLabel = new Intl.DateTimeFormat(i18nLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   }).format(date);
 
   const days = Math.ceil((timestamp - Date.now()) / 86400000);
-  if (days >= 0) {
-    return `${dateLabel} (in ${days} Tagen)`;
-  }
-  return `${dateLabel} (vor ${Math.abs(days)} Tagen)`;
+  const rel = rtf().format(days, "day");
+  return `${dateLabel} (${rel})`;
 }
 
 function isIpAddress(value) {
@@ -1622,7 +1873,7 @@ async function init() {
       event.preventDefault();
       if (!activeMonitorId) return;
 
-      setAssertionsMessage("Speichern ...");
+      setAssertionsMessage(t("app.assertions.msg_saving", null, "Speichern ..."));
       try {
         const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/assertions`, {
           method: "PUT",
@@ -1637,15 +1888,15 @@ async function init() {
 
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload?.ok) {
-          setAssertionsMessage("Speichern fehlgeschlagen.", "error");
+          setAssertionsMessage(t("app.assertions.msg_failed", null, "Speichern fehlgeschlagen."), "error");
           return;
         }
 
         assertionsDirty = false;
-        setAssertionsMessage("Gespeichert.", "success");
+        setAssertionsMessage(t("app.assertions.msg_saved", null, "Gespeichert."), "success");
         syncAssertionsPanel(payload.data, { force: true });
       } catch (error) {
-        setAssertionsMessage("Speichern fehlgeschlagen.", "error");
+        setAssertionsMessage(t("app.assertions.msg_failed", null, "Speichern fehlgeschlagen."), "error");
       }
     });
   }

@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Vorfallsübersicht in PingMyServer mit Verlauf und Ausfalldetails." />
+    <meta
+      name="description"
+      data-i18n-content="meta.incidents.description"
+      content="Vorfallsübersicht in PingMyServer mit Verlauf und Ausfalldetails."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Vorfälle · PingMyServer</title>
+    <title data-i18n="meta.incidents.title">Vorfälle · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,82 +23,117 @@
     />
     <link rel="stylesheet" href="/assets/styles.css" />
     <link rel="stylesheet" href="/assets/incidents.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+        <a
+          class="brand brand-link"
+          href="/"
+          data-i18n-aria-label="common.aria.home"
+          aria-label="PingMyServer Startseite"
+        >
           <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <span class="brand-name">PingMyServer.de</span>
         </a>
         <nav class="side-nav">
-          <a href="/app">Monitoring</a>
-          <a class="active" href="/incidents">Vorfälle</a>
-          <a href="/notifications">Benachrichtigungen</a>
-          <a href="/owner" data-owner-link hidden>Owner Ops</a>
-          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+          <a href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a class="active" href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
+          <a href="/owner" data-owner-link hidden data-i18n="common.owner_ops">Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
         </nav>
         <div class="side-footer">
-          <a class="user-pill profile-link" href="/connections" aria-label="Connections und Kontoeinstellungen">
+          <a
+            class="user-pill profile-link"
+            href="/connections"
+            data-i18n-aria-label="common.aria.profile_settings"
+            aria-label="Connections und Kontoeinstellungen"
+          >
             <span class="avatar small">U</span>
-            <span class="muted" id="current-user-email">eingeloggt</span>
+            <span class="muted" id="current-user-email" data-i18n="common.signed_in">eingeloggt</span>
           </a>
-          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
         </div>
       </aside>
 
       <div class="content">
         <div class="page">
-          <div class="crumb">Vorfälle</div>
+          <div class="crumb" data-i18n="common.incidents">Vorfälle</div>
           <header class="topbar">
             <div class="title-block">
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <div class="title">Vorfall-Log</div>
-                <div class="subtitle">Alle Vorfälle mit Details und Sortierung</div>
+                <div class="title" data-i18n="incidents.title">Vorfall-Log</div>
+                <div class="subtitle" data-i18n="incidents.sub">Alle Vorfälle mit Details und Sortierung</div>
               </div>
             </div>
             <div class="top-actions">
-              <button class="btn ghost" id="refresh-btn" type="button">Aktualisieren</button>
+              <button class="btn ghost" id="refresh-btn" type="button" data-i18n="common.refresh">Aktualisieren</button>
             </div>
           </header>
 
           <main class="incidents-page">
             <section class="card wide incidents-controls-card">
-              <div class="card-title">Filter & Sortierung</div>
+              <div class="card-title" data-i18n="incidents.controls.title">Filter & Sortierung</div>
               <div class="incidents-controls">
                 <label class="control">
-                  <span>Monitor</span>
+                  <span data-i18n="common.monitor">Monitor</span>
                   <select id="monitor-filter"></select>
                 </label>
                 <label class="control">
-                  <span>Sortieren nach</span>
+                  <span data-i18n="incidents.controls.sort_by">Sortieren nach</span>
                   <select id="sort-field">
-                    <option value="start">Startzeit</option>
-                    <option value="duration">Dauer</option>
-                    <option value="checks">Fehlchecks</option>
-                    <option value="monitor">Monitor</option>
+                    <option value="start" data-i18n="incidents.sort.start">Startzeit</option>
+                    <option value="duration" data-i18n="incidents.sort.duration">Dauer</option>
+                    <option value="checks" data-i18n="incidents.sort.checks">Fehlchecks</option>
+                    <option value="monitor" data-i18n="common.monitor">Monitor</option>
                   </select>
                 </label>
                 <label class="control">
-                  <span>Reihenfolge</span>
+                  <span data-i18n="incidents.controls.order">Reihenfolge</span>
                   <select id="sort-order">
-                    <option value="desc">Absteigend</option>
-                    <option value="asc">Aufsteigend</option>
+                    <option value="desc" data-i18n="common.desc">Absteigend</option>
+                    <option value="asc" data-i18n="common.asc">Aufsteigend</option>
                   </select>
                 </label>
                 <label class="control">
-                  <span>Zeitraum</span>
+                  <span data-i18n="incidents.controls.range">Zeitraum</span>
                   <select id="lookback-days">
-                    <option value="30">30 Tage</option>
-                    <option value="90">90 Tage</option>
-                    <option value="365">365 Tage</option>
-                    <option value="730">730 Tage</option>
+                    <option value="30" data-i18n="incidents.lookback.30">30 Tage</option>
+                    <option value="90" data-i18n="incidents.lookback.90">90 Tage</option>
+                    <option value="365" data-i18n="incidents.lookback.365">365 Tage</option>
+                    <option value="730" data-i18n="incidents.lookback.730">730 Tage</option>
                   </select>
                 </label>
                 <label class="control">
-                  <span>Max. Einträge</span>
+                  <span data-i18n="incidents.controls.max_entries">Max. Einträge</span>
                   <select id="limit-select">
                     <option value="50">50</option>
                     <option value="100" selected>100</option>
@@ -103,32 +142,33 @@
                   </select>
                 </label>
               </div>
-              <div class="muted incidents-summary" id="incidents-summary">Lade Vorfälle…</div>
+              <div class="muted incidents-summary" id="incidents-summary" data-i18n="incidents.loading">Lade Vorfälle…</div>
             </section>
 
             <section class="card wide incidents-list-card">
-              <div class="card-title">Alle Vorfälle</div>
+              <div class="card-title" data-i18n="incidents.list.title">Alle Vorfälle</div>
               <div class="incident-history-list" id="incident-history-list">
                 <div class="incidents-inner">
-                  <div class="incidents-title">Lade Daten…</div>
-                  <div class="muted">Bitte kurz warten.</div>
+                  <div class="incidents-title" data-i18n="common.loading_data">Lade Daten…</div>
+                  <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
                 </div>
               </div>
             </section>
           </main>
 
           <footer class="site-footer">
-            <span class="site-footer-note">Rechtliches</span>
+            <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
             <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-              <a href="/datenschutz">Datenschutz</a>
-              <a href="/impressum">Impressum</a>
+              <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+              <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+              <a href="/impressum" data-i18n="common.imprint">Impressum</a>
             </nav>
           </footer>
         </div>
       </div>
     </div>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/incidents.js"></script>
   </body>
 </html>

@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Dashboard von PingMyServer für Monitoring, Uptime-Verlauf und Alarmierung." />
+    <meta
+      name="description"
+      data-i18n-content="meta.app.description"
+      content="Dashboard von PingMyServer für Monitoring, Uptime-Verlauf und Alarmierung."
+    />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Dashboard · PingMyServer</title>
+    <title data-i18n="meta.app.title">Dashboard · PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,57 +23,92 @@
     />
     <link rel="stylesheet" href="/assets/styles.css" />
     <link rel="stylesheet" href="/assets/app-monitors.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+        <a
+          class="brand brand-link"
+          href="/"
+          data-i18n-aria-label="common.aria.home"
+          aria-label="PingMyServer Startseite"
+        >
           <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
           <span class="brand-name">PingMyServer.de</span>
         </a>
         <nav class="side-nav">
-          <a class="active" href="/app">Monitoring</a>
-          <a href="/incidents">Vorfälle</a>
-          <a href="/notifications">Benachrichtigungen</a>
-          <a href="/owner" data-owner-link hidden>Owner Ops</a>
-          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
+          <a class="active" href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
+          <a href="/owner" data-owner-link hidden data-i18n="common.owner_ops">Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
         </nav>
         <section class="monitor-nav-section">
-          <div class="monitor-nav-title">Deine Monitore</div>
+          <div class="monitor-nav-title" data-i18n="common.your_monitors">Deine Monitore</div>
           <div class="monitor-nav-list" id="monitor-list"></div>
         </section>
         <div class="side-footer">
-          <a class="user-pill profile-link" href="/connections" aria-label="Connections und Kontoeinstellungen">
+          <a
+            class="user-pill profile-link"
+            href="/connections"
+            data-i18n-aria-label="common.aria.profile_settings"
+            aria-label="Connections und Kontoeinstellungen"
+          >
             <span class="avatar small">U</span>
-            <span class="muted" id="current-user-email">eingeloggt</span>
+            <span class="muted" id="current-user-email" data-i18n="common.signed_in">eingeloggt</span>
           </a>
-          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
         </div>
       </aside>
 
       <div class="content">
         <div class="page">
-          <div class="crumb">Monitoring</div>
+          <div class="crumb" data-i18n="common.monitoring">Monitoring</div>
           <header class="topbar">
             <div class="title-block">
               <img id="monitor-icon" class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <div class="title" id="monitor-name">Monitor</div>
+                <div class="title" id="monitor-name" data-i18n="common.monitor">Monitor</div>
                 <div class="subtitle" id="monitor-target">HTTPS Monitor</div>
               </div>
             </div>
             <div class="top-actions">
               <div class="monitor-picker">
-                <label for="monitor-select">Monitor</label>
+                <label for="monitor-select" data-i18n="common.monitor">Monitor</label>
                 <select id="monitor-select"></select>
               </div>
               <div class="monitor-picker interval-picker">
-                <label for="interval-select">Intervall</label>
+                <label for="interval-select" data-i18n="common.interval">Intervall</label>
                 <select id="interval-select"></select>
               </div>
-              <button class="btn ghost" id="new-monitor-btn" type="button">Neuer Monitor</button>
-              <button class="btn ghost" id="public-status-btn" type="button">Öffentliche Statusseite</button>
+              <button class="btn ghost" id="new-monitor-btn" type="button" data-i18n="common.new_monitor">Neuer Monitor</button>
+              <button class="btn ghost" id="public-status-btn" type="button" data-i18n="common.public_status_page">Öffentliche Statusseite</button>
             </div>
           </header>
 
@@ -77,20 +116,20 @@
             <section class="main-col">
               <div class="grid cards-row">
                 <div class="card">
-                  <div class="card-title">Aktueller Status</div>
-                  <div class="status-big" id="status-state">Online</div>
-                  <div class="muted" id="status-duration">wird geladen…</div>
+                  <div class="card-title" data-i18n="app.dashboard.current_status">Aktueller Status</div>
+                  <div class="status-big" id="status-state" data-i18n="app.state.online">Online</div>
+                  <div class="muted" id="status-duration" data-i18n="common.loading">wird geladen…</div>
                 </div>
                 <div class="card">
-                  <div class="card-title">Letzter Check</div>
-                  <div class="metric" id="last-check">wird geladen…</div>
-                  <div class="muted" id="check-interval">Prüfintervall: 1 Min.</div>
+                  <div class="card-title" data-i18n="app.dashboard.last_check">Letzter Check</div>
+                  <div class="metric" id="last-check" data-i18n="common.loading">wird geladen…</div>
+                  <div class="muted" id="check-interval" data-i18n="app.dashboard.check_interval_placeholder">Prüfintervall: 1 Min.</div>
                 </div>
                 <div class="card">
-                  <div class="card-title">Letzte 24 Stunden</div>
+                  <div class="card-title" data-i18n="app.dashboard.last_24h">Letzte 24 Stunden</div>
                   <div class="uptime-bars" id="uptime-bars"></div>
                   <div class="bar-footer">
-                    <span class="muted" id="uptime-incidents">0 Vorfälle, 0 Min. Ausfall</span>
+                    <span class="muted" id="uptime-incidents" data-i18n="app.dashboard.uptime_placeholder">0 Vorfälle, 0 Min. Ausfall</span>
                     <span class="metric" id="uptime-percent">100%</span>
                   </div>
                 </div>
@@ -99,39 +138,39 @@
               <div class="card wide heatmap-card">
                 <div class="range-row">
                   <div class="range-cell">
-                    <div class="card-title">Letzte 7 Tage</div>
+                    <div class="card-title" data-i18n="app.dashboard.last_7_days">Letzte 7 Tage</div>
                     <div class="metric" id="range-7-uptime">--.--%</div>
                     <div class="muted" id="range-7-meta">–</div>
                   </div>
                   <div class="range-cell">
-                    <div class="card-title">Letzte 30 Tage</div>
+                    <div class="card-title" data-i18n="app.dashboard.last_30_days">Letzte 30 Tage</div>
                     <div class="metric" id="range-30-uptime">--.--%</div>
                     <div class="muted" id="range-30-meta">–</div>
                   </div>
                   <div class="range-cell">
-                    <div class="card-title">Letzte 365 Tage</div>
+                    <div class="card-title" data-i18n="app.dashboard.last_365_days">Letzte 365 Tage</div>
                     <div class="metric" id="range-365-uptime">--.--%</div>
                     <div class="muted" id="range-365-meta">–</div>
                   </div>
                   <div class="range-cell range-picker">
-                    <div class="card-title">Zeitraum wählen</div>
-                    <div class="dropdown" id="range-picker-label">Letzte 30 Tage</div>
+                    <div class="card-title" data-i18n="app.dashboard.choose_range">Zeitraum wählen</div>
+                    <div class="dropdown" id="range-picker-label" data-i18n="app.dashboard.range_default">Letzte 30 Tage</div>
                   </div>
                 </div>
               </div>
 
               <div class="card wide">
-                <div class="card-title">Tagesübersicht.</div>
+                <div class="card-title" data-i18n="app.dashboard.daily_overview">Tagesübersicht.</div>
                 <div class="heatmap">
                   <div class="heatmap-scroll">
                     <div class="heatmap-months" id="heatmap-months"></div>
                     <div class="heatmap-grid">
                       <div class="heatmap-days">
-                        <span>Mo</span>
+                        <span data-i18n="app.week.mo_short">Mo</span>
                         <span class="empty"> </span>
-                        <span>Mi</span>
+                        <span data-i18n="app.week.wed_short">Mi</span>
                         <span class="empty"> </span>
-                        <span>Fr</span>
+                        <span data-i18n="app.week.fri_short">Fr</span>
                         <span class="empty"> </span>
                         <span class="empty"> </span>
                       </div>
@@ -139,9 +178,9 @@
                     </div>
                   </div>
                   <div class="heatmap-legend">
-                    <span class="legend-item"><span class="legend-dot ok"></span>Keine Fehler</span>
-                    <span class="legend-item"><span class="legend-dot warn"></span>Kleine Fehler</span>
-                    <span class="legend-item"><span class="legend-dot down"></span>Ausfall</span>
+                    <span class="legend-item"><span class="legend-dot ok"></span><span data-i18n="app.legend.ok">Keine Fehler</span></span>
+                    <span class="legend-item"><span class="legend-dot warn"></span><span data-i18n="app.legend.warn">Kleine Fehler</span></span>
+                    <span class="legend-item"><span class="legend-dot down"></span><span data-i18n="app.legend.down">Ausfall</span></span>
                   </div>
                 </div>
               </div>
@@ -149,8 +188,8 @@
               <div class="card wide response-card">
                 <div class="card-header">
                   <div>
-                    <div class="card-title">Antwortzeit.</div>
-                    <div class="muted">Letzte Stunde</div>
+                    <div class="card-title" data-i18n="app.response.title">Antwortzeit.</div>
+                    <div class="muted" data-i18n="app.response.last_hour">Letzte Stunde</div>
                   </div>
                 </div>
                 <div class="chart">
@@ -158,15 +197,15 @@
                 </div>
                 <div class="stat-row">
                   <div>
-                    <div class="stat-title">Durchschnitt</div>
+                    <div class="stat-title" data-i18n="app.response.avg">Durchschnitt</div>
                     <div class="stat-value" id="stat-avg">-- ms</div>
                   </div>
                   <div>
-                    <div class="stat-title">Minimum</div>
+                    <div class="stat-title" data-i18n="app.response.min">Minimum</div>
                     <div class="stat-value" id="stat-min">-- ms</div>
                   </div>
                   <div>
-                    <div class="stat-title">Maximum</div>
+                    <div class="stat-title" data-i18n="app.response.max">Maximum</div>
                     <div class="stat-value" id="stat-max">-- ms</div>
                   </div>
                 </div>
@@ -175,35 +214,35 @@
 
             <aside class="side-col">
               <div class="card">
-                <div class="card-title">Domain & SSL.</div>
+                <div class="card-title" data-i18n="app.domain_ssl.title">Domain & SSL.</div>
                 <div class="meta-block">
-                  <div class="muted">Domain gültig bis</div>
-                  <div class="metric" id="domain-expiry">Wird geladen…</div>
+                  <div class="muted" data-i18n="app.domain_ssl.domain_valid_until">Domain gültig bis</div>
+                  <div class="metric" id="domain-expiry" data-i18n="common.loading">Wird geladen…</div>
                   <div class="muted" id="domain-source"></div>
                 </div>
                 <div class="meta-block">
-                  <div class="muted">SSL-Zertifikat gültig bis</div>
-                  <div class="metric" id="ssl-expiry">Wird geladen…</div>
+                  <div class="muted" data-i18n="app.domain_ssl.ssl_valid_until">SSL-Zertifikat gültig bis</div>
+                  <div class="metric" id="ssl-expiry" data-i18n="common.loading">Wird geladen…</div>
                   <div class="muted" id="ssl-issuer"></div>
                 </div>
               </div>
 
               <div class="card">
-                <div class="card-title">Regionen.</div>
+                <div class="card-title" data-i18n="app.regions.title">Regionen.</div>
                 <div class="map">
-                  <img class="map-img" src="/assets/world-map.svg" alt="Weltkarte" />
+                  <img class="map-img" src="/assets/world-map.svg" data-i18n-alt="app.regions.map_alt" alt="Weltkarte" />
                   <div class="map-marker" aria-hidden="true"></div>
                 </div>
-                <div class="metric" id="map-location">Standort wird geladen…</div>
+                <div class="metric" id="map-location" data-i18n="app.regions.location_loading">Standort wird geladen…</div>
                 <div class="muted" id="map-coords">–</div>
               </div>
 
               <div class="card incidents-side-card">
-                <div class="card-title">Letzte Vorfälle.</div>
+                <div class="card-title" data-i18n="app.incidents.title">Letzte Vorfälle.</div>
                 <div class="incidents compact" id="incidents-list">
                   <div class="incidents-inner">
-                    <div class="incidents-title">👍 Gute Arbeit, keine Vorfälle.</div>
-                    <div class="muted">Bisher gab es keine Vorfälle. Weiter so!</div>
+                    <div class="incidents-title" data-i18n="app.incidents.empty_title">👍 Gute Arbeit, keine Vorfälle.</div>
+                    <div class="muted" data-i18n="app.incidents.empty_body">Bisher gab es keine Vorfälle. Weiter so!</div>
                   </div>
                 </div>
               </div>
@@ -213,103 +252,128 @@
 
             <details class="card advanced-settings" id="advanced-settings">
               <summary class="advanced-settings-summary">
-                <span>Mehr Einstellungen</span>
-                <span class="advanced-settings-meta">HTTP-Assertions · Wartungen</span>
+                <span data-i18n="app.advanced.title">Mehr Einstellungen</span>
+                <span class="advanced-settings-meta" data-i18n="app.advanced.meta">HTTP-Assertions · Wartungen</span>
               </summary>
               <div class="advanced-settings-body">
                 <section class="advanced-settings-section assertions-card">
-                  <div class="card-title">HTTP-Assertions.</div>
-                  <p class="muted card-copy">Optional: prüfe Statuscode, Redirects, Content-Type oder Wörter im Body.</p>
+                  <div class="card-title" data-i18n="app.assertions.title">HTTP-Assertions.</div>
+                  <p class="muted card-copy" data-i18n="app.assertions.desc">
+                    Optional: prüfe Statuscode, Redirects, Content-Type oder Wörter im Body.
+                  </p>
                   <form class="assertions-form" id="assertions-form" autocomplete="off">
                     <label class="check-row">
                       <input id="assertions-enabled" type="checkbox" />
-                      <span>Aktivieren</span>
+                      <span data-i18n="app.assertions.enable">Aktivieren</span>
                     </label>
 
                     <label>
-                      <span>Erwartete Statuscodes</span>
-                      <input id="assertions-status-codes" type="text" placeholder="z.B. 200-299,304" />
+                      <span data-i18n="app.assertions.expected_codes">Erwartete Statuscodes</span>
+                      <input
+                        id="assertions-status-codes"
+                        type="text"
+                        data-i18n-placeholder="app.assertions.placeholder.codes"
+                        placeholder="z.B. 200-299,304"
+                      />
                     </label>
 
                     <div class="assertions-row">
                       <label class="check-row">
                         <input id="assertions-follow-redirects" type="checkbox" />
-                        <span>Redirects folgen</span>
+                        <span data-i18n="app.assertions.follow_redirects">Redirects folgen</span>
                       </label>
 
                       <label>
-                        <span>Max Redirects</span>
+                        <span data-i18n="app.assertions.max_redirects">Max Redirects</span>
                         <input id="assertions-max-redirects" type="number" min="0" max="10" step="1" />
                       </label>
                     </div>
 
                     <label>
-                      <span>Content-Type enthält</span>
-                      <input id="assertions-content-type" type="text" placeholder="z.B. text/html" />
+                      <span data-i18n="app.assertions.content_type_contains">Content-Type enthält</span>
+                      <input
+                        id="assertions-content-type"
+                        type="text"
+                        data-i18n-placeholder="app.assertions.placeholder.content_type"
+                        placeholder="z.B. text/html"
+                      />
                     </label>
 
                     <label>
-                      <span>Body enthält</span>
-                      <input id="assertions-body" type="text" placeholder="z.B. Willkommen" />
+                      <span data-i18n="app.assertions.body_contains">Body enthält</span>
+                      <input id="assertions-body" type="text" data-i18n-placeholder="app.assertions.placeholder.body" placeholder="z.B. Willkommen" />
                     </label>
 
                     <label>
-                      <span>Timeout (ms)</span>
+                      <span data-i18n="app.assertions.timeout_ms">Timeout (ms)</span>
                       <input id="assertions-timeout" type="number" min="0" max="120000" step="100" />
                     </label>
 
                     <div class="assertions-actions">
-                      <button class="btn primary" id="assertions-save" type="submit">Speichern</button>
+                      <button class="btn primary" id="assertions-save" type="submit" data-i18n="common.save">Speichern</button>
                       <span class="assertions-message" id="assertions-message"></span>
                     </div>
                   </form>
                 </section>
 
                 <section class="advanced-settings-section maintenance-card">
-                  <div class="card-title">Wartungen.</div>
-                  <p class="muted card-copy">
+                  <div class="card-title" data-i18n="app.maintenance.title">Wartungen.</div>
+                  <p class="muted card-copy" data-i18n="app.maintenance.desc">
                     Plane Wartungen, um Kunden auf der Statusseite vorab zu warnen. Erfordert eine verifizierte Domain.
                   </p>
 
                   <form class="maintenance-form" id="maintenance-form" autocomplete="off" novalidate>
                     <label>
-                      <span>Titel</span>
-                      <input id="maintenance-title" type="text" maxlength="120" placeholder="z.B. Datenbank-Update" />
+                      <span data-i18n="app.maintenance.label.title">Titel</span>
+                      <input
+                        id="maintenance-title"
+                        type="text"
+                        maxlength="120"
+                        data-i18n-placeholder="app.maintenance.placeholder.title"
+                        placeholder="z.B. Datenbank-Update"
+                      />
                     </label>
 
                     <div class="maintenance-row">
                       <label>
-                        <span>Start</span>
+                        <span data-i18n="app.maintenance.label.start">Start</span>
                         <input id="maintenance-start" type="datetime-local" required />
                       </label>
 
                       <label>
-                        <span>Ende</span>
+                        <span data-i18n="app.maintenance.label.end">Ende</span>
                         <input id="maintenance-end" type="datetime-local" required />
                       </label>
                     </div>
 
                     <label>
-                      <span>Hinweis (optional)</span>
+                      <span data-i18n="app.maintenance.label.note_optional">Hinweis (optional)</span>
                       <textarea
                         id="maintenance-note"
                         rows="3"
                         maxlength="500"
+                        data-i18n-placeholder="app.maintenance.placeholder.note"
                         placeholder="Kurze Info für Kunden..."
                       ></textarea>
                     </label>
 
                     <div class="maintenance-actions">
-                      <button class="btn primary" id="maintenance-create" type="submit">Wartung planen</button>
+                      <button class="btn primary" id="maintenance-create" type="submit" data-i18n="app.maintenance.button.schedule">Wartung planen</button>
                       <span class="maintenance-message" id="maintenance-form-message"></span>
-                      <a class="btn ghost" id="maintenance-verify-link" href="/connections#domain-verification" hidden>Domain verifizieren</a>
+                      <a
+                        class="btn ghost"
+                        id="maintenance-verify-link"
+                        href="/connections#domain-verification"
+                        hidden
+                        data-i18n="app.maintenance.button.verify_domain"
+                      >Domain verifizieren</a>
                     </div>
                   </form>
 
                   <div class="maintenance-list" id="maintenance-list">
                     <div class="empty-state">
-                      <div class="title">Keine Wartungen.</div>
-                      <div class="muted">Sobald du eine Wartung planst, erscheint sie hier.</div>
+                      <div class="title" data-i18n="app.maintenance.empty_title">Keine Wartungen.</div>
+                      <div class="muted" data-i18n="app.maintenance.empty_body">Sobald du eine Wartung planst, erscheint sie hier.</div>
                     </div>
                   </div>
                 </section>
@@ -319,17 +383,18 @@
           </main>
 
           <footer class="site-footer">
-            <span class="site-footer-note">Rechtliches</span>
+            <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
             <nav class="site-footer-links" aria-label="Rechtliche Navigation">
-              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
-              <a href="/datenschutz">Datenschutz</a>
-              <a href="/impressum">Impressum</a>
+              <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+              <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+              <a href="/impressum" data-i18n="common.imprint">Impressum</a>
             </nav>
           </footer>
         </div>
       </div>
     </div>
 
+    <script src="/assets/i18n.js"></script>
     <script src="/assets/app.js"></script>
   </body>
 </html>

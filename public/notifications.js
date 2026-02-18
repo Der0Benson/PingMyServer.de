@@ -23,6 +23,11 @@ let user = null;
 let notificationsState = null;
 let billingState = null;
 
+const I18N = window.PMS_I18N || null;
+const t = (key, vars, fallback) =>
+  I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
+const i18nLocale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+
 function setPanelMessage(element, text, type = "") {
   if (!element) return;
   element.textContent = text || "";
@@ -108,7 +113,7 @@ async function ensureAuthenticated() {
     user = payload.user;
     syncOwnerLinks();
     if (currentUserEmail) {
-      currentUserEmail.textContent = user.email || "eingeloggt";
+      currentUserEmail.textContent = user.email || t("common.signed_in", null, "signed in");
     }
     return true;
   } catch (error) {
@@ -125,20 +130,24 @@ function renderDiscordState(discordSettings) {
   if (discordStateBadgeEl) {
     discordStateBadgeEl.classList.remove("connected", "disabled");
     if (!configured) {
-      discordStateBadgeEl.textContent = "Nicht verbunden";
+      discordStateBadgeEl.textContent = t("notifications.discord.state_disconnected", null, "Not connected");
     } else if (enabled) {
-      discordStateBadgeEl.textContent = "Aktiv";
+      discordStateBadgeEl.textContent = t("notifications.discord.state_active", null, "Active");
       discordStateBadgeEl.classList.add("connected");
     } else {
-      discordStateBadgeEl.textContent = "Konfiguriert (deaktiviert)";
+      discordStateBadgeEl.textContent = t(
+        "notifications.discord.state_configured_disabled",
+        null,
+        "Configured (disabled)"
+      );
       discordStateBadgeEl.classList.add("disabled");
     }
   }
 
   if (discordWebhookMaskEl) {
     discordWebhookMaskEl.textContent = configured
-      ? masked || "Webhook hinterlegt."
-      : "Kein Webhook hinterlegt.";
+      ? masked || t("notifications.discord.webhook_configured", null, "Webhook configured.")
+      : t("notifications.discord.no_webhook", null, "No webhook configured.");
   }
 
   if (discordEnabledEl) {
@@ -160,7 +169,7 @@ function formatBillingDate(value) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
   try {
-    return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(date);
+    return new Intl.DateTimeFormat(i18nLocale(), { dateStyle: "medium" }).format(date);
   } catch (error) {
     return date.toISOString().slice(0, 10);
   }
@@ -182,30 +191,40 @@ function renderBillingState(data) {
     billingStateBadgeEl.classList.remove("connected", "disabled", "error");
 
     if (!available || !checkoutEnabled) {
-      billingStateBadgeEl.textContent = "Nicht verfuegbar";
+      billingStateBadgeEl.textContent = t("notifications.billing.badge.unavailable", null, "Unavailable");
       billingStateBadgeEl.classList.add("disabled");
     } else if (active) {
-      billingStateBadgeEl.textContent = "Aktiv";
+      billingStateBadgeEl.textContent = t("notifications.billing.badge.active", null, "Active");
       billingStateBadgeEl.classList.add("connected");
     } else if (status === "past_due" || status === "unpaid") {
-      billingStateBadgeEl.textContent = "Aktion noetig";
+      billingStateBadgeEl.textContent = t("notifications.billing.badge.action_needed", null, "Action needed");
       billingStateBadgeEl.classList.add("error");
     } else {
-      billingStateBadgeEl.textContent = "Free";
+      billingStateBadgeEl.textContent = t("notifications.billing.badge.free", null, "Free");
       billingStateBadgeEl.classList.add("disabled");
     }
   }
 
   if (billingStateTextEl) {
     if (!available || !checkoutEnabled) {
-      billingStateTextEl.textContent = "Stripe Billing ist aktuell nicht aktiviert.";
+      billingStateTextEl.textContent = t("notifications.billing.text.unavailable", null, "Stripe billing is currently not enabled.");
     } else if (active) {
-      const suffix = periodEndLabel ? ` Naechste Verlaengerung: ${periodEndLabel}.` : "";
-      billingStateTextEl.textContent = `Abo-Status: ${status}.${suffix}`;
+      const suffix = periodEndLabel
+        ? t("notifications.billing.text.renewal", { date: periodEndLabel }, ` Next renewal: ${periodEndLabel}.`)
+        : "";
+      billingStateTextEl.textContent = t(
+        "notifications.billing.text.active",
+        { status, suffix },
+        `Subscription status: ${status}.${suffix}`
+      );
     } else if (status === "past_due" || status === "unpaid") {
-      billingStateTextEl.textContent = "Eine Zahlung ist offen. Bitte im Portal aktualisieren.";
+      billingStateTextEl.textContent = t(
+        "notifications.billing.text.action_needed",
+        null,
+        "A payment is past due. Please update it in the portal."
+      );
     } else {
-      billingStateTextEl.textContent = "Du nutzt aktuell den Free-Plan.";
+      billingStateTextEl.textContent = t("notifications.billing.text.free", null, "You are currently on the free plan.");
     }
   }
 
@@ -219,7 +238,7 @@ function renderBillingState(data) {
 }
 
 async function loadBilling() {
-  setPanelMessage(billingMessageEl, "Lade Billing...");
+  setPanelMessage(billingMessageEl, t("notifications.billing.msg.loading", null, "Loading billing..."));
   try {
     const { response, payload } = await fetchJson("/api/account/billing");
     if (response.status === 401) {
@@ -229,7 +248,7 @@ async function loadBilling() {
     if (!response.ok || !payload?.ok || !payload.data) {
       billingState = null;
       renderBillingState({});
-      setPanelMessage(billingMessageEl, "Billing konnte nicht geladen werden.", "error");
+      setPanelMessage(billingMessageEl, t("notifications.billing.msg.load_failed", null, "Billing could not be loaded."), "error");
       return;
     }
 
@@ -239,12 +258,12 @@ async function loadBilling() {
   } catch (error) {
     billingState = null;
     renderBillingState({});
-    setPanelMessage(billingMessageEl, "Billing konnte nicht geladen werden.", "error");
+    setPanelMessage(billingMessageEl, t("notifications.billing.msg.load_failed", null, "Billing could not be loaded."), "error");
   }
 }
 
 async function startBillingCheckout() {
-  setPanelMessage(billingMessageEl, "Stripe Checkout wird vorbereitet...");
+  setPanelMessage(billingMessageEl, t("notifications.billing.msg.checkout_preparing", null, "Preparing Stripe Checkout..."));
   try {
     const { response, payload } = await fetchJson("/api/account/billing/checkout", {
       method: "POST",
@@ -261,23 +280,27 @@ async function startBillingCheckout() {
 
     if (!response.ok || !payload?.ok || !payload.url) {
       if (payload?.error === "already subscribed") {
-        setPanelMessage(billingMessageEl, "Abo bereits aktiv. Bitte im Portal verwalten.", "error");
+        setPanelMessage(
+          billingMessageEl,
+          t("notifications.billing.msg.already_subscribed", null, "Subscription is already active. Please manage it in the portal."),
+          "error"
+        );
       } else if (payload?.error === "stripe disabled" || payload?.error === "stripe not configured") {
-        setPanelMessage(billingMessageEl, "Stripe ist derzeit nicht aktiv.", "error");
+        setPanelMessage(billingMessageEl, t("notifications.billing.msg.stripe_disabled", null, "Stripe is currently disabled."), "error");
       } else {
-        setPanelMessage(billingMessageEl, "Checkout konnte nicht gestartet werden.", "error");
+        setPanelMessage(billingMessageEl, t("notifications.billing.msg.checkout_failed", null, "Checkout could not be started."), "error");
       }
       return;
     }
 
     window.location.href = payload.url;
   } catch (error) {
-    setPanelMessage(billingMessageEl, "Checkout konnte nicht gestartet werden.", "error");
+    setPanelMessage(billingMessageEl, t("notifications.billing.msg.checkout_failed", null, "Checkout could not be started."), "error");
   }
 }
 
 async function openBillingPortal() {
-  setPanelMessage(billingMessageEl, "Stripe Portal wird geoeffnet...");
+  setPanelMessage(billingMessageEl, t("notifications.billing.msg.portal_opening", null, "Opening Stripe portal..."));
   try {
     const { response, payload } = await fetchJson("/api/account/billing/portal", {
       method: "POST",
@@ -294,16 +317,16 @@ async function openBillingPortal() {
 
     if (!response.ok || !payload?.ok || !payload.url) {
       if (payload?.error === "stripe disabled" || payload?.error === "stripe not configured") {
-        setPanelMessage(billingMessageEl, "Stripe ist derzeit nicht aktiv.", "error");
+        setPanelMessage(billingMessageEl, t("notifications.billing.msg.stripe_disabled", null, "Stripe is currently disabled."), "error");
       } else {
-        setPanelMessage(billingMessageEl, "Portal konnte nicht geoeffnet werden.", "error");
+        setPanelMessage(billingMessageEl, t("notifications.billing.msg.portal_failed", null, "Portal could not be opened."), "error");
       }
       return;
     }
 
     window.location.href = payload.url;
   } catch (error) {
-    setPanelMessage(billingMessageEl, "Portal konnte nicht geoeffnet werden.", "error");
+    setPanelMessage(billingMessageEl, t("notifications.billing.msg.portal_failed", null, "Portal could not be opened."), "error");
   }
 }
 
@@ -313,16 +336,16 @@ function applyBillingQueryMessage() {
   if (!billingStateParam) return;
 
   if (billingStateParam === "success") {
-    setPanelMessage(billingMessageEl, "Checkout abgeschlossen. Abo wird aktualisiert.", "success");
+    setPanelMessage(billingMessageEl, t("notifications.billing.msg.checkout_success", null, "Checkout completed. Subscription will be updated."), "success");
     return;
   }
   if (billingStateParam === "cancel") {
-    setPanelMessage(billingMessageEl, "Checkout wurde abgebrochen.", "error");
+    setPanelMessage(billingMessageEl, t("notifications.billing.msg.checkout_cancelled", null, "Checkout was cancelled."), "error");
   }
 }
 
 async function loadNotifications() {
-  setPanelMessage(discordMessageEl, "Lade Benachrichtigungen...");
+  setPanelMessage(discordMessageEl, t("notifications.discord.msg.loading", null, "Loading notifications..."));
   try {
     const { response, payload } = await fetchJson("/api/account/notifications");
     if (response.status === 401) {
@@ -332,7 +355,7 @@ async function loadNotifications() {
     if (!response.ok || !payload?.ok || !payload.data) {
       notificationsState = null;
       renderDiscordState({});
-      setPanelMessage(discordMessageEl, "Einstellungen konnten nicht geladen werden.", "error");
+      setPanelMessage(discordMessageEl, t("notifications.discord.msg.load_failed", null, "Settings could not be loaded."), "error");
       return;
     }
 
@@ -342,7 +365,7 @@ async function loadNotifications() {
   } catch (error) {
     notificationsState = null;
     renderDiscordState({});
-    setPanelMessage(discordMessageEl, "Verbindung fehlgeschlagen.", "error");
+    setPanelMessage(discordMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
   }
 }
 
@@ -353,11 +376,11 @@ async function saveDiscordSettings(event) {
   const enabled = !!discordEnabledEl?.checked;
 
   if (!configured && !webhookUrl) {
-    setPanelMessage(discordMessageEl, "Bitte eine gültige Discord Webhook URL eintragen.", "error");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.webhook_required", null, "Please enter a valid Discord webhook URL."), "error");
     return;
   }
 
-  setPanelMessage(discordMessageEl, "Speichere Einstellungen...");
+  setPanelMessage(discordMessageEl, t("notifications.discord.msg.saving", null, "Saving settings..."));
   try {
     const body = {};
     if (configured) {
@@ -381,11 +404,11 @@ async function saveDiscordSettings(event) {
 
     if (!response.ok || !payload?.ok || !payload.data) {
       if (payload?.error === "invalid webhook url") {
-        setPanelMessage(discordMessageEl, "Ungültige Discord Webhook URL.", "error");
+        setPanelMessage(discordMessageEl, t("notifications.discord.msg.invalid_webhook", null, "Invalid Discord webhook URL."), "error");
       } else if (payload?.error === "webhook required") {
-        setPanelMessage(discordMessageEl, "Bitte zuerst einen Webhook hinterlegen.", "error");
+        setPanelMessage(discordMessageEl, t("notifications.discord.msg.webhook_required_first", null, "Please add a webhook first."), "error");
       } else {
-        setPanelMessage(discordMessageEl, "Einstellungen konnten nicht gespeichert werden.", "error");
+        setPanelMessage(discordMessageEl, t("notifications.discord.msg.save_failed", null, "Settings could not be saved."), "error");
       }
       return;
     }
@@ -393,14 +416,14 @@ async function saveDiscordSettings(event) {
     notificationsState = payload.data;
     renderDiscordState(notificationsState.discord || {});
     if (discordWebhookUrlEl) discordWebhookUrlEl.value = "";
-    setPanelMessage(discordMessageEl, "Discord Benachrichtigungen gespeichert.", "success");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.saved", null, "Discord notifications saved."), "success");
   } catch (error) {
-    setPanelMessage(discordMessageEl, "Einstellungen konnten nicht gespeichert werden.", "error");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.save_failed", null, "Settings could not be saved."), "error");
   }
 }
 
 async function testDiscordWebhook() {
-  setPanelMessage(discordMessageEl, "Sende Testnachricht...");
+  setPanelMessage(discordMessageEl, t("notifications.discord.msg.testing", null, "Sending test message..."));
   try {
     const { response, payload } = await fetchJson("/api/account/notifications/discord/test", {
       method: "POST",
@@ -416,21 +439,21 @@ async function testDiscordWebhook() {
     }
 
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(discordMessageEl, "Test konnte nicht gesendet werden.", "error");
+      setPanelMessage(discordMessageEl, t("notifications.discord.msg.test_failed", null, "Test could not be sent."), "error");
       return;
     }
 
-    setPanelMessage(discordMessageEl, "Testnachricht wurde gesendet.", "success");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.test_sent", null, "Test message sent."), "success");
   } catch (error) {
-    setPanelMessage(discordMessageEl, "Test konnte nicht gesendet werden.", "error");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.test_failed", null, "Test could not be sent."), "error");
   }
 }
 
 async function deleteDiscordWebhook() {
-  const confirmed = window.confirm("Discord Webhook wirklich entfernen?");
+  const confirmed = window.confirm(t("notifications.discord.confirm_remove", null, "Remove Discord webhook?"));
   if (!confirmed) return;
 
-  setPanelMessage(discordMessageEl, "Webhook wird entfernt...");
+  setPanelMessage(discordMessageEl, t("notifications.discord.msg.removing", null, "Removing webhook..."));
   try {
     const { response, payload } = await fetchJson("/api/account/notifications/discord", {
       method: "DELETE",
@@ -442,16 +465,16 @@ async function deleteDiscordWebhook() {
     }
 
     if (!response.ok || !payload?.ok || !payload.data) {
-      setPanelMessage(discordMessageEl, "Webhook konnte nicht entfernt werden.", "error");
+      setPanelMessage(discordMessageEl, t("notifications.discord.msg.remove_failed", null, "Webhook could not be removed."), "error");
       return;
     }
 
     notificationsState = payload.data;
     renderDiscordState(notificationsState.discord || {});
     if (discordWebhookUrlEl) discordWebhookUrlEl.value = "";
-    setPanelMessage(discordMessageEl, "Webhook wurde entfernt.", "success");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.removed", null, "Webhook removed."), "success");
   } catch (error) {
-    setPanelMessage(discordMessageEl, "Webhook konnte nicht entfernt werden.", "error");
+    setPanelMessage(discordMessageEl, t("notifications.discord.msg.remove_failed", null, "Webhook could not be removed."), "error");
   }
 }
 
