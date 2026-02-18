@@ -426,7 +426,7 @@
           offline_for: "Offline seit {duration}",
           last_24h: "Letzte 24 Stunden",
           uptime_placeholder: "0 Vorfälle, 0 Min. Ausfall",
-          uptime_title: "Uptime",
+          uptime_title: "Uptime: {uptime}%",
           summary: {
             one: "{incidents} Vorfall, {minutes} Min. Ausfall",
             many: "{incidents} Vorfälle, {minutes} Min. Ausfall",
@@ -1477,7 +1477,7 @@
           offline_for: "Offline for {duration}",
           last_24h: "Last 24 hours",
           uptime_placeholder: "0 incidents, 0 min downtime",
-          uptime_title: "Uptime",
+          uptime_title: "Uptime: {uptime}%",
           summary: {
             one: "{incidents} incident, {minutes} min downtime",
             many: "{incidents} incidents, {minutes} min downtime",
