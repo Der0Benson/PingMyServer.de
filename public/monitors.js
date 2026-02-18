@@ -4,11 +4,13 @@
   const currentUserEmail = document.getElementById("current-user-email");
   const logoutButton = document.getElementById("logout-btn");
   const refreshButton = document.getElementById("refresh-btn");
+  const locationSelect = document.getElementById("location-select");
   const monitorsListEl = document.getElementById("monitors-list");
   const messageEl = document.getElementById("monitors-message");
   const ownerLinks = Array.from(document.querySelectorAll("[data-owner-link]"));
 
   const DEFAULT_MONITOR_ICON = "/assets/pingmyserverlogo.png";
+  const LOCATION_STORAGE_KEY = "pms.location";
 
   const I18N = window.PMS_I18N || null;
   const t = (key, vars, fallback) =>
@@ -21,6 +23,8 @@
 
   let user = null;
   let monitors = [];
+  let activeLocation = "aggregate";
+  let availableProbes = [];
 
   function setMessage(text) {
     if (!messageEl) return;
@@ -61,8 +65,73 @@
     }
   }
 
+  function readStoredLocation() {
+    try {
+      const value = String(window.localStorage.getItem(LOCATION_STORAGE_KEY) || "").trim();
+      return value || "aggregate";
+    } catch (error) {
+      return "aggregate";
+    }
+  }
+
+  function writeStoredLocation(location) {
+    const value = String(location || "").trim() || "aggregate";
+    try {
+      window.localStorage.setItem(LOCATION_STORAGE_KEY, value);
+    } catch (error) {
+      // ignore
+    }
+  }
+
+  async function fetchProbes() {
+    try {
+      const response = await fetch("/api/probes", { cache: "no-store" });
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return [];
+      }
+      if (!response.ok) return [];
+
+      const payload = await response.json();
+      return Array.isArray(payload?.data) ? payload.data : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function renderLocationPicker() {
+    if (!locationSelect) return;
+    locationSelect.innerHTML = "";
+
+    const aggregateOption = document.createElement("option");
+    aggregateOption.value = "aggregate";
+    aggregateOption.textContent = "Gesamt";
+    locationSelect.appendChild(aggregateOption);
+
+    for (const probe of availableProbes) {
+      const id = String(probe?.id || "").trim();
+      if (!id) continue;
+      const label = String(probe?.label || "").trim();
+      const option = document.createElement("option");
+      option.value = `probe:${id}`;
+      option.textContent = label || id;
+      locationSelect.appendChild(option);
+    }
+
+    const desired = String(activeLocation || "").trim() || "aggregate";
+    const values = new Set(Array.from(locationSelect.options || []).map((opt) => String(opt.value || "")));
+    activeLocation = values.has(desired) ? desired : "aggregate";
+    locationSelect.value = activeLocation;
+  }
+
   async function fetchMonitors() {
-    const response = await fetch("/api/monitors", { cache: "no-store" });
+    const location = String(activeLocation || "").trim();
+    const url =
+      location && location !== "aggregate"
+        ? `/api/monitors?location=${encodeURIComponent(location)}`
+        : "/api/monitors";
+
+    const response = await fetch(url, { cache: "no-store" });
     if (response.status === 401) {
       window.location.href = "/login";
       return [];
@@ -373,8 +442,21 @@
     const ok = await ensureAuthenticated();
     if (!ok) return;
 
+    activeLocation = readStoredLocation();
+    availableProbes = await fetchProbes();
+    renderLocationPicker();
+
     if (logoutButton) {
       logoutButton.addEventListener("click", logout);
+    }
+    if (locationSelect) {
+      locationSelect.addEventListener("change", () => {
+        activeLocation = String(locationSelect.value || "").trim() || "aggregate";
+        writeStoredLocation(activeLocation);
+        loadAndRender().catch(() => {
+          // ignore
+        });
+      });
     }
     if (refreshButton) {
       refreshButton.addEventListener("click", () => {

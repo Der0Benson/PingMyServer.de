@@ -279,6 +279,69 @@ function parsePrivateTargetPolicyValue(value, name) {
   failConfig(`${name} must be one of: strict, all_private`);
 }
 
+function parseAppModeValue(value, name) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized || normalized === "web") return "web";
+  if (normalized === "probe") return "probe";
+  failConfig(`${name} must be one of: web, probe`);
+}
+
+function normalizeProbeId(value, name) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(normalized)) {
+    failConfig(`${name} must match ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`);
+  }
+  return normalized;
+}
+
+function parseProbeIdParam(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(normalized)) return null;
+  return normalized;
+}
+
+function parseMonitorLocationParam(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return { type: "aggregate" };
+
+  const normalized = raw.toLowerCase();
+  if (normalized === "aggregate" || normalized === "global" || normalized === "main") {
+    return { type: "aggregate" };
+  }
+
+  if (normalized.startsWith("probe:")) {
+    const probeId = parseProbeIdParam(raw.slice("probe:".length));
+    if (!probeId) return { type: "aggregate" };
+    return { type: "probe", probeId };
+  }
+
+  return { type: "aggregate" };
+}
+
+function parseProbeLabelMap(value) {
+  const map = new Map();
+  const raw = String(value || "").trim();
+  if (!raw) return map;
+
+  for (const token of raw.split(",")) {
+    const part = String(token || "").trim();
+    if (!part) continue;
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+
+    const id = part.slice(0, eq).trim();
+    const label = part.slice(eq + 1).trim();
+    if (!parseProbeIdParam(id) || !label) continue;
+    map.set(id, label);
+  }
+
+  return map;
+}
+
 function requireEnvStatusCodeList(name) {
   const value = requireEnvString(name);
   const parsed = parseStatusCodes(value);
@@ -318,6 +381,31 @@ const STATIC_CACHE_MAX_AGE_SECONDS = requireEnvNumber("STATIC_CACHE_MAX_AGE_SECO
   min: 0,
 });
 const UP_HTTP_CODES = requireEnvStatusCodeList("UP_HTTP_CODES");
+
+const MULTI_LOCATION_ENABLED = readEnvBoolean("MULTI_LOCATION_ENABLED", false);
+const CLUSTER_ENABLED = readEnvBoolean("CLUSTER_ENABLED", MULTI_LOCATION_ENABLED);
+const APP_MODE = parseAppModeValue(readEnvString("APP_MODE", "web"), "APP_MODE");
+const HTTP_ENABLED = APP_MODE === "web";
+const DEFAULT_PROBE_ID = normalizeProbeId(String(os.hostname() || "probe").replace(/[^A-Za-z0-9_-]/g, "-"), "PROBE_ID");
+const PROBE_ID = normalizeProbeId(readEnvString("PROBE_ID", DEFAULT_PROBE_ID), "PROBE_ID") || DEFAULT_PROBE_ID;
+const PROBE_LABEL_MAP = parseProbeLabelMap(readEnvString("PROBE_LABELS", ""));
+const PROBE_RESULT_STALE_MIN_MS = readEnvNumber("PROBE_RESULT_STALE_MIN_MS", 90000, {
+  integer: true,
+  min: 1000,
+  max: 86400000,
+});
+const PROBE_MIN_CONFIRMATIONS_OFFLINE = readEnvNumber("PROBE_MIN_CONFIRMATIONS_OFFLINE", 1, {
+  integer: true,
+  min: 1,
+  max: 1000,
+});
+const CLUSTER_LEASE_NAME = readEnvString("CLUSTER_LEASE_NAME", "monitor-leader");
+const CLUSTER_LEASE_TTL_MS = readEnvNumber("CLUSTER_LEASE_TTL_MS", 15000, { integer: true, min: 1000, max: 600000 });
+const CLUSTER_LEASE_RENEW_MS = readEnvNumber(
+  "CLUSTER_LEASE_RENEW_MS",
+  Math.min(5000, Math.max(500, Math.floor(CLUSTER_LEASE_TTL_MS / 2))),
+  { integer: true, min: 500, max: CLUSTER_LEASE_TTL_MS }
+);
 
 const SESSION_COOKIE_NAME = requireEnvString("SESSION_COOKIE_NAME");
 const SESSION_COOKIE_HTTP_ONLY = requireEnvBoolean("SESSION_COOKIE_HTTP_ONLY");
@@ -722,7 +810,10 @@ const oauthStateStore = new Map();
 const targetMetaCache = new Map();
 const monitorTargetValidationCache = new Map();
 const monitorFaviconCache = new Map();
+const INSTANCE_ID = `${PROBE_ID || "instance"}-${process.pid}-${crypto.randomBytes(3).toString("hex")}`;
 let monitorChecksInFlight = false;
+let probeChecksInFlight = false;
+let clusterIsLeader = !CLUSTER_ENABLED;
 let allMonitorsOfflineConsecutiveCount = 0;
 let allMonitorsOfflineShutdownTriggered = false;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -3095,6 +3186,89 @@ async function ensureSchemaCompatibility() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cluster_leases (
+      name VARCHAR(64) PRIMARY KEY,
+      holder_id VARCHAR(128) NOT NULL,
+      expires_at DATETIME(3) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_leases_expires_at (expires_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitor_probe_state (
+      monitor_id BIGINT NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      last_checked_at DATETIME(3) NULL,
+      last_status ENUM('online','offline') NOT NULL DEFAULT 'online',
+      status_since DATETIME(3) NULL,
+      last_response_ms INT NULL,
+      last_status_code INT NULL,
+      last_error_message VARCHAR(255) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (monitor_id, probe_id),
+      INDEX idx_probe_state_probe_time (probe_id, last_checked_at),
+      INDEX idx_probe_state_monitor_time (monitor_id, last_checked_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitor_probe_checks (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      monitor_id BIGINT NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      checked_at DATETIME(3) NOT NULL,
+      ok TINYINT(1) NOT NULL,
+      response_ms INT NOT NULL,
+      status_code INT NULL,
+      error_message VARCHAR(255) NULL,
+      INDEX idx_probe_checks_monitor_probe_time (monitor_id, probe_id, checked_at),
+      INDEX idx_probe_checks_time (checked_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitor_probe_daily_stats (
+      monitor_id BIGINT NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      day_date DATE NOT NULL,
+      checks_total INT NOT NULL DEFAULT 0,
+      checks_ok INT NOT NULL DEFAULT 0,
+      checks_error INT NOT NULL DEFAULT 0,
+      response_min_ms INT NULL,
+      response_max_ms INT NULL,
+      response_avg_ms DECIMAL(10,2) NULL,
+      uptime_percent DECIMAL(7,4) NULL,
+      down_minutes INT NOT NULL DEFAULT 0,
+      incidents INT NOT NULL DEFAULT 0,
+      start_ok TINYINT(1) NULL,
+      end_ok TINYINT(1) NULL,
+      first_checked_at DATETIME(3) NULL,
+      last_checked_at DATETIME(3) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (monitor_id, probe_id, day_date),
+      INDEX idx_probe_daily_day (probe_id, day_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitor_probe_daily_error_codes (
+      monitor_id BIGINT NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      day_date DATE NOT NULL,
+      error_code VARCHAR(32) NOT NULL,
+      hits INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (monitor_id, probe_id, day_date, error_code),
+      INDEX idx_probe_daily_error_day (probe_id, day_date)
+    )
+  `);
+
   if (!(await hasColumn("users", "github_id"))) {
     await pool.query("ALTER TABLE users ADD COLUMN github_id VARCHAR(64) NULL AFTER password_hash");
   }
@@ -3358,6 +3532,10 @@ async function ensureSchemaCompatibility() {
       await ensureMonitorReferenceColumnType("monitor_daily_stats", "monitor_id", targetMonitorIdColumnType);
       await ensureMonitorReferenceColumnType("monitor_daily_error_codes", "monitor_id", targetMonitorIdColumnType);
       await ensureMonitorReferenceColumnType("maintenances", "monitor_id", targetMonitorIdColumnType);
+      await ensureMonitorReferenceColumnType("monitor_probe_state", "monitor_id", targetMonitorIdColumnType);
+      await ensureMonitorReferenceColumnType("monitor_probe_checks", "monitor_id", targetMonitorIdColumnType);
+      await ensureMonitorReferenceColumnType("monitor_probe_daily_stats", "monitor_id", targetMonitorIdColumnType);
+      await ensureMonitorReferenceColumnType("monitor_probe_daily_error_codes", "monitor_id", targetMonitorIdColumnType);
     } catch (error) {
       console.warn("Could not align monitor reference column types automatically:", error.code || error.message);
     }
@@ -3378,6 +3556,30 @@ async function ensureSchemaCompatibility() {
     DELETE c
     FROM monitor_checks c
     LEFT JOIN monitors m ON m.id = c.monitor_id
+    WHERE m.id IS NULL
+  `);
+  await pool.query(`
+    DELETE ps
+    FROM monitor_probe_state ps
+    LEFT JOIN monitors m ON m.id = ps.monitor_id
+    WHERE m.id IS NULL
+  `);
+  await pool.query(`
+    DELETE pc
+    FROM monitor_probe_checks pc
+    LEFT JOIN monitors m ON m.id = pc.monitor_id
+    WHERE m.id IS NULL
+  `);
+  await pool.query(`
+    DELETE pds
+    FROM monitor_probe_daily_stats pds
+    LEFT JOIN monitors m ON m.id = pds.monitor_id
+    WHERE m.id IS NULL
+  `);
+  await pool.query(`
+    DELETE pde
+    FROM monitor_probe_daily_error_codes pde
+    LEFT JOIN monitors m ON m.id = pde.monitor_id
     WHERE m.id IS NULL
   `);
   await pool.query(`
@@ -4074,6 +4276,62 @@ async function listMonitorsForUser(userId) {
     [userId]
   );
   return rows.map(serializeMonitorRow).filter(Boolean);
+}
+
+async function listMonitorsForUserAtProbe(userId, probeId) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return listMonitorsForUser(userId);
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        m.id,
+        m.public_id,
+        m.name,
+        m.url,
+        m.target_url,
+        m.is_paused,
+        COALESCE(ps.last_status, 'online') AS last_status,
+        ps.last_checked_at AS last_checked_at,
+        NULL AS last_check_at,
+        m.created_at
+      FROM monitors m
+      LEFT JOIN monitor_probe_state ps
+        ON ps.monitor_id = m.id
+        AND ps.probe_id = ?
+      WHERE m.user_id = ?
+      ORDER BY m.created_at DESC, m.id DESC
+    `,
+    [probe, userId]
+  );
+
+  return rows.map(serializeMonitorRow).filter(Boolean);
+}
+
+async function listProbesForUser(userId) {
+  const [rows] = await pool.query(
+    `
+      SELECT
+        ps.probe_id,
+        MAX(ps.last_checked_at) AS last_seen_at,
+        COUNT(DISTINCT ps.monitor_id) AS monitors
+      FROM monitor_probe_state ps
+      JOIN monitors m ON m.id = ps.monitor_id
+      WHERE m.user_id = ?
+      GROUP BY ps.probe_id
+      ORDER BY ps.probe_id ASC
+    `,
+    [userId]
+  );
+
+  return rows
+    .map((row) => ({
+      id: String(row.probe_id || "").trim(),
+      label: PROBE_LABEL_MAP.get(String(row.probe_id || "").trim()) || null,
+      lastSeenAt: toMs(row.last_seen_at),
+      monitors: Math.max(0, Number(row.monitors || 0)),
+    }))
+    .filter((row) => !!parseProbeIdParam(row.id));
 }
 
 async function getLatestMonitorForUser(userId) {
@@ -6984,6 +7242,22 @@ async function handleAccountDelete(req, res) {
       [user.id]
     );
     await connection.query(
+      "DELETE FROM monitor_probe_daily_error_codes WHERE monitor_id IN (SELECT id FROM monitors WHERE user_id = ?)",
+      [user.id]
+    );
+    await connection.query(
+      "DELETE FROM monitor_probe_daily_stats WHERE monitor_id IN (SELECT id FROM monitors WHERE user_id = ?)",
+      [user.id]
+    );
+    await connection.query(
+      "DELETE FROM monitor_probe_checks WHERE monitor_id IN (SELECT id FROM monitors WHERE user_id = ?)",
+      [user.id]
+    );
+    await connection.query(
+      "DELETE FROM monitor_probe_state WHERE monitor_id IN (SELECT id FROM monitors WHERE user_id = ?)",
+      [user.id]
+    );
+    await connection.query(
       "DELETE FROM monitor_checks WHERE monitor_id IN (SELECT id FROM monitors WHERE user_id = ?)",
       [user.id]
     );
@@ -7497,6 +7771,10 @@ async function handleDeleteMonitor(req, res, monitorId) {
     // Explicit cleanup keeps data consistent even when old DB instances miss some FKs.
     await connection.query("DELETE FROM monitor_daily_error_codes WHERE monitor_id = ?", [monitor.id]);
     await connection.query("DELETE FROM monitor_daily_stats WHERE monitor_id = ?", [monitor.id]);
+    await connection.query("DELETE FROM monitor_probe_daily_error_codes WHERE monitor_id = ?", [monitor.id]);
+    await connection.query("DELETE FROM monitor_probe_daily_stats WHERE monitor_id = ?", [monitor.id]);
+    await connection.query("DELETE FROM monitor_probe_checks WHERE monitor_id = ?", [monitor.id]);
+    await connection.query("DELETE FROM monitor_probe_state WHERE monitor_id = ?", [monitor.id]);
     await connection.query("DELETE FROM monitor_checks WHERE monitor_id = ?", [monitor.id]);
     const [deleteMonitorResult] = await connection.query("DELETE FROM monitors WHERE id = ? AND user_id = ? LIMIT 1", [
       monitor.id,
@@ -8079,6 +8357,7 @@ async function handleMonitorMaintenanceCancel(req, res, monitorId, maintenanceId
 async function cleanupOldChecks() {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await pool.query("DELETE FROM monitor_checks WHERE checked_at < ?", [cutoff]);
+  await pool.query("DELETE FROM monitor_probe_checks WHERE checked_at < ?", [cutoff]);
 }
 
 async function compactMonitorDay(monitorId, dayKey) {
@@ -8252,6 +8531,185 @@ async function compactClosedDays() {
   }
 }
 
+async function compactProbeMonitorDay(monitorId, probeId, dayKey) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return false;
+
+  const dayStartMs = Date.parse(`${dayKey}T00:00:00.000Z`);
+  if (!Number.isFinite(dayStartMs)) return false;
+  const dayEndMs = dayStartMs + DAY_MS;
+
+  const dayStart = new Date(dayStartMs);
+  const dayEnd = new Date(dayEndMs);
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok, response_ms, status_code
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at >= ?
+        AND checked_at < ?
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, probe, dayStart, dayEnd]
+  );
+
+  if (!rows.length) return false;
+
+  const checksTotal = rows.length;
+  let checksOk = 0;
+  let checksError = 0;
+  let minResponseMs = null;
+  let maxResponseMs = null;
+  let totalResponseMs = 0;
+  const errorCodeCounts = new Map();
+
+  for (const row of rows) {
+    if (row.ok) checksOk += 1;
+    else {
+      checksError += 1;
+      const codeNumber = Number(row.status_code);
+      const codeKey = Number.isFinite(codeNumber) ? String(codeNumber) : "NO_RESPONSE";
+      errorCodeCounts.set(codeKey, (errorCodeCounts.get(codeKey) || 0) + 1);
+    }
+
+    const responseMs = Number(row.response_ms);
+    if (!Number.isFinite(responseMs)) continue;
+    totalResponseMs += responseMs;
+    minResponseMs = minResponseMs === null ? responseMs : Math.min(minResponseMs, responseMs);
+    maxResponseMs = maxResponseMs === null ? responseMs : Math.max(maxResponseMs, responseMs);
+  }
+
+  const lastBefore = await getLastProbeCheckBefore(monitorId, probe, dayStartMs);
+  const { downMs } = computeDowntime(rows, dayStartMs, dayEndMs, lastBefore?.ok ?? null);
+  const incidentStarts = computeIncidentStarts(rows, lastBefore?.ok ?? null);
+  const uptimePercent = ((DAY_MS - downMs) / DAY_MS) * 100;
+
+  const avgResponseMs = checksTotal ? totalResponseMs / checksTotal : null;
+  const startOk = lastBefore?.ok === null || lastBefore?.ok === undefined ? null : lastBefore.ok ? 1 : 0;
+  const endOk = rows[rows.length - 1].ok ? 1 : 0;
+  const firstCheckedAt = rows[0].checked_at;
+  const lastCheckedAt = rows[rows.length - 1].checked_at;
+  const downMinutes = Math.round(downMs / 60000);
+
+  await pool.query(
+    `
+      INSERT INTO monitor_probe_daily_stats (
+        monitor_id,
+        probe_id,
+        day_date,
+        checks_total,
+        checks_ok,
+        checks_error,
+        response_min_ms,
+        response_max_ms,
+        response_avg_ms,
+        uptime_percent,
+        down_minutes,
+        incidents,
+        start_ok,
+        end_ok,
+        first_checked_at,
+        last_checked_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        checks_total = VALUES(checks_total),
+        checks_ok = VALUES(checks_ok),
+        checks_error = VALUES(checks_error),
+        response_min_ms = VALUES(response_min_ms),
+        response_max_ms = VALUES(response_max_ms),
+        response_avg_ms = VALUES(response_avg_ms),
+        uptime_percent = VALUES(uptime_percent),
+        down_minutes = VALUES(down_minutes),
+        incidents = VALUES(incidents),
+        start_ok = VALUES(start_ok),
+        end_ok = VALUES(end_ok),
+        first_checked_at = VALUES(first_checked_at),
+        last_checked_at = VALUES(last_checked_at)
+    `,
+    [
+      monitorId,
+      probe,
+      dayKey,
+      checksTotal,
+      checksOk,
+      checksError,
+      minResponseMs,
+      maxResponseMs,
+      avgResponseMs,
+      uptimePercent,
+      downMinutes,
+      incidentStarts,
+      startOk,
+      endOk,
+      firstCheckedAt,
+      lastCheckedAt,
+    ]
+  );
+
+  await pool.query(
+    "DELETE FROM monitor_probe_daily_error_codes WHERE monitor_id = ? AND probe_id = ? AND day_date = ?",
+    [monitorId, probe, dayKey]
+  );
+
+  if (errorCodeCounts.size) {
+    const placeholders = [];
+    const params = [];
+    for (const [errorCode, hits] of errorCodeCounts.entries()) {
+      placeholders.push("(?, ?, ?, ?, ?)");
+      params.push(monitorId, probe, dayKey, errorCode, hits);
+    }
+    await pool.query(
+      `
+        INSERT INTO monitor_probe_daily_error_codes (
+          monitor_id,
+          probe_id,
+          day_date,
+          error_code,
+          hits
+        )
+        VALUES ${placeholders.join(", ")}
+      `,
+      params
+    );
+  }
+
+  await pool.query(
+    "DELETE FROM monitor_probe_checks WHERE monitor_id = ? AND probe_id = ? AND checked_at >= ? AND checked_at < ?",
+    [monitorId, probe, dayStart, dayEnd]
+  );
+
+  return true;
+}
+
+async function compactProbeClosedDays() {
+  const [candidateRows] = await pool.query(
+    `
+      SELECT monitor_id, probe_id, DATE_FORMAT(checked_at, '%Y-%m-%d') AS day_key
+      FROM monitor_probe_checks
+      WHERE checked_at < UTC_DATE()
+      GROUP BY monitor_id, probe_id, day_key
+      ORDER BY day_key ASC
+    `
+  );
+
+  for (const row of candidateRows) {
+    const monitorId = Number(row.monitor_id);
+    const probeId = String(row.probe_id || "");
+    const dayKey = String(row.day_key || "");
+    if (!Number.isFinite(monitorId) || !parseProbeIdParam(probeId) || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+      continue;
+    }
+
+    try {
+      await compactProbeMonitorDay(monitorId, probeId, dayKey);
+    } catch (error) {
+      console.error("probe_daily_compaction_failed", monitorId, probeId, dayKey, error);
+    }
+  }
+}
+
 async function getDueMonitors() {
   const [rows] = await pool.query(
     `
@@ -8288,6 +8746,47 @@ async function getDueMonitors() {
         )
     `
   );
+  return rows.filter((monitor) => !!getMonitorUrl(monitor));
+}
+
+async function getDueMonitorsForProbe(probeId = PROBE_ID) {
+  const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
+  const [rows] = await pool.query(
+    `
+      SELECT
+        m.id,
+        m.public_id,
+        m.user_id,
+        m.name,
+        m.url,
+        m.target_url,
+        m.interval_ms,
+        m.http_assertions_enabled,
+        m.http_expected_status_codes,
+        m.http_content_type_contains,
+        m.http_body_contains,
+        m.http_follow_redirects,
+        m.http_max_redirects,
+        m.http_timeout_ms,
+        m.is_paused
+      FROM monitors m
+      LEFT JOIN monitor_probe_state ps
+        ON ps.monitor_id = m.id
+        AND ps.probe_id = ?
+      WHERE m.user_id IS NOT NULL
+        AND m.is_paused = 0
+        AND (
+          ps.last_checked_at IS NULL
+          OR TIMESTAMPDIFF(
+            MICROSECOND,
+            ps.last_checked_at,
+            UTC_TIMESTAMP(3)
+          ) >= m.interval_ms * 1000
+        )
+    `,
+    [probe]
+  );
+
   return rows.filter((monitor) => !!getMonitorUrl(monitor));
 }
 
@@ -8714,7 +9213,7 @@ function evaluateHttpAssertionsResult(requestResult, assertions) {
   return { ok: true, errorMessage: null };
 }
 
-async function checkSingleMonitor(monitor) {
+async function performSingleMonitorHttpCheck(monitor) {
   const targetUrl = getMonitorUrl(monitor);
   const monitorId = Number(monitor.id);
 
@@ -8726,6 +9225,7 @@ async function checkSingleMonitor(monitor) {
   let errorMessage = null;
   let timedOut = false;
   let blockedByPolicy = false;
+  let elapsedMs = 0;
 
   try {
     const startedAt = performance.now();
@@ -8738,10 +9238,7 @@ async function checkSingleMonitor(monitor) {
       ok = false;
       blockedByPolicy = true;
       runtimeTelemetry.security.monitorTargetBlocked += 1;
-      incrementCounterMap(
-        runtimeTelemetry.security.monitorTargetBlockReasons,
-        normalizedReason
-      );
+      incrementCounterMap(runtimeTelemetry.security.monitorTargetBlockReasons, normalizedReason);
       const reason = String(targetValidation.reason || "unknown").trim() || "unknown";
       errorMessage = truncateErrorMessage(new Error(`Target blocked by security policy (${reason})`));
     } else {
@@ -8799,89 +9296,314 @@ async function checkSingleMonitor(monitor) {
       }
     }
 
-    const elapsed = Math.round(performance.now() - startedAt);
+    elapsedMs = Math.round(performance.now() - startedAt);
     runtimeTelemetry.checks.total += 1;
     if (ok) runtimeTelemetry.checks.ok += 1;
     else runtimeTelemetry.checks.failed += 1;
     if (timedOut) runtimeTelemetry.checks.timedOut += 1;
     if (blockedByPolicy) runtimeTelemetry.checks.blocked += 1;
-    pushNumericSample(runtimeTelemetry.checks.durationMsSamples, elapsed);
-
-    const nextStatus = ok ? "online" : "offline";
-    const previousStatus = String(monitor.last_status || "online");
-    const statusChanged = previousStatus !== nextStatus;
-    const now = new Date();
-
-    let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
-    if (!monitor.status_since || statusChanged) {
-      statusSince = now;
-    }
-
-    await pool.query(
-      `
-        INSERT INTO monitor_checks (
-          monitor_id,
-          checked_at,
-          ok,
-          response_ms,
-          status_code,
-          error_message
-        )
-        VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
-      `,
-      [monitorId, ok ? 1 : 0, elapsed, statusCode, errorMessage]
-    );
-
-    await pool.query(
-      `
-        UPDATE monitors
-        SET
-          last_status = ?,
-          status_since = ?,
-          last_checked_at = UTC_TIMESTAMP(3),
-          last_check_at = UTC_TIMESTAMP(3),
-          last_response_ms = ?,
-          url = ?,
-          target_url = ?,
-          interval_ms = ?
-        WHERE id = ?
-      `,
-      [nextStatus, statusSince, elapsed, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
-    );
-
-    if (statusChanged) {
-      Promise.allSettled([
-        sendDiscordStatusNotificationForMonitorChange({
-          userId: monitor.user_id,
-          monitor,
-          previousStatus,
-          nextStatus,
-          elapsedMs: elapsed,
-          statusCode,
-          errorMessage,
-        }),
-        sendSlackStatusNotificationForMonitorChange({
-          userId: monitor.user_id,
-          monitor,
-          previousStatus,
-          nextStatus,
-          elapsedMs: elapsed,
-          statusCode,
-          errorMessage,
-        }),
-        sendWebhookStatusNotificationForMonitorChange({
-          userId: monitor.user_id,
-          monitor,
-          previousStatus,
-          nextStatus,
-          elapsedMs: elapsed,
-          statusCode,
-          errorMessage,
-        }),
-      ]).catch(() => {});
-    }
+    pushNumericSample(runtimeTelemetry.checks.durationMsSamples, elapsedMs);
   } finally {
     runtimeTelemetry.checks.inFlight = Math.max(0, runtimeTelemetry.checks.inFlight - 1);
+  }
+
+  return {
+    monitorId,
+    targetUrl,
+    ok,
+    elapsedMs,
+    statusCode,
+    errorMessage,
+    timedOut,
+    blockedByPolicy,
+  };
+}
+
+async function checkSingleMonitor(monitor) {
+  const { monitorId, targetUrl, ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
+
+  const nextStatus = ok ? "online" : "offline";
+  const previousStatus = String(monitor.last_status || "online");
+  const statusChanged = previousStatus !== nextStatus;
+  const now = new Date();
+
+  let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
+  if (!monitor.status_since || statusChanged) {
+    statusSince = now;
+  }
+
+  await pool.query(
+    `
+      INSERT INTO monitor_checks (
+        monitor_id,
+        checked_at,
+        ok,
+        response_ms,
+        status_code,
+        error_message
+      )
+      VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
+    `,
+    [monitorId, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
+  );
+
+  await pool.query(
+    `
+      UPDATE monitors
+      SET
+        last_status = ?,
+        status_since = ?,
+        last_checked_at = UTC_TIMESTAMP(3),
+        last_check_at = UTC_TIMESTAMP(3),
+        last_response_ms = ?,
+        url = ?,
+        target_url = ?,
+        interval_ms = ?
+      WHERE id = ?
+    `,
+    [nextStatus, statusSince, elapsedMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
+  );
+
+  if (statusChanged) {
+    Promise.allSettled([
+      sendDiscordStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs,
+        statusCode,
+        errorMessage,
+      }),
+      sendSlackStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs,
+        statusCode,
+        errorMessage,
+      }),
+      sendWebhookStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs,
+        statusCode,
+        errorMessage,
+      }),
+    ]).catch(() => {});
+  }
+}
+
+async function checkSingleMonitorProbe(monitor, probeId = PROBE_ID) {
+  const { monitorId, ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
+  const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
+  const nextStatus = ok ? "online" : "offline";
+
+  await pool.query(
+    `
+      INSERT INTO monitor_probe_checks (
+        monitor_id,
+        probe_id,
+        checked_at,
+        ok,
+        response_ms,
+        status_code,
+        error_message
+      )
+      VALUES (?, ?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
+    `,
+    [monitorId, probe, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
+  );
+
+  await pool.query(
+    `
+      INSERT INTO monitor_probe_state (
+        monitor_id,
+        probe_id,
+        last_checked_at,
+        last_status,
+        status_since,
+        last_response_ms,
+        last_status_code,
+        last_error_message
+      )
+      VALUES (?, ?, UTC_TIMESTAMP(3), ?, UTC_TIMESTAMP(3), ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        last_checked_at = VALUES(last_checked_at),
+        status_since = IF(
+          last_status <> VALUES(last_status)
+            OR status_since IS NULL,
+          VALUES(status_since),
+          status_since
+        ),
+        last_status = VALUES(last_status),
+        last_response_ms = VALUES(last_response_ms),
+        last_status_code = VALUES(last_status_code),
+        last_error_message = VALUES(last_error_message)
+    `,
+    [monitorId, probe, nextStatus, elapsedMs, statusCode, errorMessage]
+  );
+}
+
+function getProbeStateStaleMaxAgeUs(monitor) {
+  const intervalMs = getMonitorIntervalMs(monitor);
+  const staleMs = Math.max(PROBE_RESULT_STALE_MIN_MS, intervalMs * 2);
+  return Math.max(1000, Math.round(staleMs * 1000));
+}
+
+function pickFastestProbeState(states) {
+  let best = null;
+  let bestMs = Infinity;
+
+  for (const state of states) {
+    const ms = Number(state?.last_response_ms);
+    if (!Number.isFinite(ms) || ms < 0) continue;
+    if (ms < bestMs) {
+      best = state;
+      bestMs = ms;
+    }
+  }
+
+  return best || states[0] || null;
+}
+
+async function computeAggregateMonitorResultFromProbes(monitor) {
+  const monitorId = Number(monitor.id);
+  const staleUs = getProbeStateStaleMaxAgeUs(monitor);
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        probe_id,
+        last_status,
+        last_response_ms,
+        last_status_code,
+        last_error_message
+      FROM monitor_probe_state
+      WHERE monitor_id = ?
+        AND last_checked_at IS NOT NULL
+        AND TIMESTAMPDIFF(MICROSECOND, last_checked_at, UTC_TIMESTAMP(3)) <= ?
+    `,
+    [monitorId, staleUs]
+  );
+
+  const states = Array.isArray(rows) ? rows : [];
+  if (!states.length) return null;
+
+  const onlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "online");
+  const offlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "offline");
+
+  if (onlineStates.length) {
+    const sample = pickFastestProbeState(onlineStates);
+    const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
+    return {
+      ok: true,
+      responseMs,
+      statusCode: Number(sample?.last_status_code) || null,
+      errorMessage: null,
+      sampleProbeId: String(sample?.probe_id || "") || null,
+      samples: states.length,
+    };
+  }
+
+  if (offlineStates.length >= PROBE_MIN_CONFIRMATIONS_OFFLINE) {
+    const sample = pickFastestProbeState(offlineStates);
+    const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
+    return {
+      ok: false,
+      responseMs,
+      statusCode: Number(sample?.last_status_code) || null,
+      errorMessage: sample?.last_error_message ? String(sample.last_error_message) : null,
+      sampleProbeId: String(sample?.probe_id || "") || null,
+      samples: states.length,
+    };
+  }
+
+  return null;
+}
+
+async function checkSingleMonitorAggregate(monitor) {
+  const targetUrl = getMonitorUrl(monitor);
+  const monitorId = Number(monitor.id);
+  const aggregate = await computeAggregateMonitorResultFromProbes(monitor);
+  if (!aggregate) return;
+
+  const { ok, responseMs, statusCode, errorMessage } = aggregate;
+  const nextStatus = ok ? "online" : "offline";
+  const previousStatus = String(monitor.last_status || "online");
+  const statusChanged = previousStatus !== nextStatus;
+  const now = new Date();
+
+  let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
+  if (!monitor.status_since || statusChanged) {
+    statusSince = now;
+  }
+
+  await pool.query(
+    `
+      INSERT INTO monitor_checks (
+        monitor_id,
+        checked_at,
+        ok,
+        response_ms,
+        status_code,
+        error_message
+      )
+      VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
+    `,
+    [monitorId, ok ? 1 : 0, responseMs, statusCode, errorMessage]
+  );
+
+  await pool.query(
+    `
+      UPDATE monitors
+      SET
+        last_status = ?,
+        status_since = ?,
+        last_checked_at = UTC_TIMESTAMP(3),
+        last_check_at = UTC_TIMESTAMP(3),
+        last_response_ms = ?,
+        url = ?,
+        target_url = ?,
+        interval_ms = ?
+      WHERE id = ?
+    `,
+    [nextStatus, statusSince, responseMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
+  );
+
+  if (statusChanged) {
+    Promise.allSettled([
+      sendDiscordStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs: responseMs,
+        statusCode,
+        errorMessage,
+      }),
+      sendSlackStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs: responseMs,
+        statusCode,
+        errorMessage,
+      }),
+      sendWebhookStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs: responseMs,
+        statusCode,
+        errorMessage,
+      }),
+    ]).catch(() => {});
   }
 }
 
@@ -8970,7 +9692,89 @@ async function evaluateAllMonitorsOfflineFailsafe(options = {}) {
   process.exit(exitCode);
 }
 
+function shouldRunLeaderTasks() {
+  return !CLUSTER_ENABLED || clusterIsLeader;
+}
+
+async function refreshClusterLeadership() {
+  if (!CLUSTER_ENABLED) {
+    clusterIsLeader = true;
+    return true;
+  }
+
+  const ttlUs = Math.max(1000, Math.round(CLUSTER_LEASE_TTL_MS * 1000));
+  try {
+    await pool.query(
+      `
+        INSERT INTO cluster_leases (
+          name,
+          holder_id,
+          expires_at
+        )
+        VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ? MICROSECOND))
+        ON DUPLICATE KEY UPDATE
+          holder_id = IF(
+            expires_at < UTC_TIMESTAMP(3)
+              OR holder_id = VALUES(holder_id),
+            VALUES(holder_id),
+            holder_id
+          ),
+          expires_at = IF(
+            expires_at < UTC_TIMESTAMP(3)
+              OR holder_id = VALUES(holder_id),
+            VALUES(expires_at),
+            expires_at
+          )
+      `,
+      [CLUSTER_LEASE_NAME, INSTANCE_ID, ttlUs]
+    );
+
+    const [rows] = await pool.query(
+      `
+        SELECT 1
+        FROM cluster_leases
+        WHERE name = ?
+          AND holder_id = ?
+          AND expires_at > UTC_TIMESTAMP(3)
+        LIMIT 1
+      `,
+      [CLUSTER_LEASE_NAME, INSTANCE_ID]
+    );
+
+    const nextIsLeader = !!rows.length;
+    if (nextIsLeader !== clusterIsLeader) {
+      console.log(nextIsLeader ? "cluster_leader_acquired" : "cluster_leader_lost", {
+        lease: CLUSTER_LEASE_NAME,
+        holder: INSTANCE_ID,
+      });
+    }
+    clusterIsLeader = nextIsLeader;
+    return nextIsLeader;
+  } catch (error) {
+    if (clusterIsLeader) {
+      console.error("cluster_leader_refresh_failed", error?.code || error?.message || error);
+    }
+    clusterIsLeader = false;
+    return false;
+  }
+}
+
+async function runProbeChecks() {
+  if (!MULTI_LOCATION_ENABLED) return;
+  if (probeChecksInFlight) return;
+  probeChecksInFlight = true;
+
+  try {
+    const dueMonitors = await getDueMonitorsForProbe(PROBE_ID);
+    if (!dueMonitors.length) return;
+    await runWithConcurrency(dueMonitors, CHECK_CONCURRENCY, (monitor) => checkSingleMonitorProbe(monitor, PROBE_ID));
+  } finally {
+    probeChecksInFlight = false;
+  }
+}
+
 async function runMonitorChecks() {
+  if (!shouldRunLeaderTasks()) return;
   if (monitorChecksInFlight) {
     runtimeTelemetry.scheduler.skippedDueToOverlap += 1;
     return;
@@ -8984,7 +9788,8 @@ async function runMonitorChecks() {
     const dueMonitors = await getDueMonitors();
     runtimeTelemetry.scheduler.lastDueMonitors = dueMonitors.length;
     if (!dueMonitors.length) return;
-    await runWithConcurrency(dueMonitors, CHECK_CONCURRENCY, checkSingleMonitor);
+    const workerFn = MULTI_LOCATION_ENABLED ? checkSingleMonitorAggregate : checkSingleMonitor;
+    await runWithConcurrency(dueMonitors, CHECK_CONCURRENCY, workerFn);
     try {
       await evaluateAllMonitorsOfflineFailsafe({ hadDueMonitors: true });
     } catch (error) {
@@ -9024,6 +9829,31 @@ async function getSeries(monitorId) {
     }));
 }
 
+async function getSeriesForProbe(monitorId, probeId) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return [];
+
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, response_ms, ok
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+      ORDER BY checked_at DESC
+      LIMIT ?
+    `,
+    [monitorId, probe, SERIES_LIMIT]
+  );
+
+  return rows
+    .reverse()
+    .map((row) => ({
+      ts: row.checked_at.getTime(),
+      ms: row.response_ms,
+      ok: !!row.ok,
+    }));
+}
+
 async function getLastCheckBefore(monitorId, cutoffMs) {
   const cutoff = new Date(cutoffMs);
   const [rows] = await pool.query(
@@ -9045,6 +9875,50 @@ async function getLastCheckBefore(monitorId, cutoffMs) {
       LIMIT 1
     `,
     [monitorId, cutoffDay]
+  );
+
+  if (!dailyRows.length) return null;
+  if (dailyRows[0].end_ok === null || dailyRows[0].end_ok === undefined) return null;
+
+  const dayEndMs = Date.parse(`${dailyRows[0].day_key}T23:59:59.999Z`);
+  if (!Number.isFinite(dayEndMs)) return null;
+
+  return { ts: dayEndMs, ok: !!dailyRows[0].end_ok };
+}
+
+async function getLastProbeCheckBefore(monitorId, probeId, cutoffMs) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return null;
+
+  const cutoff = new Date(cutoffMs);
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at < ?
+      ORDER BY checked_at DESC
+      LIMIT 1
+    `,
+    [monitorId, probe, cutoff]
+  );
+  if (rows.length) {
+    return { ts: rows[0].checked_at.getTime(), ok: !!rows[0].ok };
+  }
+
+  const cutoffDay = formatUtcDateKey(cutoffMs);
+  const [dailyRows] = await pool.query(
+    `
+      SELECT DATE_FORMAT(day_date, '%Y-%m-%d') AS day_key, end_ok
+      FROM monitor_probe_daily_stats
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND day_date < ?
+      ORDER BY day_date DESC
+      LIMIT 1
+    `,
+    [monitorId, probe, cutoffDay]
   );
 
   if (!dailyRows.length) return null;
@@ -9134,6 +10008,53 @@ async function getLast24h(monitorId) {
   });
 
   const lastBefore = await getLastCheckBefore(monitorId, start);
+  const { incidents, downMs } = computeDowntime(rows, start, now, lastBefore?.ok ?? null);
+  const windowMs = now - start;
+  const uptime = rows.length ? ((windowMs - downMs) / windowMs) * 100 : null;
+  const downMinutes = Math.round(downMs / 60000);
+
+  return { bars, uptime, incidents, downMinutes };
+}
+
+async function getLast24hForProbe(monitorId, probeId) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return { bars: [], uptime: null, incidents: 0, downMinutes: 0 };
+
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, probe]
+  );
+
+  const now = Date.now();
+  const start = now - 24 * 60 * 60 * 1000;
+  const buckets = Array.from({ length: 24 }, () => ({ ok: 0, total: 0 }));
+
+  for (const row of rows) {
+    const ts = row.checked_at.getTime();
+    const index = Math.min(23, Math.floor((ts - start) / (60 * 60 * 1000)));
+    if (index < 0 || index > 23) continue;
+    buckets[index].total += 1;
+    if (row.ok) {
+      buckets[index].ok += 1;
+    }
+  }
+
+  const bars = buckets.map((bucket) => {
+    if (bucket.total === 0) {
+      return { status: "empty", uptime: null };
+    }
+    const ratio = bucket.ok / bucket.total;
+    return { status: ratioToStatus(ratio), uptime: ratio * 100 };
+  });
+
+  const lastBefore = await getLastProbeCheckBefore(monitorId, probe, start);
   const { incidents, downMs } = computeDowntime(rows, start, now, lastBefore?.ok ?? null);
   const windowMs = now - start;
   const uptime = rows.length ? ((windowMs - downMs) / windowMs) * 100 : null;
@@ -9340,6 +10261,173 @@ async function getIncidents(monitorId, options = {}) {
   return { items: normalized, lookbackDays };
 }
 
+async function getIncidentsForProbe(monitorId, probeId, options = {}) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return { items: [], lookbackDays: Math.max(1, Number(options.lookbackDays) || INCIDENT_LOOKBACK_DAYS) };
+
+  const lookbackDays = Math.max(
+    1,
+    Math.min(
+      INCIDENT_LOOKBACK_DAYS_MAX,
+      Number.isFinite(options.lookbackDays) ? Number(options.lookbackDays) : INCIDENT_LOOKBACK_DAYS
+    )
+  );
+  const limit = Math.max(
+    1,
+    Math.min(INCIDENT_LIMIT_MAX, Number.isFinite(options.limit) ? Number(options.limit) : INCIDENT_LIMIT)
+  );
+  const cutoffMs = Date.now() - lookbackDays * DAY_MS;
+  const cutoff = new Date(cutoffMs);
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok, status_code
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at >= ?
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, probe, cutoff]
+  );
+
+  const incidents = [];
+  let current = null;
+
+  for (const row of rows) {
+    const ts = row.checked_at.getTime();
+    const ok = !!row.ok;
+    const statusCode = Number.isFinite(row.status_code) ? row.status_code : null;
+
+    if (!ok) {
+      if (!current) {
+        current = {
+          startTs: ts,
+          endTs: null,
+          durationMs: null,
+          statusCodes: new Set(),
+          lastStatusCode: statusCode,
+          samples: 0,
+          ongoing: false,
+        };
+      }
+      current.samples += 1;
+      if (statusCode !== null) {
+        current.statusCodes.add(statusCode);
+        current.lastStatusCode = statusCode;
+      }
+      continue;
+    }
+
+    if (current) {
+      current.endTs = ts;
+      current.durationMs = current.endTs - current.startTs;
+      incidents.push(current);
+      current = null;
+    }
+  }
+
+  if (current) {
+    current.ongoing = true;
+    current.durationMs = Date.now() - current.startTs;
+    incidents.push(current);
+  }
+
+  const normalizedRaw = incidents
+    .map((incident) => ({
+      startTs: incident.startTs,
+      endTs: incident.endTs,
+      durationMs: incident.durationMs,
+      statusCodes: Array.from(incident.statusCodes),
+      lastStatusCode: incident.lastStatusCode,
+      samples: incident.samples,
+      ongoing: incident.ongoing,
+    }))
+    .sort((a, b) => b.startTs - a.startTs);
+
+  const rawDayKeys = new Set(normalizedRaw.map((item) => formatUtcDateKey(item.startTs)));
+  const cutoffDayKey = formatUtcDateKey(cutoffMs);
+  const [dailyRows] = await pool.query(
+    `
+      SELECT
+        DATE_FORMAT(day_date, '%Y-%m-%d') AS day_key,
+        incidents,
+        down_minutes,
+        checks_error
+      FROM monitor_probe_daily_stats
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND day_date >= ?
+        AND incidents > 0
+      ORDER BY day_date DESC
+      LIMIT ?
+    `,
+    [monitorId, probe, cutoffDayKey, limit]
+  );
+
+  const dailyDayKeys = dailyRows
+    .map((row) => String(row.day_key || ""))
+    .filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && !rawDayKeys.has(key));
+
+  const errorCodesByDay = new Map();
+  if (dailyDayKeys.length) {
+    const placeholders = dailyDayKeys.map(() => "?").join(", ");
+    const [errorRows] = await pool.query(
+      `
+        SELECT
+          DATE_FORMAT(day_date, '%Y-%m-%d') AS day_key,
+          error_code,
+          hits
+        FROM monitor_probe_daily_error_codes
+        WHERE monitor_id = ?
+          AND probe_id = ?
+          AND day_date IN (${placeholders})
+        ORDER BY day_date DESC, hits DESC, error_code ASC
+      `,
+      [monitorId, probe, ...dailyDayKeys]
+    );
+
+    for (const row of errorRows) {
+      const dayKey = String(row.day_key || "");
+      if (!errorCodesByDay.has(dayKey)) {
+        errorCodesByDay.set(dayKey, []);
+      }
+      errorCodesByDay.get(dayKey).push({
+        code: String(row.error_code || "NO_RESPONSE"),
+        hits: Math.max(0, Number(row.hits || 0)),
+      });
+    }
+  }
+
+  const normalizedDaily = dailyRows
+    .filter((row) => row.day_key && !rawDayKeys.has(row.day_key))
+    .map((row) => {
+      const dayStartMs = Date.parse(`${row.day_key}T00:00:00.000Z`);
+      const durationMs = Math.max(0, Number(row.down_minutes || 0) * 60000);
+      const errorCodes = errorCodesByDay.get(String(row.day_key)) || [];
+      const statusCodes = errorCodes
+        .map((item) => Number(item.code))
+        .filter((code) => Number.isFinite(code));
+      return {
+        dateKey: String(row.day_key),
+        startTs: dayStartMs,
+        endTs: null,
+        durationMs,
+        statusCodes,
+        errorCodes,
+        lastStatusCode: null,
+        samples: Number(row.checks_error || 0),
+        ongoing: false,
+        aggregated: true,
+      };
+    });
+
+  const normalized = [...normalizedRaw, ...normalizedDaily]
+    .sort((a, b) => b.startTs - a.startTs)
+    .slice(0, limit);
+
+  return { items: normalized, lookbackDays };
+}
+
 async function getIncidentsForUser(userId, options = {}) {
   const monitorRows = await listMonitorRowsForUser(userId);
   if (!monitorRows.length) {
@@ -9477,6 +10565,64 @@ async function getRangeSummary(monitorId, days) {
   return { days, uptime, incidents: totalIncidents, downMinutes, total: totalChecks };
 }
 
+async function getRangeSummaryForProbe(monitorId, probeId, days) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return { days, uptime: null, incidents: 0, downMinutes: 0, total: 0 };
+
+  const nowMs = Date.now();
+  const todayStartMs = getUtcDayStartMs(nowMs);
+  const rangeStartMs = todayStartMs - Math.max(0, days - 1) * DAY_MS;
+  const rangeStartDate = new Date(rangeStartMs);
+
+  const [dailyRows] = await pool.query(
+    `
+      SELECT
+        checks_total,
+        down_minutes,
+        incidents
+      FROM monitor_probe_daily_stats
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND day_date >= ?
+        AND day_date < UTC_DATE()
+      ORDER BY day_date ASC
+    `,
+    [monitorId, probe, rangeStartDate]
+  );
+
+  const [todayRows] = await pool.query(
+    `
+      SELECT checked_at, ok
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at >= ?
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, probe, new Date(todayStartMs)]
+  );
+
+  const lastBeforeToday = await getLastProbeCheckBefore(monitorId, probe, todayStartMs);
+  const { downMs: todayDownMs } = computeDowntime(todayRows, todayStartMs, nowMs, lastBeforeToday?.ok ?? null);
+  const todayIncidentStarts = computeIncidentStarts(todayRows, lastBeforeToday?.ok ?? null);
+
+  const dailyDownMs = dailyRows.reduce(
+    (sum, row) => sum + Math.max(0, Number(row.down_minutes || 0)) * 60000,
+    0
+  );
+  const dailyIncidents = dailyRows.reduce((sum, row) => sum + Math.max(0, Number(row.incidents || 0)), 0);
+  const dailyTotalChecks = dailyRows.reduce((sum, row) => sum + Math.max(0, Number(row.checks_total || 0)), 0);
+
+  const totalDownMs = dailyDownMs + todayDownMs;
+  const totalIncidents = dailyIncidents + todayIncidentStarts;
+  const totalChecks = dailyTotalChecks + todayRows.length;
+  const windowMs = nowMs - rangeStartMs;
+  const uptime = totalChecks > 0 && windowMs > 0 ? ((windowMs - totalDownMs) / windowMs) * 100 : null;
+  const downMinutes = Math.round(totalDownMs / 60000);
+
+  return { days, uptime, incidents: totalIncidents, downMinutes, total: totalChecks };
+}
+
 async function getHeatmap(monitorId, year) {
   const start = new Date(year, 0, 1);
   const end = new Date(year, 11, 31, 23, 59, 59, 999);
@@ -9557,6 +10703,96 @@ async function getHeatmap(monitorId, year) {
   return { year, days };
 }
 
+async function getHeatmapForProbe(monitorId, probeId, year) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return { year, days: [] };
+
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31, 23, 59, 59, 999);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [dailyRows] = await pool.query(
+    `
+      SELECT
+        DATE_FORMAT(day_date, '%Y-%m-%d') AS day_key,
+        uptime_percent
+      FROM monitor_probe_daily_stats
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND day_date >= ?
+        AND day_date <= ?
+    `,
+    [monitorId, probe, start, end]
+  );
+  const dailyUptimeMap = new Map(dailyRows.map((row) => [String(row.day_key), Number(row.uptime_percent)]));
+
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at >= ?
+        AND checked_at <= ?
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, probe, start, end]
+  );
+
+  const rawByDay = new Map();
+  for (const row of rows) {
+    const key = formatUtcDateKey(row.checked_at);
+    if (!rawByDay.has(key)) rawByDay.set(key, []);
+    rawByDay.get(key).push(row);
+  }
+
+  const days = [];
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayStartMs = Date.UTC(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate());
+    const dayEndMs = dayStartMs + DAY_MS;
+    const key = formatUtcDateKey(dayStartMs);
+
+    if (dayStart > today) {
+      days.push({ date: key, status: "empty", uptime: null });
+      continue;
+    }
+
+    if (dailyUptimeMap.has(key) && Number.isFinite(dailyUptimeMap.get(key))) {
+      const uptime = Number(dailyUptimeMap.get(key));
+      const ratio = Number.isFinite(uptime) ? uptime / 100 : null;
+      days.push({
+        date: key,
+        status: ratio === null ? "empty" : ratioToStatus(ratio),
+        uptime,
+      });
+      continue;
+    }
+
+    const dayRows = rawByDay.get(key) || [];
+    if (!dayRows.length) {
+      days.push({ date: key, status: "empty", uptime: null });
+      continue;
+    }
+
+    const lastBefore = await getLastProbeCheckBefore(monitorId, probe, dayStartMs);
+    const { downMs } = computeDowntime(dayRows, dayStartMs, dayEndMs, lastBefore?.ok ?? null);
+    const windowMs = dayEndMs - dayStartMs;
+    const uptime = windowMs ? ((windowMs - downMs) / windowMs) * 100 : null;
+    const ratio = Number.isFinite(uptime) ? uptime / 100 : null;
+
+    days.push({
+      date: key,
+      status: ratio === null ? "empty" : ratioToStatus(ratio),
+      uptime,
+    });
+  }
+
+  return { year, days };
+}
+
 async function getMetricsForMonitor(monitor) {
   const monitorId = Number(monitor.id);
   const publicMonitorId = isValidMonitorPublicId(String(monitor.public_id || ""))
@@ -9606,6 +10842,84 @@ async function getMetricsForMonitor(monitor) {
     network: targetMeta.network,
     domainSsl: targetMeta.domainSsl,
   };
+}
+
+async function getMetricsForMonitorProbe(monitor, probeId) {
+  const probe = parseProbeIdParam(probeId);
+  if (!probe) return getMetricsForMonitor(monitor);
+
+  const monitorId = Number(monitor.id);
+  const publicMonitorId = isValidMonitorPublicId(String(monitor.public_id || ""))
+    ? String(monitor.public_id)
+    : String(monitor.id);
+  const targetUrl = getMonitorUrl(monitor);
+  const httpAssertions = getMonitorHttpAssertionsConfig(monitor);
+
+  const [stateRows] = await pool.query(
+    `
+      SELECT
+        last_checked_at,
+        last_status,
+        status_since,
+        last_response_ms,
+        last_status_code,
+        last_error_message
+      FROM monitor_probe_state
+      WHERE monitor_id = ?
+        AND probe_id = ?
+      LIMIT 1
+    `,
+    [monitorId, probe]
+  );
+  const state = stateRows.length ? stateRows[0] : null;
+
+  const series = await getSeriesForProbe(monitorId, probe);
+  const targetMeta = await getTargetMeta(targetUrl);
+  const maintenanceItems = await listMaintenancesForMonitorId(monitorId, { limit: 50 });
+  const maintenances = buildMaintenancePayload(maintenanceItems);
+
+  const [range7, range30, range365] = await Promise.all([
+    getRangeSummaryForProbe(monitorId, probe, 7),
+    getRangeSummaryForProbe(monitorId, probe, 30),
+    getRangeSummaryForProbe(monitorId, probe, 365),
+  ]);
+
+  const statusSince = toMs(state?.status_since) || Date.now();
+  const lastCheckAt = toMs(state?.last_checked_at);
+  const lastStatusCode = Number.isFinite(state?.last_status_code) ? Number(state.last_status_code) : null;
+
+  return {
+    monitorId: publicMonitorId,
+    name: monitor.name || getDefaultMonitorName(targetUrl),
+    target: targetUrl,
+    intervalMs: getMonitorIntervalMs(monitor),
+    timeoutMs: httpAssertions.enabled && httpAssertions.timeoutMs > 0 ? httpAssertions.timeoutMs : CHECK_TIMEOUT_MS,
+    status: state?.last_status || "online",
+    statusSince,
+    lastCheckAt,
+    lastResponseMs: Number.isFinite(state?.last_response_ms) ? Number(state.last_response_ms) : null,
+    lastStatusCode,
+    lastErrorMessage: state?.last_error_message ? String(state.last_error_message) : null,
+    probeId: probe,
+    assertions: serializeMonitorHttpAssertionsConfig(monitor),
+    maintenances,
+    stats: getStats(series),
+    series,
+    last24h: await getLast24hForProbe(monitorId, probe),
+    ranges: { range7, range30, range365 },
+    incidents: await getIncidentsForProbe(monitorId, probe),
+    heatmap: await getHeatmapForProbe(monitorId, probe, new Date().getFullYear()),
+    location: targetMeta.location,
+    network: targetMeta.network,
+    domainSsl: targetMeta.domainSsl,
+  };
+}
+
+async function getMetricsForMonitorAtLocation(monitor, location) {
+  if (location?.type === "probe" && location.probeId) {
+    return getMetricsForMonitorProbe(monitor, location.probeId);
+  }
+  return getMetricsForMonitor(monitor);
 }
 
 async function handleRequest(req, res) {
@@ -9843,11 +11157,24 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && pathname === "/api/probes") {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const probes = await listProbesForUser(user.id);
+    sendJson(res, 200, { ok: true, data: probes });
+    return;
+  }
+
   if (method === "GET" && pathname === "/api/monitors") {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const monitors = await listMonitorsForUser(user.id);
+    const location = parseMonitorLocationParam(url.searchParams.get("location"));
+    const monitors =
+      location.type === "probe"
+        ? await listMonitorsForUserAtProbe(user.id, location.probeId)
+        : await listMonitorsForUser(user.id);
     sendJson(res, 200, { ok: true, data: monitors });
     return;
   }
@@ -9936,7 +11263,8 @@ async function handleRequest(req, res) {
       return;
     }
 
-    const metrics = await getMetricsForMonitor(monitor);
+    const location = parseMonitorLocationParam(url.searchParams.get("location"));
+    const metrics = await getMetricsForMonitorAtLocation(monitor, location);
     sendJson(res, 200, { ok: true, data: metrics });
     return;
   }
@@ -10226,38 +11554,67 @@ async function handleRequest(req, res) {
   sendJson(res, 404, { ok: false, error: "not found" });
 }
 
-const server = http.createServer((req, res) => {
-  applySecurityHeaders(res);
+let server = null;
+if (HTTP_ENABLED) {
+  server = http.createServer((req, res) => {
+    applySecurityHeaders(res);
 
-  handleRequest(req, res).catch((error) => {
-    console.error("request_failed", error);
-    if (!res.headersSent) {
-      sendJson(res, 500, { ok: false, error: "internal error" });
-      return;
-    }
-    res.end();
+    handleRequest(req, res).catch((error) => {
+      console.error("request_failed", error);
+      if (!res.headersSent) {
+        sendJson(res, 500, { ok: false, error: "internal error" });
+        return;
+      }
+      res.end();
+    });
   });
-});
+}
 
 (async () => {
   try {
     await initDb();
-    await cleanupExpiredSessions();
-    await cleanupOldChecks();
-    await compactClosedDays();
+    await refreshClusterLeadership();
+    if (CLUSTER_ENABLED) {
+      setInterval(() => {
+        refreshClusterLeadership().catch((error) => {
+          console.error("cluster_leader_refresh_failed", error);
+        });
+      }, CLUSTER_LEASE_RENEW_MS);
+    }
+
+    await runProbeChecks();
     await runMonitorChecks();
+    if (shouldRunLeaderTasks()) {
+      await cleanupExpiredSessions();
+      await cleanupOldChecks();
+      await compactClosedDays();
+      await compactProbeClosedDays();
+    }
 
     setInterval(() => {
       const now = Date.now();
       const driftMs = Math.max(0, now - monitorSchedulerExpectedAt);
       pushNumericSample(runtimeTelemetry.scheduler.driftMsSamples, driftMs);
       monitorSchedulerExpectedAt = now + CHECK_SCHEDULER_MS;
-      runMonitorChecks().catch((error) => {
-        console.error("monitor_check_cycle_failed", error);
-      });
+
+      (async () => {
+        try {
+          await runProbeChecks();
+        } catch (error) {
+          console.error("probe_check_cycle_failed", error);
+        }
+
+        try {
+          await runMonitorChecks();
+        } catch (error) {
+          console.error("monitor_check_cycle_failed", error);
+        }
+      })();
     }, CHECK_SCHEDULER_MS);
 
     setInterval(() => {
+      if (!shouldRunLeaderTasks()) return;
+
       cleanupOldChecks().catch((error) => {
         console.error("check_cleanup_failed", error);
       });
@@ -10267,14 +11624,23 @@ const server = http.createServer((req, res) => {
     }, MAINTENANCE_INTERVAL_MS);
 
     setInterval(() => {
+      if (!shouldRunLeaderTasks()) return;
+
       compactClosedDays().catch((error) => {
         console.error("daily_compaction_cycle_failed", error);
       });
+      compactProbeClosedDays().catch((error) => {
+        console.error("probe_daily_compaction_cycle_failed", error);
+      });
     }, DAILY_COMPACTION_INTERVAL_MS);
 
-    server.listen(PORT, () => {
-      console.log(`Server listening on http://localhost:${PORT}`);
-    });
+    if (HTTP_ENABLED && server) {
+      server.listen(PORT, () => {
+        console.log(`Server listening on http://localhost:${PORT}`);
+      });
+    } else {
+      console.log("HTTP server disabled (APP_MODE=probe)");
+    }
   } catch (error) {
     console.error("startup_failed", error);
     process.exit(1);

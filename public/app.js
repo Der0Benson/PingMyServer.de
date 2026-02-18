@@ -44,6 +44,7 @@ const publicStatusLinks = Array.from(document.querySelectorAll('a[href="/status"
 const ownerLinks = Array.from(document.querySelectorAll("[data-owner-link]"));
 const newMonitorButton = document.getElementById("new-monitor-btn");
 const monitorSelect = document.getElementById("monitor-select");
+const locationSelect = document.getElementById("location-select");
 const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
@@ -72,10 +73,13 @@ const maintenanceVerifyLinkEl = document.getElementById("maintenance-verify-link
 let user = null;
 let monitors = [];
 let activeMonitorId = null;
+let activeLocation = "aggregate";
+let availableProbes = [];
 let latestMetrics = null;
 let statusSince = Date.now();
   let lastCheckTime = null;
   const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
+  const LOCATION_STORAGE_KEY = "pms.location";
   const MONITOR_GROUP_COLLAPSED_STORAGE_KEY = "pms.monitorGroupsCollapsed";
   const RECENT_MONITOR_STORAGE_KEY = "pms.recentMonitorIds";
   const MAX_RECENT_MONITORS = 3;
@@ -747,6 +751,24 @@ function readStoredMonitorId() {
   }
 }
 
+function readStoredLocation() {
+  try {
+    const value = String(window.localStorage.getItem(LOCATION_STORAGE_KEY) || "").trim();
+    return value || "aggregate";
+  } catch (error) {
+    return "aggregate";
+  }
+}
+
+function writeStoredLocation(location) {
+  const value = String(location || "").trim() || "aggregate";
+  try {
+    window.localStorage.setItem(LOCATION_STORAGE_KEY, value);
+  } catch (error) {
+    // ignore
+  }
+}
+
   function writeStoredMonitorId(monitorId) {
     const value = String(monitorId || "").trim();
     if (!value) return;
@@ -950,8 +972,56 @@ async function ensureAuthenticated() {
   }
 }
 
+async function fetchProbes() {
+  try {
+    const response = await fetch("/api/probes", { cache: "no-store" });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return [];
+    }
+    if (!response.ok) return [];
+
+    const payload = await response.json();
+    return Array.isArray(payload?.data) ? payload.data : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function renderLocationPicker() {
+  if (!locationSelect) return;
+
+  locationSelect.innerHTML = "";
+
+  const aggregateOption = document.createElement("option");
+  aggregateOption.value = "aggregate";
+  aggregateOption.textContent = "Gesamt";
+  locationSelect.appendChild(aggregateOption);
+
+  for (const probe of availableProbes) {
+    const id = String(probe?.id || "").trim();
+    if (!id) continue;
+    const label = String(probe?.label || "").trim();
+    const option = document.createElement("option");
+    option.value = `probe:${id}`;
+    option.textContent = label || id;
+    locationSelect.appendChild(option);
+  }
+
+  const desired = String(activeLocation || "").trim() || "aggregate";
+  const values = new Set(Array.from(locationSelect.options || []).map((opt) => String(opt.value || "")));
+  activeLocation = values.has(desired) ? desired : "aggregate";
+  locationSelect.value = activeLocation;
+}
+
 async function fetchMonitors() {
-  const response = await fetch("/api/monitors", { cache: "no-store" });
+  const location = String(activeLocation || "").trim();
+  const url =
+    location && location !== "aggregate"
+      ? `/api/monitors?location=${encodeURIComponent(location)}`
+      : "/api/monitors";
+
+  const response = await fetch(url, { cache: "no-store" });
   if (response.status === 401) {
     window.location.href = "/login";
     return [];
@@ -1283,7 +1353,13 @@ async function loadMetrics() {
   if (!activeMonitorId) return;
 
   try {
-    const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/metrics`, {
+    const location = String(activeLocation || "").trim();
+    const metricsUrl =
+      location && location !== "aggregate"
+        ? `/api/monitors/${encodeURIComponent(activeMonitorId)}/metrics?location=${encodeURIComponent(location)}`
+        : `/api/monitors/${encodeURIComponent(activeMonitorId)}/metrics`;
+
+    const response = await fetch(metricsUrl, {
       cache: "no-store",
     });
     if (response.status === 401) {
@@ -1994,6 +2070,10 @@ async function init() {
   const authenticated = await ensureAuthenticated();
   if (!authenticated) return;
 
+  activeLocation = readStoredLocation();
+  availableProbes = await fetchProbes();
+  renderLocationPicker();
+
   if (assertionsEnabledInput) {
     assertionsEnabledInput.addEventListener("change", () => {
       markAssertionsDirty();
@@ -2108,6 +2188,20 @@ async function init() {
       const selected = String(monitorSelect.value || "").trim();
       if (!selected) return;
       setActiveMonitor(selected, { pushHistory: true }).catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (locationSelect) {
+    locationSelect.addEventListener("change", () => {
+      activeLocation = String(locationSelect.value || "").trim() || "aggregate";
+      writeStoredLocation(activeLocation);
+
+      refreshMonitors().catch(() => {
+        // ignore
+      });
+
+      loadMetrics().catch(() => {
         // ignore
       });
     });

@@ -294,9 +294,30 @@ body.auth-locked {
 .side-footer {
   margin-top: auto;
   display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
   gap: 12px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.side-footer #logout-btn {
+  grid-column: 1 / -1;
+}
+
+.side-footer .lang-picker {
+  justify-self: end;
+}
+
+.side-footer .profile-link {
+  min-width: 0;
+}
+
+.side-footer #current-user-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-pill {
@@ -1100,9 +1121,14 @@ body.auth-locked {
     margin-top: 0;
     width: 100%;
     order: 4;
+    grid-template-columns: auto;
     grid-auto-flow: column;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .side-footer #logout-btn {
+    grid-column: auto;
   }
 
   .dashboard {
@@ -1164,6 +1190,7 @@ body.auth-locked {
   .side-footer {
     width: 100%;
     grid-auto-flow: row;
+    grid-template-columns: 1fr;
     align-items: stretch;
     gap: 8px;
   }
