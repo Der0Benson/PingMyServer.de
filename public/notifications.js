@@ -11,6 +11,27 @@ const discordWebhookMaskEl = document.getElementById("discord-webhook-mask");
 const discordMessageEl = document.getElementById("discord-message");
 const testDiscordButton = document.getElementById("test-discord-btn");
 const deleteDiscordButton = document.getElementById("delete-discord-btn");
+
+const slackForm = document.getElementById("slack-form");
+const slackWebhookUrlEl = document.getElementById("slack-webhook-url");
+const slackEnabledEl = document.getElementById("slack-enabled");
+const slackStateBadgeEl = document.getElementById("slack-state-badge");
+const slackWebhookMaskEl = document.getElementById("slack-webhook-mask");
+const slackMessageEl = document.getElementById("slack-message");
+const testSlackButton = document.getElementById("test-slack-btn");
+const deleteSlackButton = document.getElementById("delete-slack-btn");
+
+const webhookForm = document.getElementById("webhook-form");
+const webhookUrlEl = document.getElementById("webhook-url");
+const webhookSecretEl = document.getElementById("webhook-secret");
+const webhookEnabledEl = document.getElementById("webhook-enabled");
+const webhookStateBadgeEl = document.getElementById("webhook-state-badge");
+const webhookUrlMaskEl = document.getElementById("webhook-url-mask");
+const webhookSecretStateEl = document.getElementById("webhook-secret-state");
+const webhookMessageEl = document.getElementById("webhook-message");
+const testWebhookButton = document.getElementById("test-webhook-btn");
+const deleteWebhookButton = document.getElementById("delete-webhook-btn");
+
 const billingCardEl = document.getElementById("billing-card");
 const billingStateBadgeEl = document.getElementById("billing-state-badge");
 const billingStateTextEl = document.getElementById("billing-state-text");
@@ -161,6 +182,99 @@ function renderDiscordState(discordSettings) {
 
   if (deleteDiscordButton) {
     deleteDiscordButton.disabled = !configured;
+  }
+}
+
+function renderSlackState(slackSettings) {
+  const data = slackSettings || {};
+  const configured = !!data.configured;
+  const enabled = !!data.enabled;
+  const masked = String(data.webhookMasked || "").trim();
+
+  if (slackStateBadgeEl) {
+    slackStateBadgeEl.classList.remove("connected", "disabled");
+    if (!configured) {
+      slackStateBadgeEl.textContent = t("notifications.slack.state_disconnected", null, "Not connected");
+    } else if (enabled) {
+      slackStateBadgeEl.textContent = t("notifications.slack.state_active", null, "Active");
+      slackStateBadgeEl.classList.add("connected");
+    } else {
+      slackStateBadgeEl.textContent = t(
+        "notifications.slack.state_configured_disabled",
+        null,
+        "Configured (disabled)"
+      );
+      slackStateBadgeEl.classList.add("disabled");
+    }
+  }
+
+  if (slackWebhookMaskEl) {
+    slackWebhookMaskEl.textContent = configured
+      ? masked || t("notifications.slack.webhook_configured", null, "Webhook configured.")
+      : t("notifications.slack.no_webhook", null, "No webhook configured.");
+  }
+
+  if (slackEnabledEl) {
+    slackEnabledEl.checked = enabled;
+    slackEnabledEl.disabled = !configured;
+  }
+
+  if (testSlackButton) {
+    testSlackButton.disabled = !configured;
+  }
+
+  if (deleteSlackButton) {
+    deleteSlackButton.disabled = !configured;
+  }
+}
+
+function renderWebhookState(webhookSettings) {
+  const data = webhookSettings || {};
+  const configured = !!data.configured;
+  const enabled = !!data.enabled;
+  const masked = String(data.urlMasked || "").trim();
+  const secretConfigured = !!data.secretConfigured;
+
+  if (webhookStateBadgeEl) {
+    webhookStateBadgeEl.classList.remove("connected", "disabled");
+    if (!configured) {
+      webhookStateBadgeEl.textContent = t("notifications.webhook.state_disconnected", null, "Not connected");
+    } else if (enabled) {
+      webhookStateBadgeEl.textContent = t("notifications.webhook.state_active", null, "Active");
+      webhookStateBadgeEl.classList.add("connected");
+    } else {
+      webhookStateBadgeEl.textContent = t(
+        "notifications.webhook.state_configured_disabled",
+        null,
+        "Configured (disabled)"
+      );
+      webhookStateBadgeEl.classList.add("disabled");
+    }
+  }
+
+  if (webhookUrlMaskEl) {
+    webhookUrlMaskEl.textContent = configured
+      ? masked || t("notifications.webhook.url_configured", null, "Webhook URL configured.")
+      : t("notifications.webhook.no_url", null, "No webhook URL configured.");
+  }
+
+  if (webhookSecretStateEl) {
+    webhookSecretStateEl.textContent = secretConfigured
+      ? t("notifications.webhook.secret_configured", null, "Secret configured.")
+      : t("notifications.webhook.secret_missing", null, "No secret configured.");
+  }
+
+  if (webhookEnabledEl) {
+    webhookEnabledEl.checked = enabled;
+    webhookEnabledEl.disabled = !configured;
+  }
+
+  if (testWebhookButton) {
+    testWebhookButton.disabled = !configured;
+  }
+
+  if (deleteWebhookButton) {
+    deleteWebhookButton.disabled = !configured;
   }
 }
 
@@ -346,6 +460,8 @@ function applyBillingQueryMessage() {
 
 async function loadNotifications() {
   setPanelMessage(discordMessageEl, t("notifications.discord.msg.loading", null, "Loading notifications..."));
+  setPanelMessage(slackMessageEl, t("notifications.slack.msg.loading", null, "Loading notifications..."));
+  setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.loading", null, "Loading notifications..."));
   try {
     const { response, payload } = await fetchJson("/api/account/notifications");
     if (response.status === 401) {
@@ -355,17 +471,29 @@ async function loadNotifications() {
     if (!response.ok || !payload?.ok || !payload.data) {
       notificationsState = null;
       renderDiscordState({});
+      renderSlackState({});
+      renderWebhookState({});
       setPanelMessage(discordMessageEl, t("notifications.discord.msg.load_failed", null, "Settings could not be loaded."), "error");
+      setPanelMessage(slackMessageEl, t("notifications.slack.msg.load_failed", null, "Settings could not be loaded."), "error");
+      setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.load_failed", null, "Settings could not be loaded."), "error");
       return;
     }
 
     notificationsState = payload.data;
     renderDiscordState(notificationsState.discord || {});
+    renderSlackState(notificationsState.slack || {});
+    renderWebhookState(notificationsState.webhook || {});
     setPanelMessage(discordMessageEl, "");
+    setPanelMessage(slackMessageEl, "");
+    setPanelMessage(webhookMessageEl, "");
   } catch (error) {
     notificationsState = null;
     renderDiscordState({});
+    renderSlackState({});
+    renderWebhookState({});
     setPanelMessage(discordMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
+    setPanelMessage(slackMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
+    setPanelMessage(webhookMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
   }
 }
 
@@ -478,6 +606,236 @@ async function deleteDiscordWebhook() {
   }
 }
 
+async function saveSlackSettings(event) {
+  event.preventDefault();
+  const webhookUrl = String(slackWebhookUrlEl?.value || "").trim();
+  const configured = !!notificationsState?.slack?.configured;
+  const enabled = !!slackEnabledEl?.checked;
+
+  if (!configured && !webhookUrl) {
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.webhook_required", null, "Please enter a valid Slack webhook URL."), "error");
+    return;
+  }
+
+  setPanelMessage(slackMessageEl, t("notifications.slack.msg.saving", null, "Saving settings..."));
+  try {
+    const body = {};
+    if (configured) {
+      body.enabled = enabled;
+    } else if (webhookUrl) {
+      body.enabled = true;
+    }
+    if (webhookUrl) body.webhookUrl = webhookUrl;
+
+    const { response, payload } = await fetchJson("/api/account/notifications/slack", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.data) {
+      if (payload?.error === "invalid webhook url") {
+        setPanelMessage(slackMessageEl, t("notifications.slack.msg.invalid_webhook", null, "Invalid Slack webhook URL."), "error");
+      } else if (payload?.error === "webhook required") {
+        setPanelMessage(slackMessageEl, t("notifications.slack.msg.webhook_required_first", null, "Please add a webhook first."), "error");
+      } else {
+        setPanelMessage(slackMessageEl, t("notifications.slack.msg.save_failed", null, "Settings could not be saved."), "error");
+      }
+      return;
+    }
+
+    notificationsState = payload.data;
+    renderSlackState(notificationsState.slack || {});
+    if (slackWebhookUrlEl) slackWebhookUrlEl.value = "";
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.saved", null, "Slack notifications saved."), "success");
+  } catch (error) {
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.save_failed", null, "Settings could not be saved."), "error");
+  }
+}
+
+async function testSlackWebhook() {
+  setPanelMessage(slackMessageEl, t("notifications.slack.msg.testing", null, "Sending test message..."));
+  try {
+    const { response, payload } = await fetchJson("/api/account/notifications/slack/test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(slackMessageEl, t("notifications.slack.msg.test_failed", null, "Test could not be sent."), "error");
+      return;
+    }
+
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.test_sent", null, "Test message sent."), "success");
+  } catch (error) {
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.test_failed", null, "Test could not be sent."), "error");
+  }
+}
+
+async function deleteSlackWebhook() {
+  const confirmed = window.confirm(t("notifications.slack.confirm_remove", null, "Remove Slack webhook?"));
+  if (!confirmed) return;
+
+  setPanelMessage(slackMessageEl, t("notifications.slack.msg.removing", null, "Removing webhook..."));
+  try {
+    const { response, payload } = await fetchJson("/api/account/notifications/slack", {
+      method: "DELETE",
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.data) {
+      setPanelMessage(slackMessageEl, t("notifications.slack.msg.remove_failed", null, "Webhook could not be removed."), "error");
+      return;
+    }
+
+    notificationsState = payload.data;
+    renderSlackState(notificationsState.slack || {});
+    if (slackWebhookUrlEl) slackWebhookUrlEl.value = "";
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.removed", null, "Webhook removed."), "success");
+  } catch (error) {
+    setPanelMessage(slackMessageEl, t("notifications.slack.msg.remove_failed", null, "Webhook could not be removed."), "error");
+  }
+}
+
+async function saveWebhookSettings(event) {
+  event.preventDefault();
+  const url = String(webhookUrlEl?.value || "").trim();
+  const secret = String(webhookSecretEl?.value || "").trim();
+  const configured = !!notificationsState?.webhook?.configured;
+  const enabled = !!webhookEnabledEl?.checked;
+
+  if (!configured && !url) {
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.url_required", null, "Please enter a valid webhook URL."), "error");
+    return;
+  }
+
+  setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.saving", null, "Saving settings..."));
+  try {
+    const body = {};
+    if (configured) {
+      body.enabled = enabled;
+    } else if (url) {
+      body.enabled = true;
+    }
+    if (url) body.url = url;
+    if (secret) body.secret = secret;
+
+    const { response, payload } = await fetchJson("/api/account/notifications/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.data) {
+      if (payload?.error === "invalid webhook url") {
+        setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.invalid_url", null, "Invalid webhook URL."), "error");
+      } else if (payload?.error === "webhook required") {
+        setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.url_required_first", null, "Please add a webhook URL first."), "error");
+      } else if (payload?.error === "webhook target forbidden") {
+        setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.target_forbidden", null, "This webhook URL is not allowed."), "error");
+      } else {
+        setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.save_failed", null, "Settings could not be saved."), "error");
+      }
+      return;
+    }
+
+    notificationsState = payload.data;
+    renderWebhookState(notificationsState.webhook || {});
+    if (webhookUrlEl) webhookUrlEl.value = "";
+    if (webhookSecretEl) webhookSecretEl.value = "";
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.saved", null, "Webhook notifications saved."), "success");
+  } catch (error) {
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.save_failed", null, "Settings could not be saved."), "error");
+  }
+}
+
+async function testWebhook() {
+  setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.testing", null, "Sending test message..."));
+  try {
+    const { response, payload } = await fetchJson("/api/account/notifications/webhook/test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      if (payload?.error === "webhook target forbidden") {
+        setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.target_forbidden", null, "This webhook URL is not allowed."), "error");
+      } else {
+        setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.test_failed", null, "Test could not be sent."), "error");
+      }
+      return;
+    }
+
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.test_sent", null, "Test message sent."), "success");
+  } catch (error) {
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.test_failed", null, "Test could not be sent."), "error");
+  }
+}
+
+async function deleteWebhook() {
+  const confirmed = window.confirm(t("notifications.webhook.confirm_remove", null, "Remove webhook?"));
+  if (!confirmed) return;
+
+  setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.removing", null, "Removing webhook..."));
+  try {
+    const { response, payload } = await fetchJson("/api/account/notifications/webhook", {
+      method: "DELETE",
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.data) {
+      setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.remove_failed", null, "Webhook could not be removed."), "error");
+      return;
+    }
+
+    notificationsState = payload.data;
+    renderWebhookState(notificationsState.webhook || {});
+    if (webhookUrlEl) webhookUrlEl.value = "";
+    if (webhookSecretEl) webhookSecretEl.value = "";
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.removed", null, "Webhook removed."), "success");
+  } catch (error) {
+    setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.remove_failed", null, "Webhook could not be removed."), "error");
+  }
+}
+
 async function logout() {
   try {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -505,6 +863,40 @@ function bindEvents() {
   if (deleteDiscordButton) {
     deleteDiscordButton.addEventListener("click", () => {
       deleteDiscordWebhook().catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (slackForm) {
+    slackForm.addEventListener("submit", saveSlackSettings);
+  }
+  if (testSlackButton) {
+    testSlackButton.addEventListener("click", () => {
+      testSlackWebhook().catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (deleteSlackButton) {
+    deleteSlackButton.addEventListener("click", () => {
+      deleteSlackWebhook().catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (webhookForm) {
+    webhookForm.addEventListener("submit", saveWebhookSettings);
+  }
+  if (testWebhookButton) {
+    testWebhookButton.addEventListener("click", () => {
+      testWebhook().catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (deleteWebhookButton) {
+    deleteWebhookButton.addEventListener("click", () => {
+      deleteWebhook().catch(() => {
         // ignore
       });
     });

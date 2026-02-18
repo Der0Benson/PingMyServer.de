@@ -2224,6 +2224,128 @@ function maskDiscordWebhookUrl(input) {
   }
 }
 
+const SLACK_WEBHOOK_ALLOWED_HOSTS = new Set(["hooks.slack.com"]);
+
+function normalizeSlackWebhookUrl(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (error) {
+    return null;
+  }
+
+  if (parsed.protocol !== "https:") return null;
+  const hostname = String(parsed.hostname || "").trim().toLowerCase();
+  if (!SLACK_WEBHOOK_ALLOWED_HOSTS.has(hostname)) return null;
+  if (parsed.username || parsed.password) return null;
+  if (parsed.search || parsed.hash) return null;
+
+  const pathname = String(parsed.pathname || "").replace(/\/+$/, "");
+  const match = pathname.match(/^\/services\/([A-Za-z0-9]+)\/([A-Za-z0-9]+)\/([A-Za-z0-9]+)$/);
+  if (!match) return null;
+
+  return `https://${hostname}/services/${match[1]}/${match[2]}/${match[3]}`;
+}
+
+function maskSlackWebhookUrl(input) {
+  const normalized = normalizeSlackWebhookUrl(input);
+  if (!normalized) return null;
+
+  try {
+    const parsed = new URL(normalized);
+    const pathParts = parsed.pathname.split("/");
+    const token = String(pathParts[4] || "").trim();
+    const maskedToken = token.length <= 8 ? "***" : `${token.slice(0, 4)}...${token.slice(-4)}`;
+    return `https://${parsed.hostname}/services/${pathParts[2]}/${pathParts[3]}/${maskedToken}`;
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizeGenericWebhookUrl(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (error) {
+    return null;
+  }
+
+  if (parsed.protocol !== "https:") return null;
+  if (!parsed.hostname) return null;
+  if (parsed.username || parsed.password) return null;
+
+  parsed.hash = "";
+  const normalized = parsed.toString();
+  if (normalized.length > 2048) {
+    return null;
+  }
+  return normalized;
+}
+
+function maskGenericWebhookUrl(input) {
+  const normalized = normalizeGenericWebhookUrl(input);
+  if (!normalized) return null;
+
+  try {
+    const parsed = new URL(normalized);
+    const base = `${parsed.origin}${parsed.pathname}`;
+    return parsed.search ? `${base}?***` : base;
+  } catch (error) {
+    return null;
+  }
+}
+
+const WEBHOOK_SECRET_MAX_LENGTH = 255;
+
+function normalizeWebhookSecret(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+  return raw.slice(0, WEBHOOK_SECRET_MAX_LENGTH);
+}
+
+async function validateOutboundWebhookTarget(targetUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(targetUrl || ""));
+  } catch (error) {
+    return { allowed: false, reason: "invalid_url", addresses: [] };
+  }
+
+  if (parsed.protocol !== "https:") {
+    return { allowed: false, reason: "invalid_protocol", addresses: [] };
+  }
+
+  const hostname = String(parsed.hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.+$/, "");
+  if (!hostname || isLocalHostname(hostname)) {
+    return { allowed: false, reason: "local_target_forbidden", addresses: [] };
+  }
+
+  const addresses = await resolveMonitorTargetAddresses(hostname);
+  if (!addresses.length) {
+    return { allowed: false, reason: "dns_unresolved", addresses: [] };
+  }
+
+  const publicAddresses = addresses.filter((address) => isPublicIpAddress(address));
+  const privateAddresses = addresses.filter((address) => !isPublicIpAddress(address));
+  if (privateAddresses.length) {
+    if (!publicAddresses.length) {
+      return { allowed: false, reason: "private_target_forbidden", addresses };
+    }
+    return { allowed: false, reason: "mixed_target_forbidden", addresses };
+  }
+
+  return { allowed: true, reason: "ok", addresses };
+}
+
 function getDefaultMonitorName(urlValue) {
   try {
     return new URL(urlValue).hostname;
@@ -3006,8 +3128,31 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("users", "notify_discord_enabled"))) {
     await pool.query("ALTER TABLE users ADD COLUMN notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_discord_webhook_url");
   }
+  if (!(await hasColumn("users", "notify_slack_webhook_url"))) {
+    await pool.query(
+      "ALTER TABLE users ADD COLUMN notify_slack_webhook_url VARCHAR(2048) NULL AFTER notify_discord_enabled"
+    );
+  }
+  if (!(await hasColumn("users", "notify_slack_enabled"))) {
+    await pool.query(
+      "ALTER TABLE users ADD COLUMN notify_slack_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_slack_webhook_url"
+    );
+  }
+  if (!(await hasColumn("users", "notify_webhook_url"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN notify_webhook_url VARCHAR(2048) NULL AFTER notify_slack_enabled");
+  }
+  if (!(await hasColumn("users", "notify_webhook_enabled"))) {
+    await pool.query(
+      "ALTER TABLE users ADD COLUMN notify_webhook_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_webhook_url"
+    );
+  }
+  if (!(await hasColumn("users", "notify_webhook_secret"))) {
+    await pool.query(
+      "ALTER TABLE users ADD COLUMN notify_webhook_secret VARCHAR(255) NULL AFTER notify_webhook_enabled"
+    );
+  }
   if (!(await hasColumn("users", "stripe_customer_id"))) {
-    await pool.query("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL AFTER notify_discord_enabled");
+    await pool.query("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL AFTER notify_webhook_secret");
   }
   if (!(await hasColumn("users", "stripe_subscription_id"))) {
     await pool.query("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255) NULL AFTER stripe_customer_id");
@@ -3023,6 +3168,12 @@ async function ensureSchemaCompatibility() {
   }
   await pool.query(
     "UPDATE users SET notify_discord_enabled = 0 WHERE notify_discord_enabled IS NULL OR notify_discord_enabled NOT IN (0, 1)"
+  );
+  await pool.query(
+    "UPDATE users SET notify_slack_enabled = 0 WHERE notify_slack_enabled IS NULL OR notify_slack_enabled NOT IN (0, 1)"
+  );
+  await pool.query(
+    "UPDATE users SET notify_webhook_enabled = 0 WHERE notify_webhook_enabled IS NULL OR notify_webhook_enabled NOT IN (0, 1)"
   );
   if (!(await hasUniqueIndexOnColumn("users", "discord_id"))) {
     await pool.query("CREATE UNIQUE INDEX uniq_users_discord_id ON users(discord_id)");
@@ -3321,6 +3472,11 @@ async function initDb() {
       discord_email VARCHAR(255) NULL,
       notify_discord_webhook_url VARCHAR(2048) NULL,
       notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      notify_slack_webhook_url VARCHAR(2048) NULL,
+      notify_slack_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      notify_webhook_url VARCHAR(2048) NULL,
+      notify_webhook_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      notify_webhook_secret VARCHAR(255) NULL,
       stripe_customer_id VARCHAR(255) NULL UNIQUE,
       stripe_subscription_id VARCHAR(255) NULL UNIQUE,
       stripe_price_id VARCHAR(255) NULL,
@@ -3517,7 +3673,12 @@ async function getUserNotificationSettingsById(userId) {
         id,
         email,
         notify_discord_enabled,
-        notify_discord_webhook_url
+        notify_discord_webhook_url,
+        notify_slack_enabled,
+        notify_slack_webhook_url,
+        notify_webhook_enabled,
+        notify_webhook_url,
+        notify_webhook_secret
       FROM users
       WHERE id = ?
       LIMIT 1
@@ -5089,12 +5250,34 @@ function toAccountNotificationsPayload(account) {
   const configured = !!normalizedWebhook;
   const enabled = configured && Number(account?.notify_discord_enabled || 0) === 1;
 
+  const normalizedSlack = normalizeSlackWebhookUrl(account?.notify_slack_webhook_url);
+  const slackConfigured = !!normalizedSlack;
+  const slackEnabled = slackConfigured && Number(account?.notify_slack_enabled || 0) === 1;
+
+  const normalizedGeneric = normalizeGenericWebhookUrl(account?.notify_webhook_url);
+  const genericConfigured = !!normalizedGeneric;
+  const genericEnabled = genericConfigured && Number(account?.notify_webhook_enabled || 0) === 1;
+  const genericSecretConfigured = !!normalizeWebhookSecret(account?.notify_webhook_secret);
+
   return {
     discord: {
       available: true,
       configured,
       enabled,
       webhookMasked: configured ? maskDiscordWebhookUrl(normalizedWebhook) : null,
+    },
+    slack: {
+      available: true,
+      configured: slackConfigured,
+      enabled: slackEnabled,
+      webhookMasked: slackConfigured ? maskSlackWebhookUrl(normalizedSlack) : null,
+    },
+    webhook: {
+      available: true,
+      configured: genericConfigured,
+      enabled: genericEnabled,
+      urlMasked: genericConfigured ? maskGenericWebhookUrl(normalizedGeneric) : null,
+      secretConfigured: genericSecretConfigured,
     },
   };
 }
@@ -5899,6 +6082,130 @@ async function postDiscordWebhook(webhookUrl, payload) {
   }
 }
 
+async function postSlackWebhook(webhookUrl, payload) {
+  const normalizedWebhook = normalizeSlackWebhookUrl(webhookUrl);
+  if (!normalizedWebhook) {
+    return { ok: false, statusCode: 0, error: "invalid webhook url" };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DISCORD_WEBHOOK_TIMEOUT_MS);
+  try {
+    const response = await fetch(normalizedWebhook, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "PingMyServer",
+      },
+      body: JSON.stringify(payload || {}),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errorText = "";
+      try {
+        errorText = await response.text();
+      } catch (error) {
+        errorText = "";
+      }
+      return {
+        ok: false,
+        statusCode: Number(response.status || 0),
+        error: String(errorText || `http_${response.status || "error"}`).slice(0, 300),
+      };
+    }
+
+    return { ok: true, statusCode: Number(response.status || 200), error: null };
+  } catch (error) {
+    const isTimeout = error?.name === "AbortError";
+    return {
+      ok: false,
+      statusCode: 0,
+      error: isTimeout ? "timeout" : String(error?.message || "request failed").slice(0, 300),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function createWebhookHmacSignature(secret, timestamp, rawBody) {
+  const normalizedSecret = normalizeWebhookSecret(secret);
+  if (!normalizedSecret) return null;
+  const normalizedTimestamp = String(timestamp || "").trim();
+  if (!normalizedTimestamp) return null;
+  const payload = `${normalizedTimestamp}.${rawBody || ""}`;
+  try {
+    return crypto.createHmac("sha256", normalizedSecret).update(payload).digest("hex");
+  } catch (error) {
+    return null;
+  }
+}
+
+async function postGenericWebhook(webhookUrl, payload, options = {}) {
+  const normalizedWebhook = normalizeGenericWebhookUrl(webhookUrl);
+  if (!normalizedWebhook) {
+    return { ok: false, statusCode: 0, error: "invalid webhook url" };
+  }
+
+  const validation = await validateOutboundWebhookTarget(normalizedWebhook);
+  if (!validation.allowed) {
+    return { ok: false, statusCode: 0, error: "target forbidden", code: validation.reason };
+  }
+
+  const eventName = String(options.event || "test").trim().slice(0, 64) || "test";
+  const secret = normalizeWebhookSecret(options.secret);
+  const rawBody = JSON.stringify(payload || {});
+  const timestamp = Math.floor(Date.now() / 1000);
+  const headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "PingMyServer",
+    "X-PMS-Event": eventName,
+    "X-PMS-Timestamp": String(timestamp),
+  };
+  if (secret) {
+    const signature = createWebhookHmacSignature(secret, timestamp, rawBody);
+    if (signature) {
+      headers["X-PMS-Signature"] = `sha256=${signature}`;
+    }
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DISCORD_WEBHOOK_TIMEOUT_MS);
+  try {
+    const response = await fetch(normalizedWebhook, {
+      method: "POST",
+      headers,
+      body: rawBody,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errorText = "";
+      try {
+        errorText = await response.text();
+      } catch (error) {
+        errorText = "";
+      }
+      return {
+        ok: false,
+        statusCode: Number(response.status || 0),
+        error: String(errorText || `http_${response.status || "error"}`).slice(0, 300),
+      };
+    }
+
+    return { ok: true, statusCode: Number(response.status || 200), error: null };
+  } catch (error) {
+    const isTimeout = error?.name === "AbortError";
+    return {
+      ok: false,
+      statusCode: 0,
+      error: isTimeout ? "timeout" : String(error?.message || "request failed").slice(0, 300),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function sendDiscordStatusNotificationForMonitorChange({
   userId,
   monitor,
@@ -5957,6 +6264,131 @@ async function sendDiscordStatusNotificationForMonitorChange({
   const deliveryResult = await postDiscordWebhook(webhookUrl, payload);
   if (!deliveryResult.ok) {
     console.error("discord_monitor_notification_failed", numericUserId, deliveryResult.statusCode, deliveryResult.error);
+  }
+}
+
+async function sendSlackStatusNotificationForMonitorChange({
+  userId,
+  monitor,
+  previousStatus,
+  nextStatus,
+  elapsedMs,
+  statusCode,
+  errorMessage,
+}) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return;
+  if (!monitor) return;
+
+  const account = await getUserNotificationSettingsById(numericUserId);
+  if (!account) return;
+
+  const enabled = Number(account.notify_slack_enabled || 0) === 1;
+  if (!enabled) return;
+
+  const webhookUrl = normalizeSlackWebhookUrl(account.notify_slack_webhook_url);
+  if (!webhookUrl) return;
+
+  const targetUrl = getMonitorUrl(monitor);
+  const targetForMessage = String(targetUrl || "-").slice(0, 500);
+  const monitorName = String(monitor.name || getDefaultMonitorName(targetUrl)).slice(0, 255);
+  const previous = String(previousStatus || "unknown");
+  const next = String(nextStatus || "unknown");
+  const isOffline = next === "offline";
+  const statusLabel = isOffline ? "OFFLINE" : "ONLINE";
+  const checkedAtIso = new Date().toISOString();
+  const sanitizedError = String(errorMessage || "").slice(0, 220);
+
+  const payload = {
+    text: `Monitor ${statusLabel}: ${monitorName}`,
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: `Monitor ${statusLabel}`, emoji: false },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Monitor:*\n${monitorName || "-"}` },
+          { type: "mrkdwn", text: `*Status:*\n${previous} -> ${next}` },
+          { type: "mrkdwn", text: `*Response:*\n${Math.max(0, Number(elapsedMs || 0))} ms` },
+          {
+            type: "mrkdwn",
+            text: `*HTTP Status:*\n${Number.isFinite(Number(statusCode)) ? String(statusCode) : "-"}`,
+          },
+          { type: "mrkdwn", text: `*URL:*\n${targetForMessage}` },
+          { type: "mrkdwn", text: `*Error:*\n${sanitizedError || "-"}` },
+        ],
+      },
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: `PingMyServer notification · ${checkedAtIso}` }],
+      },
+    ],
+  };
+
+  const deliveryResult = await postSlackWebhook(webhookUrl, payload);
+  if (!deliveryResult.ok) {
+    console.error("slack_monitor_notification_failed", numericUserId, deliveryResult.statusCode, deliveryResult.error);
+  }
+}
+
+async function sendWebhookStatusNotificationForMonitorChange({
+  userId,
+  monitor,
+  previousStatus,
+  nextStatus,
+  elapsedMs,
+  statusCode,
+  errorMessage,
+}) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return;
+  if (!monitor) return;
+
+  const account = await getUserNotificationSettingsById(numericUserId);
+  if (!account) return;
+
+  const enabled = Number(account.notify_webhook_enabled || 0) === 1;
+  if (!enabled) return;
+
+  const webhookUrl = normalizeGenericWebhookUrl(account.notify_webhook_url);
+  if (!webhookUrl) return;
+
+  const secret = normalizeWebhookSecret(account.notify_webhook_secret);
+  const targetUrl = getMonitorUrl(monitor);
+  const monitorName = String(monitor.name || getDefaultMonitorName(targetUrl)).slice(0, 255);
+
+  const payload = {
+    version: 1,
+    event: "monitor.status_changed",
+    sent_at: new Date().toISOString(),
+    data: {
+      monitor: {
+        id: String(monitor.public_id || monitor.id || ""),
+        name: monitorName || "",
+        url: String(targetUrl || ""),
+      },
+      previous_status: String(previousStatus || "unknown"),
+      next_status: String(nextStatus || "unknown"),
+      response_ms: Math.max(0, Number(elapsedMs || 0)),
+      status_code: Number.isFinite(Number(statusCode)) ? Number(statusCode) : null,
+      error_message: String(errorMessage || "") || null,
+    },
+  };
+
+  const deliveryResult = await postGenericWebhook(webhookUrl, payload, {
+    event: "monitor.status_changed",
+    secret,
+  });
+  if (!deliveryResult.ok) {
+    console.error(
+      "generic_webhook_monitor_notification_failed",
+      numericUserId,
+      deliveryResult.statusCode,
+      deliveryResult.code || "",
+      deliveryResult.error
+    );
   }
 }
 
@@ -6104,6 +6536,282 @@ async function handleAccountDiscordNotificationTest(req, res) {
     sendJson(res, 200, { ok: true });
   } catch (error) {
     console.error("account_discord_notification_test_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountSlackNotificationUpsert(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasEnabledField = Object.prototype.hasOwnProperty.call(body || {}, "enabled");
+  const enabledInput = body?.enabled;
+  if (hasEnabledField && typeof enabledInput !== "boolean") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasWebhookField = Object.prototype.hasOwnProperty.call(body || {}, "webhookUrl");
+  const webhookInput = hasWebhookField && typeof body?.webhookUrl === "string" ? body.webhookUrl.trim() : "";
+  if (hasWebhookField && typeof body?.webhookUrl !== "string") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const account = await getUserNotificationSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const currentWebhook = normalizeSlackWebhookUrl(account.notify_slack_webhook_url);
+    let nextWebhook = currentWebhook;
+    if (hasWebhookField) {
+      const normalized = normalizeSlackWebhookUrl(webhookInput);
+      if (!normalized) {
+        sendJson(res, 400, { ok: false, error: "invalid webhook url" });
+        return;
+      }
+      nextWebhook = normalized;
+    }
+
+    if (!nextWebhook) {
+      sendJson(res, 400, { ok: false, error: "webhook required" });
+      return;
+    }
+
+    const nextEnabled = hasEnabledField ? enabledInput === true : true;
+    await pool.query(
+      "UPDATE users SET notify_slack_webhook_url = ?, notify_slack_enabled = ? WHERE id = ? LIMIT 1",
+      [nextWebhook, nextEnabled ? 1 : 0, user.id]
+    );
+
+    const updated = await getUserNotificationSettingsById(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
+  } catch (error) {
+    console.error("account_slack_notification_upsert_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountSlackNotificationDelete(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    await pool.query("UPDATE users SET notify_slack_webhook_url = NULL, notify_slack_enabled = 0 WHERE id = ? LIMIT 1", [
+      user.id,
+    ]);
+    const updated = await getUserNotificationSettingsById(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
+  } catch (error) {
+    console.error("account_slack_notification_delete_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountSlackNotificationTest(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const account = await getUserNotificationSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const webhookUrl = normalizeSlackWebhookUrl(account.notify_slack_webhook_url);
+    if (!webhookUrl) {
+      sendJson(res, 400, { ok: false, error: "webhook required" });
+      return;
+    }
+
+    const payload = {
+      text: "PingMyServer Slack Webhook Test",
+      blocks: [
+        { type: "header", text: { type: "plain_text", text: "Slack Webhook Test", emoji: false } },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: "Notifications are enabled and ready to send monitor status changes." },
+        },
+      ],
+    };
+
+    const deliveryResult = await postSlackWebhook(webhookUrl, payload);
+    if (!deliveryResult.ok) {
+      sendJson(res, 502, { ok: false, error: "delivery failed" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("account_slack_notification_test_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountWebhookNotificationUpsert(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasEnabledField = Object.prototype.hasOwnProperty.call(body || {}, "enabled");
+  const enabledInput = body?.enabled;
+  if (hasEnabledField && typeof enabledInput !== "boolean") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasUrlField = Object.prototype.hasOwnProperty.call(body || {}, "url");
+  const urlInput = hasUrlField && typeof body?.url === "string" ? body.url.trim() : "";
+  if (hasUrlField && typeof body?.url !== "string") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasSecretField = Object.prototype.hasOwnProperty.call(body || {}, "secret");
+  const secretInput = hasSecretField && typeof body?.secret === "string" ? body.secret : "";
+  if (hasSecretField && typeof body?.secret !== "string") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const account = await getUserNotificationSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const currentUrl = normalizeGenericWebhookUrl(account.notify_webhook_url);
+    let nextUrl = currentUrl;
+    if (hasUrlField) {
+      const normalized = normalizeGenericWebhookUrl(urlInput);
+      if (!normalized) {
+        sendJson(res, 400, { ok: false, error: "invalid webhook url" });
+        return;
+      }
+
+      const validation = await validateOutboundWebhookTarget(normalized);
+      if (!validation.allowed) {
+        sendJson(res, 400, { ok: false, error: "webhook target forbidden", code: validation.reason });
+        return;
+      }
+      nextUrl = normalized;
+    }
+
+    if (!nextUrl) {
+      sendJson(res, 400, { ok: false, error: "webhook required" });
+      return;
+    }
+
+    const currentSecret = normalizeWebhookSecret(account.notify_webhook_secret);
+    let nextSecret = currentSecret;
+    if (hasSecretField) {
+      nextSecret = normalizeWebhookSecret(secretInput);
+    }
+
+    const nextEnabled = hasEnabledField ? enabledInput === true : true;
+    await pool.query(
+      "UPDATE users SET notify_webhook_url = ?, notify_webhook_secret = ?, notify_webhook_enabled = ? WHERE id = ? LIMIT 1",
+      [nextUrl, nextSecret, nextEnabled ? 1 : 0, user.id]
+    );
+
+    const updated = await getUserNotificationSettingsById(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
+  } catch (error) {
+    console.error("account_webhook_notification_upsert_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountWebhookNotificationDelete(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    await pool.query(
+      "UPDATE users SET notify_webhook_url = NULL, notify_webhook_secret = NULL, notify_webhook_enabled = 0 WHERE id = ? LIMIT 1",
+      [user.id]
+    );
+    const updated = await getUserNotificationSettingsById(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
+  } catch (error) {
+    console.error("account_webhook_notification_delete_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountWebhookNotificationTest(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const account = await getUserNotificationSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const webhookUrl = normalizeGenericWebhookUrl(account.notify_webhook_url);
+    if (!webhookUrl) {
+      sendJson(res, 400, { ok: false, error: "webhook required" });
+      return;
+    }
+
+    const secret = normalizeWebhookSecret(account.notify_webhook_secret);
+    const payload = {
+      version: 1,
+      event: "test",
+      sent_at: new Date().toISOString(),
+      data: {
+        account: { id: String(account.id || user.id || ""), email: String(account.email || user.email || "") },
+        message: "PingMyServer webhook delivery test.",
+      },
+    };
+
+    const deliveryResult = await postGenericWebhook(webhookUrl, payload, { event: "test", secret });
+    if (!deliveryResult.ok) {
+      if (deliveryResult.error === "target forbidden") {
+        sendJson(res, 400, { ok: false, error: "webhook target forbidden", code: deliveryResult.code || "" });
+        return;
+      }
+      sendJson(res, 502, { ok: false, error: "delivery failed" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("account_webhook_notification_test_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8142,17 +8850,35 @@ async function checkSingleMonitor(monitor) {
     );
 
     if (statusChanged) {
-      sendDiscordStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus,
-        elapsedMs: elapsed,
-        statusCode,
-        errorMessage,
-      }).catch((notificationError) => {
-        console.error("discord_status_notification_failed", monitorId, notificationError?.message || notificationError);
-      });
+      Promise.allSettled([
+        sendDiscordStatusNotificationForMonitorChange({
+          userId: monitor.user_id,
+          monitor,
+          previousStatus,
+          nextStatus,
+          elapsedMs: elapsed,
+          statusCode,
+          errorMessage,
+        }),
+        sendSlackStatusNotificationForMonitorChange({
+          userId: monitor.user_id,
+          monitor,
+          previousStatus,
+          nextStatus,
+          elapsedMs: elapsed,
+          statusCode,
+          errorMessage,
+        }),
+        sendWebhookStatusNotificationForMonitorChange({
+          userId: monitor.user_id,
+          monitor,
+          previousStatus,
+          nextStatus,
+          elapsedMs: elapsed,
+          statusCode,
+          errorMessage,
+        }),
+      ]).catch(() => {});
     }
   } finally {
     runtimeTelemetry.checks.inFlight = Math.max(0, runtimeTelemetry.checks.inFlight - 1);
@@ -9025,6 +9751,16 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "POST" && pathname === "/api/account/notifications/slack") {
+    await handleAccountSlackNotificationUpsert(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/notifications/webhook") {
+    await handleAccountWebhookNotificationUpsert(req, res);
+    return;
+  }
+
   if (method === "POST" && pathname === "/api/account/billing/checkout") {
     await handleAccountBillingCheckout(req, res);
     return;
@@ -9040,8 +9776,28 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "DELETE" && pathname === "/api/account/notifications/slack") {
+    await handleAccountSlackNotificationDelete(req, res);
+    return;
+  }
+
+  if (method === "DELETE" && pathname === "/api/account/notifications/webhook") {
+    await handleAccountWebhookNotificationDelete(req, res);
+    return;
+  }
+
   if (method === "POST" && pathname === "/api/account/notifications/discord/test") {
     await handleAccountDiscordNotificationTest(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/notifications/slack/test") {
+    await handleAccountSlackNotificationTest(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/notifications/webhook/test") {
+    await handleAccountWebhookNotificationTest(req, res);
     return;
   }
 
@@ -9335,6 +10091,13 @@ async function handleRequest(req, res) {
     const user = await requireAuth(req, res, { redirectToLogin: true });
     if (!user) return;
     await serveStaticFile(res, "app.html");
+    return;
+  }
+
+  if (method === "GET" && (pathname === "/monitors" || pathname === "/monitors/")) {
+    const user = await requireAuth(req, res, { redirectToLogin: true });
+    if (!user) return;
+    await serveStaticFile(res, "monitors.html");
     return;
   }
 

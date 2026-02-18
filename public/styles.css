@@ -706,7 +706,7 @@ body.auth-locked {
 }
 
 .heatmap-scroll {
-  overflow: hidden;
+  overflow: visible;
   scrollbar-width: none;
 }
 

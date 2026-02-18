@@ -40,6 +40,7 @@
         </a>
         <nav class="side-nav">
           <a href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a href="/monitors" data-i18n="common.monitors">Monitore</a>
           <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
           <a class="active" href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
           <a href="/connections" data-i18n="common.connections">Connections</a>
@@ -92,7 +93,7 @@
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
                 <div class="title" data-i18n="notifications.title">Benachrichtigungen</div>
-                <div class="subtitle" data-i18n="notifications.sub">Discord Webhook für Statuswechsel deiner Monitore</div>
+                <div class="subtitle" data-i18n="notifications.sub">Benachrichtigungskanäle für Statuswechsel deiner Monitore</div>
               </div>
             </div>
           </header>
@@ -130,6 +131,69 @@
               </form>
 
               <p class="panel-message" id="discord-message"></p>
+            </section>
+
+            <section class="card wide">
+              <div class="card-title" data-i18n="notifications.slack.title">Slack Incoming Webhook</div>
+              <p class="muted card-copy" data-i18n="notifications.slack.copy">
+                Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Slack Incoming Webhook.
+              </p>
+              <div class="status-row">
+                <span class="status-badge" id="slack-state-badge" data-i18n="notifications.slack.state_disconnected">Nicht verbunden</span>
+                <span class="muted" id="slack-webhook-mask" data-i18n="notifications.slack.no_webhook">Kein Webhook hinterlegt.</span>
+              </div>
+
+              <form id="slack-form" class="notification-form" novalidate>
+                <label for="slack-webhook-url">
+                  <span data-i18n="notifications.slack.label_url">Webhook URL</span>
+                  <input id="slack-webhook-url" type="url" autocomplete="off" placeholder="https://hooks.slack.com/services/..." />
+                </label>
+                <label class="check-row" for="slack-enabled">
+                  <input id="slack-enabled" type="checkbox" />
+                  <span data-i18n="notifications.slack.enable">Benachrichtigungen aktivieren</span>
+                </label>
+                <div class="form-actions">
+                  <button class="btn primary" id="save-slack-btn" type="submit" data-i18n="common.save">Speichern</button>
+                  <button class="btn ghost" id="test-slack-btn" type="button" data-i18n="notifications.slack.test">Test senden</button>
+                  <button class="btn ghost danger-btn" id="delete-slack-btn" type="button" data-i18n="notifications.slack.remove">Webhook entfernen</button>
+                </div>
+              </form>
+
+              <p class="panel-message" id="slack-message"></p>
+            </section>
+
+            <section class="card wide">
+              <div class="card-title" data-i18n="notifications.webhook.title">HTTPS Webhook</div>
+              <p class="muted card-copy" data-i18n="notifications.webhook.copy">
+                Bei Statuswechseln (online/offline) senden wir eine JSON-Nachricht an deine HTTPS Webhook-URL. Optional signieren wir Requests mit einem Secret.
+              </p>
+              <div class="status-row">
+                <span class="status-badge" id="webhook-state-badge" data-i18n="notifications.webhook.state_disconnected">Nicht verbunden</span>
+                <span class="muted" id="webhook-url-mask" data-i18n="notifications.webhook.no_url">Keine URL hinterlegt.</span>
+                <span class="muted" id="webhook-secret-state" data-i18n="notifications.webhook.secret_missing">Kein Secret gesetzt.</span>
+              </div>
+
+              <form id="webhook-form" class="notification-form" novalidate>
+                <label for="webhook-url">
+                  <span data-i18n="notifications.webhook.label_url">Webhook URL (https)</span>
+                  <input id="webhook-url" type="url" autocomplete="off" placeholder="https://example.com/pingmyserver-webhook" />
+                </label>
+                <label for="webhook-secret">
+                  <span data-i18n="notifications.webhook.label_secret">Secret (optional)</span>
+                  <input id="webhook-secret" type="password" autocomplete="off" placeholder="optional" />
+                </label>
+                <label class="check-row" for="webhook-enabled">
+                  <input id="webhook-enabled" type="checkbox" />
+                  <span data-i18n="notifications.webhook.enable">Benachrichtigungen aktivieren</span>
+                </label>
+                <div class="form-actions">
+                  <button class="btn primary" id="save-webhook-btn" type="submit" data-i18n="common.save">Speichern</button>
+                  <button class="btn ghost" id="test-webhook-btn" type="button" data-i18n="notifications.webhook.test">Test senden</button>
+                  <button class="btn ghost danger-btn" id="delete-webhook-btn" type="button" data-i18n="notifications.webhook.remove">Webhook entfernen</button>
+                </div>
+              </form>
+
+              <p class="panel-message" id="webhook-message"></p>
             </section>
 
             <section class="card wide" id="billing-card">

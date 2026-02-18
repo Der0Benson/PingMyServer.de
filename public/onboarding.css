@@ -102,10 +102,52 @@ input {
   font: inherit;
 }
 
+textarea {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(5, 11, 20, 0.75);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+  min-height: 116px;
+}
+
 input:focus {
   outline: none;
   border-color: rgba(102, 199, 255, 0.75);
   box-shadow: 0 0 0 3px rgba(102, 199, 255, 0.16);
+}
+
+textarea:focus {
+  outline: none;
+  border-color: rgba(102, 199, 255, 0.75);
+  box-shadow: 0 0 0 3px rgba(102, 199, 255, 0.16);
+}
+
+details.endpoint-batch {
+  margin-top: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px;
+}
+
+details.endpoint-batch summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.92rem;
+  list-style: none;
+}
+
+details.endpoint-batch summary::-webkit-details-marker {
+  display: none;
+}
+
+.endpoint-hint {
+  margin: 8px 0 10px;
+  font-size: 0.88rem;
 }
 
 button {

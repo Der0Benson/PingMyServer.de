@@ -87,6 +87,28 @@
             maxlength="255"
           />
 
+          <details class="endpoint-batch">
+            <summary data-i18n="onboarding.endpoints.summary">API Endpunkte (optional)</summary>
+            <p class="endpoint-hint">
+              <span data-i18n="onboarding.endpoints.hint1">Ein Pfad pro Zeile. Beispiel:</span>
+              <code>/API/Ping.php</code>
+              <span data-i18n="onboarding.endpoints.hint2">oder</span>
+              <code>/API/get.php</code>.
+              <span data-i18n="onboarding.endpoints.hint3">Tipp: f&uuml;r die Root-URL</span>
+              <code>/</code>
+              <span data-i18n="onboarding.endpoints.hint4">eintragen.</span>
+            </p>
+
+            <label for="monitor-endpoints" data-i18n="onboarding.endpoints.label">Endpoints (1 pro Zeile)</label>
+            <textarea
+              id="monitor-endpoints"
+              name="endpoints"
+              data-i18n-placeholder="onboarding.endpoints.placeholder"
+              placeholder="/API/Ping.php&#10;/API/get.php"
+              rows="5"
+            ></textarea>
+          </details>
+
           <button type="submit" data-i18n="onboarding.button.create">Monitor erstellen</button>
         </form>
 

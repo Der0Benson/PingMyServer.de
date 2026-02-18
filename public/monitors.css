@@ -1,0 +1,97 @@
+:root {
+  --group-bg: rgba(255, 255, 255, 0.02);
+  --group-stroke: rgba(255, 255, 255, 0.08);
+}
+
+.monitors-page {
+  display: grid;
+  gap: 14px;
+}
+
+.monitors-card {
+  padding: 18px;
+}
+
+.monitors-message {
+  margin-top: 8px;
+}
+
+.monitor-groups {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-group-card {
+  border: 1px solid var(--group-stroke);
+  border-radius: 14px;
+  background: var(--group-bg);
+  overflow: hidden;
+}
+
+.monitor-group-card summary {
+  list-style: none;
+}
+
+.monitor-group-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.monitor-group-summary {
+  cursor: pointer;
+  padding: 12px 12px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.monitor-group-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.monitor-group-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+
+.monitor-group-host {
+  min-width: 0;
+  font-weight: 900;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-group-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+
+.monitor-group-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.monitor-group-body {
+  padding: 10px 12px 12px;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* On this page we want the list to be full height, not a small scroll area. */
+.monitors-page .monitor-nav-list {
+  max-height: none;
+}
+

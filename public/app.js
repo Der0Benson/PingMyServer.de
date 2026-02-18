@@ -74,10 +74,13 @@ let monitors = [];
 let activeMonitorId = null;
 let latestMetrics = null;
 let statusSince = Date.now();
-let lastCheckTime = null;
-const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
-const DEFAULT_MONITOR_ICON = "/assets/pingmyserverlogo.png";
-let monitorIconKey = "";
+  let lastCheckTime = null;
+  const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
+  const MONITOR_GROUP_COLLAPSED_STORAGE_KEY = "pms.monitorGroupsCollapsed";
+  const RECENT_MONITOR_STORAGE_KEY = "pms.recentMonitorIds";
+  const MAX_RECENT_MONITORS = 3;
+  const DEFAULT_MONITOR_ICON = "/assets/pingmyserverlogo.png";
+  let monitorIconKey = "";
 
 const I18N = window.PMS_I18N || null;
 const t = (key, vars, fallback) =>
@@ -744,19 +747,47 @@ function readStoredMonitorId() {
   }
 }
 
-function writeStoredMonitorId(monitorId) {
-  const value = String(monitorId || "").trim();
-  if (!value) return;
-  try {
-    window.localStorage.setItem(ACTIVE_MONITOR_STORAGE_KEY, value);
-  } catch (error) {
-    // ignore
+  function writeStoredMonitorId(monitorId) {
+    const value = String(monitorId || "").trim();
+    if (!value) return;
+    try {
+      window.localStorage.setItem(ACTIVE_MONITOR_STORAGE_KEY, value);
+    } catch (error) {
+      // ignore
+    }
+    rememberRecentMonitorId(value);
   }
-}
 
-function monitorPath(monitorId) {
-  return `/app/monitors/${encodeURIComponent(String(monitorId))}`;
-}
+  function readRecentMonitorIds() {
+    try {
+      const raw = String(window.localStorage.getItem(RECENT_MONITOR_STORAGE_KEY) || "").trim();
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((value) => String(value || "").trim())
+        .filter((value) => Boolean(value));
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function rememberRecentMonitorId(monitorId) {
+    const value = String(monitorId || "").trim();
+    if (!value) return;
+    try {
+      const existing = readRecentMonitorIds().filter((id) => id !== value);
+      existing.unshift(value);
+      existing.splice(MAX_RECENT_MONITORS);
+      window.localStorage.setItem(RECENT_MONITOR_STORAGE_KEY, JSON.stringify(existing));
+    } catch (error) {
+      // ignore
+    }
+  }
+
+  function monitorPath(monitorId) {
+    return `/app/monitors/${encodeURIComponent(String(monitorId))}`;
+  }
 
 function findMonitor(monitorId) {
   const target = String(monitorId || "");
@@ -771,6 +802,83 @@ function getMonitorDisplayName(monitor) {
 function getMonitorTargetUrl(monitor) {
   if (!monitor) return "";
   return String(monitor.url || "").trim();
+}
+
+function getMonitorGroupKey(monitor) {
+  const rawUrl = String(monitor?.url || "").trim();
+  if (!rawUrl) return t("common.unknown", null, "unknown");
+  try {
+    return new URL(rawUrl).hostname.toLowerCase();
+  } catch (error) {
+    return rawUrl.toLowerCase().slice(0, 255) || t("common.unknown", null, "unknown");
+  }
+}
+
+function readCollapsedMonitorGroups() {
+  try {
+    const raw = String(window.localStorage.getItem(MONITOR_GROUP_COLLAPSED_STORAGE_KEY) || "").trim();
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return new Set();
+    return new Set(Object.keys(parsed).filter((key) => parsed[key]));
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function writeCollapsedMonitorGroups(keys) {
+  try {
+    const obj = Object.create(null);
+    for (const key of keys || []) {
+      const normalized = String(key || "").trim();
+      if (!normalized) continue;
+      obj[normalized] = true;
+    }
+    window.localStorage.setItem(MONITOR_GROUP_COLLAPSED_STORAGE_KEY, JSON.stringify(obj));
+  } catch (error) {
+    // ignore
+  }
+}
+
+function buildMonitorGroups(list) {
+  const items = Array.isArray(list) ? list : [];
+  const map = new Map();
+
+  for (const monitor of items) {
+    const key = getMonitorGroupKey(monitor);
+    let group = map.get(key);
+    if (!group) {
+      group = {
+        key,
+        title: key,
+        monitors: [],
+        sortKey: 0,
+      };
+      map.set(key, group);
+    }
+    group.monitors.push(monitor);
+    const createdAt = Number(monitor?.created_at || 0);
+    if (Number.isFinite(createdAt) && createdAt > group.sortKey) {
+      group.sortKey = createdAt;
+    }
+  }
+
+  const groups = Array.from(map.values());
+  for (const group of groups) {
+    group.monitors.sort((a, b) => {
+      const aName = getMonitorDisplayName(a);
+      const bName = getMonitorDisplayName(b);
+      return aName.localeCompare(bName, undefined, { sensitivity: "base" });
+    });
+  }
+
+  groups.sort((a, b) => {
+    const diff = Number(b.sortKey || 0) - Number(a.sortKey || 0);
+    if (diff) return diff;
+    return String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" });
+  });
+
+  return groups;
 }
 
 function setMonitorIcon(monitorId, targetUrl = "") {
@@ -865,12 +973,20 @@ function renderMonitorPicker() {
   if (!monitorSelect) return;
 
   monitorSelect.innerHTML = "";
-  monitors.forEach((monitor) => {
-    const option = document.createElement("option");
-    option.value = String(monitor.id);
-    option.textContent = getMonitorDisplayName(monitor);
-    monitorSelect.appendChild(option);
-  });
+  const groups = buildMonitorGroups(monitors);
+  for (const group of groups) {
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = String(group.title || "").trim() || t("common.unknown", null, "unknown");
+
+    for (const monitor of group.monitors || []) {
+      const option = document.createElement("option");
+      option.value = String(monitor.id);
+      option.textContent = getMonitorDisplayName(monitor);
+      optgroup.appendChild(option);
+    }
+
+    monitorSelect.appendChild(optgroup);
+  }
 
   if (activeMonitorId !== null) {
     monitorSelect.value = String(activeMonitorId);
@@ -887,7 +1003,8 @@ function renderMonitorList() {
   if (!monitorList) return;
 
   monitorList.innerHTML = "";
-  monitors.forEach((monitor) => {
+
+  function createMonitorNavRow(monitor) {
     const row = document.createElement("div");
     row.className = "monitor-nav-row";
 
@@ -926,7 +1043,7 @@ function renderMonitorList() {
     const lastCheckLabel = monitor.last_checked_at
       ? formatTimeAgo(Date.now() - monitor.last_checked_at)
       : t("app.monitor.no_check", null, "noch kein Check");
-    meta.textContent = `${monitorStatusLabel(monitor.last_status)} · ${lastCheckLabel}`;
+    meta.textContent = `${monitorStatusLabel(monitor.last_status)} \u00b7 ${lastCheckLabel}`;
 
     item.appendChild(head);
     item.appendChild(meta);
@@ -940,17 +1057,13 @@ function renderMonitorList() {
     deleteButton.type = "button";
     deleteButton.className = "monitor-nav-delete";
     deleteButton.textContent = t("common.delete", null, "Delete");
-    deleteButton.title = t(
-      "app.monitor.delete_title",
-      null,
-      "L\u00f6scht den Monitor inklusive aller Daten"
-    );
+    deleteButton.title = t("app.monitor.delete_title", null, "Loescht den Monitor inklusive aller Daten");
     deleteButton.setAttribute(
       "aria-label",
       t(
         "app.monitor.delete_aria",
         { name: getMonitorDisplayName(monitor) },
-        `Monitor ${getMonitorDisplayName(monitor)} l\u00f6schen`
+        `Monitor ${getMonitorDisplayName(monitor)} loeschen`
       )
     );
     deleteButton.addEventListener("click", (event) => {
@@ -962,8 +1075,47 @@ function renderMonitorList() {
 
     row.appendChild(item);
     row.appendChild(deleteButton);
-    monitorList.appendChild(row);
-  });
+    return row;
+  }
+
+  const candidates = [];
+  if (activeMonitorId) {
+    candidates.push(String(activeMonitorId));
+  }
+  for (const id of readRecentMonitorIds()) {
+    candidates.push(id);
+  }
+
+  const recentMonitors = [];
+  const seen = new Set();
+  for (const id of candidates) {
+    const monitor = findMonitor(id);
+    if (!monitor) continue;
+    const key = String(monitor.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recentMonitors.push(monitor);
+    if (recentMonitors.length >= MAX_RECENT_MONITORS) break;
+  }
+
+  if (!recentMonitors.length) {
+    const fallback = Array.isArray(monitors) ? [...monitors] : [];
+    fallback.sort((a, b) => {
+      const aLast = Number(a?.last_checked_at || 0);
+      const bLast = Number(b?.last_checked_at || 0);
+      const diff = bLast - aLast;
+      if (diff) return diff;
+      return getMonitorDisplayName(a).localeCompare(getMonitorDisplayName(b), undefined, { sensitivity: "base" });
+    });
+    for (const monitor of fallback) {
+      if (recentMonitors.length >= MAX_RECENT_MONITORS) break;
+      recentMonitors.push(monitor);
+    }
+  }
+
+  for (const monitor of recentMonitors) {
+    monitorList.appendChild(createMonitorNavRow(monitor));
+  }
 }
 
 function renderMonitorControls() {
@@ -1438,19 +1590,19 @@ function renderHeatmap(heatmap) {
 
     if (data && data.uptime !== null && data.uptime !== undefined) {
       const dateLabel = formatter.format(day);
-        const statusLabel =
-          status === "ok"
-            ? t("app.legend.ok", null, "Keine Fehler")
-            : status === "warn"
-              ? t("app.legend.warn", null, "Kleine Fehler")
-              : t("app.legend.down", null, "Ausfall");
-        cell.dataset.uptime = t(
-          "app.dashboard.uptime_title",
-          { uptime: Number(data.uptime).toFixed(2) },
-          `Uptime: ${Number(data.uptime).toFixed(2)}%`
-        );
-        cell.title = `${dateLabel}: ${statusLabel}`;
-      }
+      const statusLabel =
+        status === "ok"
+          ? t("app.legend.ok", null, "Keine Fehler")
+          : status === "warn"
+            ? t("app.legend.warn", null, "Kleine Fehler")
+            : t("app.legend.down", null, "Ausfall");
+
+      const uptimeNumber = Number(data.uptime);
+      const uptimeValue = Number.isFinite(uptimeNumber) ? `${uptimeNumber.toFixed(2)}%` : "--%";
+      // Keep the CSS tooltip short so it doesn't get clipped in scroll containers.
+      cell.dataset.uptime = uptimeValue;
+      cell.title = `${dateLabel}: ${statusLabel} · ${uptimeValue}`;
+    }
 
     heatmapCells.appendChild(cell);
   });
