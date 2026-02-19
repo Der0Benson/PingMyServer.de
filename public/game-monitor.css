@@ -1,0 +1,402 @@
+.game-monitor-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.game-monitor-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) 1fr;
+  gap: 16px;
+}
+
+.game-list-card {
+  align-self: start;
+}
+
+.game-list {
+  display: grid;
+  gap: 10px;
+}
+
+.game-item {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  cursor: default;
+}
+
+.game-item-name {
+  font-family: "Syne", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.game-item-note {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.game-item.active {
+  border-color: rgba(76, 201, 240, 0.4);
+  background: linear-gradient(145deg, rgba(76, 201, 240, 0.16), rgba(76, 201, 240, 0.05));
+}
+
+.minecraft-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.minecraft-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.minecraft-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.2fr) auto;
+  align-items: end;
+}
+
+.minecraft-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.minecraft-form input {
+  width: 100%;
+  border: 1px solid var(--stroke);
+  background: var(--surface-3);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.minecraft-form input:focus {
+  border-color: rgba(76, 201, 240, 0.46);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.15);
+}
+
+.minecraft-form button {
+  white-space: nowrap;
+  height: 36px;
+}
+
+.minecraft-hint {
+  margin: 0;
+}
+
+.panel-message {
+  min-height: 18px;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.panel-message.success {
+  color: var(--accent-2);
+}
+
+.panel-message.error {
+  color: #ff9696;
+}
+
+.minecraft-servers {
+  display: grid;
+  gap: 12px;
+}
+
+.empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 6px;
+}
+
+.empty-state .title {
+  font-size: 0.92rem;
+}
+
+.minecraft-server-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  display: grid;
+  gap: 10px;
+}
+
+.server-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.server-title-wrap {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.server-title {
+  font-family: "Syne", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  word-break: break-word;
+}
+
+.server-target {
+  color: var(--muted);
+  font-size: 0.79rem;
+  word-break: break-all;
+}
+
+.server-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  border: 1px solid transparent;
+}
+
+.status-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.status-pill.online {
+  color: #b5f89d;
+  border-color: rgba(181, 248, 157, 0.4);
+  background: rgba(181, 248, 157, 0.1);
+}
+
+.status-pill.offline {
+  color: #ff9999;
+  border-color: rgba(255, 153, 153, 0.4);
+  background: rgba(255, 153, 153, 0.1);
+}
+
+.status-pill.loading {
+  color: #9fd8f9;
+  border-color: rgba(159, 216, 249, 0.4);
+  background: rgba(159, 216, 249, 0.12);
+}
+
+.server-delete {
+  border-color: rgba(255, 153, 153, 0.32);
+  color: #ffd1d1;
+}
+
+.server-delete:hover {
+  border-color: rgba(255, 153, 153, 0.55);
+}
+
+.server-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.metric-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(8, 13, 21, 0.6);
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.metric-chip-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.metric-chip-value {
+  font-family: "Syne", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.server-motd {
+  margin: 0;
+  font-size: 0.83rem;
+  color: #ccd7eb;
+  line-height: 1.4;
+}
+
+.server-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.server-error {
+  margin: 0;
+  color: #ffadad;
+  font-size: 0.78rem;
+}
+
+.mod-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mod-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mod-panel-sub {
+  margin: 0;
+}
+
+.mod-pairing-box {
+  border: 1px solid rgba(76, 201, 240, 0.25);
+  border-radius: 12px;
+  background: rgba(76, 201, 240, 0.07);
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.mod-pairing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mod-pairing-label {
+  color: var(--muted);
+  font-size: 0.77rem;
+}
+
+.mod-pairing-code {
+  font-family: "Syne", sans-serif;
+  letter-spacing: 0.08em;
+  font-size: 0.96rem;
+  background: rgba(8, 13, 21, 0.68);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 4px 8px;
+}
+
+.mod-pairing-expiry {
+  font-size: 0.84rem;
+  color: #d9e6ff;
+}
+
+.mod-sessions {
+  display: grid;
+  gap: 10px;
+}
+
+.mod-session-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.mod-session-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mod-session-title {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: 0.96rem;
+}
+
+.mod-session-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.status-pill.revoked {
+  color: #ffb8b8;
+  border-color: rgba(255, 184, 184, 0.45);
+  background: rgba(255, 184, 184, 0.12);
+}
+
+@media (max-width: 1080px) {
+  .game-monitor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .minecraft-form {
+    grid-template-columns: 1fr;
+  }
+
+  .minecraft-form button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .server-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .server-head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .mod-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mod-session-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

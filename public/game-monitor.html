@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      data-i18n-content="meta.game_monitor.description"
+      content="Game Monitor für Minecraft: Serverstatus, Ping, Spielerzahlen und weitere Live-Metriken."
+    />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="googlebot" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b0f14" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title data-i18n="meta.game_monitor.title">Game Monitor · PingMyServer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/game-monitor.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
+    <link rel="stylesheet" href="/assets/footer.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <a
+          class="brand brand-link"
+          href="/"
+          data-i18n-aria-label="common.aria.home"
+          aria-label="PingMyServer Startseite"
+        >
+          <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+          <span class="brand-name">PingMyServer.de</span>
+        </a>
+        <nav class="side-nav">
+          <a href="/app" data-i18n="common.monitoring">Monitoring</a>
+          <a href="/monitors" data-i18n="common.monitors">Monitore</a>
+          <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
+          <a class="active" href="/game-monitor" data-i18n="common.game_monitor">Game Monitor</a>
+          <a href="/connections" data-i18n="common.connections">Connections</a>
+          <a href="/owner" data-owner-link hidden data-i18n="common.owner_ops">Owner Ops</a>
+          <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
+        </nav>
+        <div class="side-footer">
+          <a
+            class="user-pill profile-link"
+            href="/connections"
+            data-i18n-aria-label="common.aria.profile_settings"
+            aria-label="Connections und Kontoeinstellungen"
+          >
+            <span class="avatar small">U</span>
+            <span class="muted" id="current-user-email" data-i18n="common.signed_in">eingeloggt</span>
+          </a>
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img
+                  class="lang-flag-img"
+                  data-lang-block="en"
+                  src="/assets/flags/gb.svg"
+                  alt=""
+                  aria-hidden="true"
+                  hidden
+                />
+              </summary>
+              <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                  <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                  <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                </button>
+              </div>
+            </details>
+          </div>
+          <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
+        </div>
+      </aside>
+
+      <div class="content">
+        <div class="page">
+          <div class="crumb" data-i18n="common.game_monitor">Game Monitor</div>
+          <header class="topbar">
+            <div class="title-block">
+              <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
+              <div>
+                <div class="title" data-i18n="game_monitor.title">Game Monitor</div>
+                <div class="subtitle" data-i18n="game_monitor.sub">Game Server live tracken: Ping, Spieler und mehr</div>
+              </div>
+            </div>
+            <div class="top-actions">
+              <button class="btn ghost" id="refresh-btn" type="button" data-i18n="common.refresh">Aktualisieren</button>
+            </div>
+          </header>
+
+          <main class="game-monitor-page">
+            <div class="game-monitor-layout">
+              <section class="card game-list-card">
+                <div class="card-title" data-i18n="game_monitor.games.title">Spiele</div>
+                <div class="game-list" id="game-list" aria-label="Spiele">
+                  <button class="game-item active" type="button" data-game="minecraft" aria-current="page">
+                    <span class="game-item-name" data-i18n="game_monitor.games.minecraft_name">Minecraft</span>
+                    <span class="game-item-note" data-i18n="game_monitor.games.minecraft_note">Java Edition</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="card wide minecraft-panel">
+                <div class="minecraft-head">
+                  <div>
+                    <div class="card-title" data-i18n="game_monitor.minecraft.title">Minecraft Server</div>
+                    <div class="muted" data-i18n="game_monitor.minecraft.sub">
+                      Trage Server ein und verfolge Status, Ping, Spielerzahlen und Version.
+                    </div>
+                  </div>
+                </div>
+
+                <form id="minecraft-server-form" class="minecraft-form" novalidate autocomplete="off">
+                  <label for="minecraft-server-name">
+                    <span data-i18n="game_monitor.form.name_label">Servername (optional)</span>
+                    <input
+                      id="minecraft-server-name"
+                      type="text"
+                      maxlength="80"
+                      data-i18n-placeholder="game_monitor.form.name_placeholder"
+                      placeholder="Mein Survival Server"
+                    />
+                  </label>
+                  <label for="minecraft-server-host">
+                    <span data-i18n="game_monitor.form.host_label">Host oder IP</span>
+                    <input
+                      id="minecraft-server-host"
+                      type="text"
+                      maxlength="255"
+                      required
+                      data-i18n-placeholder="game_monitor.form.host_placeholder"
+                      placeholder="play.example.net:25565"
+                    />
+                  </label>
+                  <button class="btn primary" type="submit" data-i18n="game_monitor.form.add">Server hinzufügen</button>
+                </form>
+
+                <p class="minecraft-hint muted" data-i18n="game_monitor.hint_tps">
+                  TPS ist oft nur verfügbar, wenn der Server es aktiv bereitstellt (z. B. per Plugin/RCON).
+                </p>
+                <p class="panel-message" id="minecraft-message"></p>
+
+                <div class="minecraft-servers" id="minecraft-servers-list">
+                  <div class="empty-state">
+                    <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                    <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
+                  </div>
+                </div>
+
+                <section class="mod-panel">
+                  <div class="mod-panel-head">
+                    <div class="card-title" data-i18n="game_monitor.mod.title">Minecraft Mod Verbindung</div>
+                    <button class="btn ghost" id="mod-create-pairing-btn" type="button" data-i18n="game_monitor.mod.create_pairing">
+                      Verifizierungscode erzeugen
+                    </button>
+                  </div>
+
+                  <p class="muted mod-panel-sub" data-i18n="game_monitor.mod.sub">
+                    Erstelle einen Pairing-Code im Web und nutze ihn in deiner Mod. Solange der Server läuft und Heartbeats sendet,
+                    bleibt die Verbindung online.
+                  </p>
+
+                  <div class="mod-pairing-box" id="mod-pairing-box" hidden>
+                    <div class="mod-pairing-row">
+                      <span class="mod-pairing-label" data-i18n="game_monitor.mod.code_label">Aktueller Code</span>
+                      <code class="mod-pairing-code" id="mod-pairing-code">------</code>
+                    </div>
+                    <div class="mod-pairing-row">
+                      <span class="mod-pairing-label" data-i18n="game_monitor.mod.expires_label">Gültig bis</span>
+                      <span class="mod-pairing-expiry" id="mod-pairing-expiry">-</span>
+                    </div>
+                  </div>
+
+                  <p class="panel-message" id="mod-message"></p>
+
+                  <div class="mod-sessions-head">
+                    <div class="card-title" data-i18n="game_monitor.mod.sessions_title">Verbundene Mod Sessions</div>
+                  </div>
+                  <div class="mod-sessions" id="mod-sessions-list">
+                    <div class="empty-state">
+                      <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                      <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
+                    </div>
+                  </div>
+                </section>
+              </section>
+            </div>
+          </main>
+
+          <footer class="site-footer">
+            <span class="site-footer-note" data-i18n="common.legal">Rechtliches</span>
+            <nav class="site-footer-links" aria-label="Rechtliche Navigation">
+              <a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a>
+              <a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a>
+              <a href="/impressum" data-i18n="common.imprint">Impressum</a>
+            </nav>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/i18n.js"></script>
+    <script src="/assets/game-monitor.js"></script>
+  </body>
+</html>

@@ -380,6 +380,14 @@ const STATIC_CACHE_MAX_AGE_SECONDS = requireEnvNumber("STATIC_CACHE_MAX_AGE_SECO
   integer: true,
   min: 0,
 });
+const MINECRAFT_DEFAULT_PORT = 25565;
+const MINECRAFT_QUERY_TIMEOUT_MS = readEnvNumber("MINECRAFT_QUERY_TIMEOUT_MS", 7000, {
+  integer: true,
+  min: 1000,
+  max: 60000,
+});
+const MINECRAFT_MAX_PACKET_SIZE = 1048576;
+const MINECRAFT_MAX_CHAT_LENGTH = 32767;
 const UP_HTTP_CODES = requireEnvStatusCodeList("UP_HTTP_CODES");
 
 const MULTI_LOCATION_ENABLED = readEnvBoolean("MULTI_LOCATION_ENABLED", false);
@@ -452,6 +460,40 @@ const AUTH_LOCK_MAX_FAILS = requireEnvNumber("AUTH_LOCK_MAX_FAILS", { integer: t
 const AUTH_LOCK_DURATION_MS = requireEnvNumber("AUTH_LOCK_DURATION_MS", { integer: true, min: 1000 });
 const REQUEST_BODY_LIMIT_BYTES = requireEnvNumber("REQUEST_BODY_LIMIT_BYTES", { integer: true, min: 1024 });
 const MONITOR_PUBLIC_ID_LENGTH = requireEnvNumber("MONITOR_PUBLIC_ID_LENGTH", { integer: true, min: 6, max: 64 });
+const GAME_AGENT_PUBLIC_ID_LENGTH = readEnvNumber("GAME_AGENT_PUBLIC_ID_LENGTH", 16, {
+  integer: true,
+  min: 10,
+  max: 64,
+});
+const GAME_AGENT_PAIRING_CODE_LENGTH = readEnvNumber("GAME_AGENT_PAIRING_CODE_LENGTH", 10, {
+  integer: true,
+  min: 6,
+  max: 16,
+});
+const GAME_AGENT_PAIRING_TTL_MS = readEnvNumber("GAME_AGENT_PAIRING_TTL_MS", 10 * 60 * 1000, {
+  integer: true,
+  min: 60000,
+  max: 24 * 60 * 60 * 1000,
+});
+const GAME_AGENT_HEARTBEAT_STALE_MS = readEnvNumber("GAME_AGENT_HEARTBEAT_STALE_MS", 45000, {
+  integer: true,
+  min: 5000,
+  max: 60 * 60 * 1000,
+});
+const GAME_AGENT_PAYLOAD_MAX_BYTES = readEnvNumber("GAME_AGENT_PAYLOAD_MAX_BYTES", 64 * 1024, {
+  integer: true,
+  min: 2048,
+  max: 1024 * 1024,
+});
+const GAME_AGENT_HEARTBEAT_INTERVAL_MS = readEnvNumber(
+  "GAME_AGENT_HEARTBEAT_INTERVAL_MS",
+  Math.min(15000, Math.max(5000, Math.floor(GAME_AGENT_HEARTBEAT_STALE_MS / 2))),
+  {
+    integer: true,
+    min: 5000,
+    max: GAME_AGENT_HEARTBEAT_STALE_MS,
+  }
+);
 const MONITORS_PER_USER_MAX = readEnvNumber("MONITORS_PER_USER_MAX", 1000, {
   integer: true,
   min: 1,
@@ -2268,6 +2310,325 @@ function normalizeMonitorUrl(input) {
   return normalized;
 }
 
+function normalizeMinecraftHost(input) {
+  let host = String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.+$/, "");
+  if (!host) return "";
+
+  if (host.startsWith("[") && host.endsWith("]")) {
+    host = host.slice(1, -1).trim().toLowerCase();
+  }
+
+  if (!host || host.length > 253) return "";
+  if (host.includes(":")) return "";
+  if (!/^[a-z0-9.-]+$/.test(host)) return "";
+  if (host.includes("..")) return "";
+
+  const labels = host.split(".");
+  for (const label of labels) {
+    if (!label || label.length > 63) return "";
+    if (label.startsWith("-") || label.endsWith("-")) return "";
+  }
+
+  return host;
+}
+
+function normalizeMinecraftPort(input, fallback = MINECRAFT_DEFAULT_PORT) {
+  const raw = String(input || "").trim();
+  if (!raw) return fallback;
+  if (!/^\d{1,5}$/.test(raw)) return null;
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+  return port;
+}
+
+function encodeMinecraftVarInt(value) {
+  let int = Number(value) | 0;
+  const bytes = [];
+  do {
+    let current = int & 0x7f;
+    int >>>= 7;
+    if (int !== 0) {
+      current |= 0x80;
+    }
+    bytes.push(current);
+  } while (int !== 0);
+  return Buffer.from(bytes);
+}
+
+function decodeMinecraftVarIntFromBuffer(buffer, offset = 0) {
+  let value = 0;
+  for (let index = 0; index < 5; index += 1) {
+    const cursor = offset + index;
+    if (cursor >= buffer.length) return null;
+    const byte = buffer[cursor];
+    value += (byte & 0x7f) * 2 ** (7 * index);
+    if ((byte & 0x80) === 0) {
+      const signed = value >= 0x80000000 ? value - 0x100000000 : value;
+      return { value: signed, bytesRead: index + 1 };
+    }
+  }
+  throw new Error("minecraft_varint_too_large");
+}
+
+function encodeMinecraftString(value) {
+  const text = Buffer.from(String(value || ""), "utf8");
+  return Buffer.concat([encodeMinecraftVarInt(text.length), text]);
+}
+
+function encodeMinecraftPort(port) {
+  const buffer = Buffer.alloc(2);
+  buffer.writeUInt16BE(Number(port) & 0xffff, 0);
+  return buffer;
+}
+
+function buildMinecraftPacket(packetId, payloadParts = []) {
+  const parts = Array.isArray(payloadParts) ? payloadParts : [];
+  const payload = Buffer.concat([encodeMinecraftVarInt(packetId), ...parts]);
+  return Buffer.concat([encodeMinecraftVarInt(payload.length), payload]);
+}
+
+function createMinecraftPacketReader(buffer) {
+  let offset = 0;
+
+  function readVarInt() {
+    const decoded = decodeMinecraftVarIntFromBuffer(buffer, offset);
+    if (!decoded) throw new Error("minecraft_incomplete_varint");
+    offset += decoded.bytesRead;
+    return decoded.value;
+  }
+
+  function readBytes(length) {
+    const size = Number(length);
+    if (!Number.isInteger(size) || size < 0) throw new Error("minecraft_invalid_read_length");
+    if (offset + size > buffer.length) throw new Error("minecraft_packet_underflow");
+    const slice = buffer.slice(offset, offset + size);
+    offset += size;
+    return slice;
+  }
+
+  function readString(maxChars = MINECRAFT_MAX_CHAT_LENGTH) {
+    const byteLength = readVarInt();
+    if (!Number.isInteger(byteLength) || byteLength < 0 || byteLength > maxChars * 4) {
+      throw new Error("minecraft_invalid_string_length");
+    }
+    const chunk = readBytes(byteLength);
+    const text = chunk.toString("utf8");
+    if (text.length > maxChars) throw new Error("minecraft_string_too_long");
+    return text;
+  }
+
+  return {
+    readVarInt,
+    readBytes,
+    readString,
+    remaining() {
+      return buffer.length - offset;
+    },
+  };
+}
+
+function extractMinecraftMotdText(input) {
+  if (typeof input === "string") {
+    return input.replace(/\s+/g, " ").trim();
+  }
+  if (!input || typeof input !== "object") return "";
+
+  const chunks = [];
+  const visit = (node) => {
+    if (!node) return;
+    if (typeof node === "string") {
+      chunks.push(node);
+      return;
+    }
+    if (typeof node !== "object") return;
+    if (typeof node.text === "string") {
+      chunks.push(node.text);
+    }
+    if (Array.isArray(node.extra)) {
+      for (const item of node.extra) {
+        visit(item);
+      }
+    }
+  };
+
+  visit(input);
+  return chunks.join("").replace(/\s+/g, " ").trim();
+}
+
+function normalizeMinecraftPlayerSample(sample) {
+  const list = Array.isArray(sample) ? sample : [];
+  const names = [];
+  for (const entry of list) {
+    const name = String(entry?.name || "").trim();
+    if (!name) continue;
+    names.push(name);
+    if (names.length >= 20) break;
+  }
+  return names;
+}
+
+function normalizeMinecraftProbeError(error) {
+  const code = String(error?.code || "").trim().toUpperCase();
+  if (code === "ENOTFOUND") return "dns_not_found";
+  if (code === "ECONNREFUSED") return "connection_refused";
+  if (code === "ETIMEDOUT") return "timeout";
+  if (code === "EHOSTUNREACH" || code === "ENETUNREACH") return "unreachable";
+
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("timeout")) return "timeout";
+  if (message.includes("invalid_status")) return "invalid_status";
+  if (message.includes("closed")) return "connection_closed";
+  return "probe_failed";
+}
+
+function normalizeMinecraftTps(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0 || numeric > 40) return null;
+  return Math.round(numeric * 100) / 100;
+}
+
+async function queryMinecraftServer(host, port, timeoutMs = MINECRAFT_QUERY_TIMEOUT_MS) {
+  const targetHost = normalizeMinecraftHost(host);
+  const targetPort = normalizeMinecraftPort(port, MINECRAFT_DEFAULT_PORT);
+  if (!targetHost || !Number.isInteger(targetPort)) {
+    throw new Error("invalid_input");
+  }
+
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({
+      host: targetHost,
+      port: targetPort,
+    });
+
+    let settled = false;
+    let packetBuffer = Buffer.alloc(0);
+    let stage = "status";
+    let statusPayload = null;
+    let pingSentAt = 0;
+
+    const timeoutHandle = setTimeout(() => {
+      const error = new Error("timeout");
+      error.code = "ETIMEDOUT";
+      finish(error);
+    }, timeoutMs);
+
+    function finish(error, payload) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutHandle);
+      socket.destroy();
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(payload);
+    }
+
+    function tryReadPacket() {
+      const header = decodeMinecraftVarIntFromBuffer(packetBuffer, 0);
+      if (!header) return null;
+
+      const packetLength = Number(header.value);
+      if (!Number.isInteger(packetLength) || packetLength < 0 || packetLength > MINECRAFT_MAX_PACKET_SIZE) {
+        throw new Error("minecraft_invalid_packet_length");
+      }
+
+      const totalLength = header.bytesRead + packetLength;
+      if (packetBuffer.length < totalLength) return null;
+
+      const packet = packetBuffer.slice(header.bytesRead, totalLength);
+      packetBuffer = packetBuffer.slice(totalLength);
+      return packet;
+    }
+
+    function processBuffer() {
+      while (true) {
+        const packet = tryReadPacket();
+        if (!packet) return;
+
+        const reader = createMinecraftPacketReader(packet);
+        const packetId = reader.readVarInt();
+
+        if (stage === "status") {
+          if (packetId !== 0x00) {
+            throw new Error("minecraft_invalid_status_packet");
+          }
+
+          const jsonText = reader.readString(MINECRAFT_MAX_CHAT_LENGTH);
+          let parsed;
+          try {
+            parsed = JSON.parse(jsonText);
+          } catch (error) {
+            throw new Error("minecraft_invalid_status_json");
+          }
+
+          statusPayload = parsed && typeof parsed === "object" ? parsed : {};
+          const pingPayload = Buffer.alloc(8);
+          pingPayload.writeBigInt64BE(BigInt(Date.now()), 0);
+          pingSentAt = Date.now();
+          socket.write(buildMinecraftPacket(0x01, [pingPayload]));
+          stage = "ping";
+          continue;
+        }
+
+        if (stage === "ping") {
+          if (packetId !== 0x01) {
+            throw new Error("minecraft_invalid_pong_packet");
+          }
+          if (reader.remaining() < 8) {
+            throw new Error("minecraft_invalid_pong_payload");
+          }
+
+          reader.readBytes(8);
+          finish(null, {
+            pingMs: Math.max(0, Date.now() - pingSentAt),
+            status: statusPayload || {},
+          });
+          return;
+        }
+      }
+    }
+
+    socket.once("error", (error) => {
+      finish(error || new Error("connection_failed"));
+    });
+
+    socket.once("close", () => {
+      if (!settled) {
+        finish(new Error("connection_closed"));
+      }
+    });
+
+    socket.once("connect", () => {
+      try {
+        const handshakePacket = buildMinecraftPacket(0x00, [
+          encodeMinecraftVarInt(-1),
+          encodeMinecraftString(targetHost),
+          encodeMinecraftPort(targetPort),
+          encodeMinecraftVarInt(0x01),
+        ]);
+        const statusRequestPacket = buildMinecraftPacket(0x00);
+        socket.write(Buffer.concat([handshakePacket, statusRequestPacket]));
+      } catch (error) {
+        finish(error);
+      }
+    });
+
+    socket.on("data", (chunk) => {
+      if (settled) return;
+      packetBuffer = Buffer.concat([packetBuffer, chunk]);
+      try {
+        processBuffer();
+      } catch (error) {
+        finish(error);
+      }
+    });
+  });
+}
+
 const DISCORD_WEBHOOK_ALLOWED_HOSTS = new Set([
   "discord.com",
   "discordapp.com",
@@ -2467,6 +2828,231 @@ async function generateUniqueMonitorPublicId(maxAttempts = 20) {
     if (!rows.length) return candidate;
   }
   throw new Error("monitor_public_id_generation_failed");
+}
+
+const GAME_AGENT_ALLOWED_GAMES = new Set(["minecraft"]);
+
+function normalizeGameAgentGame(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "minecraft";
+  return GAME_AGENT_ALLOWED_GAMES.has(normalized) ? normalized : "";
+}
+
+function isValidGameAgentPublicId(value) {
+  if (typeof value !== "string") return false;
+  const regex = new RegExp(`^[A-Za-z0-9]{${GAME_AGENT_PUBLIC_ID_LENGTH}}$`);
+  return regex.test(value);
+}
+
+function createGameAgentPublicId() {
+  const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let output = "";
+  for (let i = 0; i < GAME_AGENT_PUBLIC_ID_LENGTH; i += 1) {
+    output += alphabet[crypto.randomInt(alphabet.length)];
+  }
+  return output;
+}
+
+async function generateUniqueGameAgentPublicId(connection = null, maxAttempts = 20) {
+  const db = connection || pool;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const candidate = createGameAgentPublicId();
+    const [rows] = await db.query("SELECT id FROM game_agent_sessions WHERE public_id = ? LIMIT 1", [candidate]);
+    if (!rows.length) return candidate;
+  }
+  throw new Error("game_agent_public_id_generation_failed");
+}
+
+function createGameAgentPairingCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let output = "";
+  for (let i = 0; i < GAME_AGENT_PAIRING_CODE_LENGTH; i += 1) {
+    output += alphabet[crypto.randomInt(alphabet.length)];
+  }
+  return output;
+}
+
+function normalizeGameAgentPairingCode(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  if (normalized.length !== GAME_AGENT_PAIRING_CODE_LENGTH) return "";
+  return normalized;
+}
+
+function normalizeGameAgentInstanceId(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (normalized.length < 3 || normalized.length > 96) return "";
+  if (!/^[A-Za-z0-9._:-]+$/.test(normalized)) return "";
+  return normalized;
+}
+
+function normalizeGameAgentServerName(value) {
+  const normalized = String(value || "").trim().replace(/\s+/g, " ");
+  if (!normalized) return "";
+  return normalized.slice(0, 120);
+}
+
+function normalizeGameAgentServerHost(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  return normalized.slice(0, 255);
+}
+
+function normalizeGameAgentVersion(value) {
+  const normalized = String(value || "").trim().replace(/\s+/g, " ");
+  if (!normalized) return "";
+  return normalized.slice(0, 64);
+}
+
+function normalizeGameAgentMetricNumber(value, options = {}) {
+  const { min = -Infinity, max = Infinity, integer = false } = options;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < min || numeric > max) return null;
+  if (integer) return Math.trunc(numeric);
+  return Math.round(numeric * 100) / 100;
+}
+
+function normalizeGameAgentPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const tps = normalizeGameAgentMetricNumber(source.tps, { min: 0, max: 40 });
+  const pingMs = normalizeGameAgentMetricNumber(source.pingMs, { min: 0, max: 600000, integer: true });
+  const playersOnline = normalizeGameAgentMetricNumber(source.playersOnline, { min: 0, max: 10000000, integer: true });
+  const playersMax = normalizeGameAgentMetricNumber(source.playersMax, { min: 0, max: 10000000, integer: true });
+  const motd = String(source.motd || "").trim().slice(0, 512) || null;
+  const version = normalizeGameAgentVersion(source.version) || null;
+  const world = normalizeGameAgentVersion(source.world) || null;
+  const dimension = normalizeGameAgentVersion(source.dimension) || null;
+
+  return {
+    metrics: {
+      tps,
+      pingMs,
+      playersOnline,
+      playersMax,
+      motd,
+      version,
+      world,
+      dimension,
+      sampledAt: Date.now(),
+    },
+  };
+}
+
+function mergeGameAgentPayload(existingPayload, incomingPayload) {
+  const existing = existingPayload && typeof existingPayload === "object" ? existingPayload : {};
+  const incoming = incomingPayload && typeof incomingPayload === "object" ? incomingPayload : {};
+  const existingMetrics = existing.metrics && typeof existing.metrics === "object" ? existing.metrics : {};
+  const incomingMetrics = incoming.metrics && typeof incoming.metrics === "object" ? incoming.metrics : {};
+
+  return {
+    metrics: {
+      tps: incomingMetrics.tps ?? existingMetrics.tps ?? null,
+      pingMs: incomingMetrics.pingMs ?? existingMetrics.pingMs ?? null,
+      playersOnline: incomingMetrics.playersOnline ?? existingMetrics.playersOnline ?? null,
+      playersMax: incomingMetrics.playersMax ?? existingMetrics.playersMax ?? null,
+      motd: incomingMetrics.motd ?? existingMetrics.motd ?? null,
+      version: incomingMetrics.version ?? existingMetrics.version ?? null,
+      world: incomingMetrics.world ?? existingMetrics.world ?? null,
+      dimension: incomingMetrics.dimension ?? existingMetrics.dimension ?? null,
+      sampledAt: Date.now(),
+    },
+  };
+}
+
+function parseGameAgentJsonColumn(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function isGameAgentSessionOnline(row, now = Date.now()) {
+  const revokedAt = toTimestampMs(row?.revoked_at);
+  if (Number.isFinite(revokedAt) && revokedAt > 0) return false;
+
+  const disconnectedAt = toTimestampMs(row?.disconnected_at);
+  if (Number.isFinite(disconnectedAt) && disconnectedAt > 0) return false;
+
+  const lastHeartbeatAt = toTimestampMs(row?.last_heartbeat_at);
+  if (!Number.isFinite(lastHeartbeatAt) || lastHeartbeatAt <= 0) return false;
+  return now - lastHeartbeatAt <= GAME_AGENT_HEARTBEAT_STALE_MS;
+}
+
+function serializeGameAgentPairingRow(row) {
+  if (!row) return null;
+  const id = Number(row.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const code = normalizeGameAgentPairingCode(row.code);
+  const game = normalizeGameAgentGame(row.game);
+  if (!code || !game) return null;
+  return {
+    id,
+    game,
+    code,
+    expiresAt: toTimestampMs(row.expires_at),
+    usedAt: toTimestampMs(row.used_at),
+    createdAt: toTimestampMs(row.created_at),
+  };
+}
+
+function serializeGameAgentSessionRow(row, now = Date.now()) {
+  if (!row) return null;
+  const publicId = String(row.public_id || "").trim();
+  if (!isValidGameAgentPublicId(publicId)) return null;
+  const game = normalizeGameAgentGame(row.game);
+  if (!game) return null;
+  const payload = parseGameAgentJsonColumn(row.last_payload) || {};
+  const metrics = payload?.metrics && typeof payload.metrics === "object" ? payload.metrics : {};
+
+  return {
+    id: publicId,
+    game,
+    instanceId: String(row.instance_id || "").trim() || null,
+    serverName: normalizeGameAgentServerName(row.server_name) || null,
+    serverHost: normalizeGameAgentServerHost(row.server_host) || null,
+    modVersion: normalizeGameAgentVersion(row.mod_version) || null,
+    gameVersion: normalizeGameAgentVersion(row.game_version) || null,
+    connectedAt: toTimestampMs(row.connected_at),
+    lastHeartbeatAt: toTimestampMs(row.last_heartbeat_at),
+    disconnectedAt: toTimestampMs(row.disconnected_at),
+    revokedAt: toTimestampMs(row.revoked_at),
+    createdAt: toTimestampMs(row.created_at),
+    online: isGameAgentSessionOnline(row, now),
+    metrics: {
+      tps: normalizeGameAgentMetricNumber(metrics.tps, { min: 0, max: 40 }),
+      pingMs: normalizeGameAgentMetricNumber(metrics.pingMs, { min: 0, max: 600000, integer: true }),
+      playersOnline: normalizeGameAgentMetricNumber(metrics.playersOnline, { min: 0, max: 10000000, integer: true }),
+      playersMax: normalizeGameAgentMetricNumber(metrics.playersMax, { min: 0, max: 10000000, integer: true }),
+      motd: String(metrics.motd || "").trim().slice(0, 512) || null,
+      version: normalizeGameAgentVersion(metrics.version) || null,
+      world: normalizeGameAgentVersion(metrics.world) || null,
+      dimension: normalizeGameAgentVersion(metrics.dimension) || null,
+      sampledAt: toTimestampMs(metrics.sampledAt),
+    },
+  };
+}
+
+function readGameAgentTokenFromRequest(req) {
+  const authHeader = String(req?.headers?.authorization || "").trim();
+  if (authHeader) {
+    const match = authHeader.match(/^Bearer\s+([A-Fa-f0-9]{64})$/);
+    if (match) return match[1].toLowerCase();
+  }
+
+  const directHeader = String(req?.headers?.["x-pingmyserver-agent-token"] || "").trim();
+  if (/^[A-Fa-f0-9]{64}$/.test(directHeader)) {
+    return directHeader.toLowerCase();
+  }
+
+  return "";
 }
 
 function createDefaultTargetMeta(hostname = null, protocol = "https:") {
@@ -3724,6 +4310,53 @@ async function initDb() {
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_domain_user_id (user_id),
       CONSTRAINT fk_domain_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_agent_pairings (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT NOT NULL,
+      game VARCHAR(24) NOT NULL,
+      code CHAR(16) NOT NULL UNIQUE,
+      expires_at DATETIME(3) NOT NULL,
+      used_at DATETIME(3) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_game_agent_pairings_user_game (user_id, game, expires_at),
+      INDEX idx_game_agent_pairings_expires (expires_at),
+      CONSTRAINT fk_game_agent_pairings_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_agent_sessions (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      public_id CHAR(32) NOT NULL UNIQUE,
+      user_id BIGINT NOT NULL,
+      game VARCHAR(24) NOT NULL,
+      instance_id VARCHAR(96) NOT NULL,
+      server_name VARCHAR(120) NULL,
+      server_host VARCHAR(255) NULL,
+      mod_version VARCHAR(64) NULL,
+      game_version VARCHAR(64) NULL,
+      token_hash CHAR(64) NOT NULL UNIQUE,
+      token_last4 CHAR(4) NOT NULL,
+      connected_at DATETIME(3) NULL,
+      last_heartbeat_at DATETIME(3) NULL,
+      disconnected_at DATETIME(3) NULL,
+      revoked_at DATETIME(3) NULL,
+      last_ip VARCHAR(64) NULL,
+      last_payload JSON NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_game_agent_instance (user_id, game, instance_id),
+      INDEX idx_game_agent_sessions_user_game (user_id, game, created_at),
+      INDEX idx_game_agent_sessions_heartbeat (last_heartbeat_at),
+      CONSTRAINT fk_game_agent_sessions_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
     )
@@ -8354,6 +8987,707 @@ async function handleMonitorMaintenanceCancel(req, res, monitorId, maintenanceId
   }
 }
 
+async function handleGameMonitorMinecraftStatus(req, res, url) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const host = normalizeMinecraftHost(url.searchParams.get("host"));
+  const port = normalizeMinecraftPort(url.searchParams.get("port"), MINECRAFT_DEFAULT_PORT);
+
+  if (!host || !Number.isInteger(port)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const targetValidation = await validateMonitorTarget(`https://${host}:${port}`, { useCache: true });
+  if (!targetValidation.allowed) {
+    sendJson(res, 400, { ok: false, error: "target blocked" });
+    return;
+  }
+
+  try {
+    const result = await queryMinecraftServer(host, port, MINECRAFT_QUERY_TIMEOUT_MS);
+    const status = result?.status && typeof result.status === "object" ? result.status : {};
+    const players = status?.players && typeof status.players === "object" ? status.players : {};
+    const version = status?.version && typeof status.version === "object" ? status.version : {};
+    const onlinePlayers = Number(players.online);
+    const maxPlayers = Number(players.max);
+    const protocol = Number(version.protocol);
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        game: "minecraft",
+        host,
+        port,
+        online: true,
+        pingMs: Number.isFinite(result?.pingMs) ? Math.round(Number(result.pingMs)) : null,
+        tps: normalizeMinecraftTps(status?.tps ?? status?.performance?.tps ?? null),
+        players: {
+          online: Number.isFinite(onlinePlayers) ? onlinePlayers : null,
+          max: Number.isFinite(maxPlayers) ? maxPlayers : null,
+          sample: normalizeMinecraftPlayerSample(players.sample),
+        },
+        version: String(version.name || "").trim() || null,
+        protocol: Number.isFinite(protocol) ? protocol : null,
+        motd: extractMinecraftMotdText(status.description),
+        icon: typeof status.favicon === "string" ? status.favicon : null,
+        secureChatRequired: status.enforcesSecureChat === true,
+        checkedAt: Date.now(),
+        errorCode: "",
+      },
+    });
+  } catch (error) {
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        game: "minecraft",
+        host,
+        port,
+        online: false,
+        pingMs: null,
+        tps: null,
+        players: {
+          online: null,
+          max: null,
+          sample: [],
+        },
+        version: null,
+        protocol: null,
+        motd: null,
+        icon: null,
+        secureChatRequired: false,
+        checkedAt: Date.now(),
+        errorCode: normalizeMinecraftProbeError(error),
+      },
+    });
+  }
+}
+
+async function cleanupGameAgentPairings() {
+  await pool.query(
+    "DELETE FROM game_agent_pairings WHERE expires_at < UTC_TIMESTAMP(3) OR (used_at IS NOT NULL AND used_at < DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 DAY))"
+  );
+}
+
+async function listGameAgentPairingsForUser(userId, game = "minecraft") {
+  const normalizedGame = normalizeGameAgentGame(game);
+  if (!normalizedGame) return [];
+
+  const [rows] = await pool.query(
+    `
+      SELECT id, user_id, game, code, expires_at, used_at, created_at
+      FROM game_agent_pairings
+      WHERE user_id = ?
+        AND game = ?
+        AND used_at IS NULL
+        AND expires_at > UTC_TIMESTAMP(3)
+      ORDER BY created_at DESC
+      LIMIT 5
+    `,
+    [userId, normalizedGame]
+  );
+  return rows.map((row) => serializeGameAgentPairingRow(row)).filter(Boolean);
+}
+
+async function createGameAgentPairingForUser(userId, game = "minecraft") {
+  const normalizedGame = normalizeGameAgentGame(game);
+  if (!normalizedGame) {
+    const error = new Error("invalid_game");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  await cleanupGameAgentPairings();
+  await pool.query(
+    `
+      DELETE FROM game_agent_pairings
+      WHERE user_id = ?
+        AND game = ?
+        AND used_at IS NULL
+    `,
+    [userId, normalizedGame]
+  );
+
+  const expiresAt = new Date(Date.now() + GAME_AGENT_PAIRING_TTL_MS);
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const code = createGameAgentPairingCode();
+    try {
+      const [result] = await pool.query(
+        `
+          INSERT INTO game_agent_pairings (user_id, game, code, expires_at)
+          VALUES (?, ?, ?, ?)
+        `,
+        [userId, normalizedGame, code, expiresAt]
+      );
+
+      const [rows] = await pool.query(
+        `
+          SELECT id, user_id, game, code, expires_at, used_at, created_at
+          FROM game_agent_pairings
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [result.insertId]
+      );
+      return serializeGameAgentPairingRow(rows[0]);
+    } catch (error) {
+      if (error?.code === "ER_DUP_ENTRY") continue;
+      throw error;
+    }
+  }
+
+  throw new Error("pairing_code_generation_failed");
+}
+
+async function listGameAgentSessionsForUser(userId, game = "minecraft") {
+  const normalizedGame = normalizeGameAgentGame(game);
+  if (!normalizedGame) return [];
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        public_id,
+        user_id,
+        game,
+        instance_id,
+        server_name,
+        server_host,
+        mod_version,
+        game_version,
+        connected_at,
+        last_heartbeat_at,
+        disconnected_at,
+        revoked_at,
+        last_ip,
+        last_payload,
+        created_at,
+        updated_at
+      FROM game_agent_sessions
+      WHERE user_id = ?
+        AND game = ?
+      ORDER BY COALESCE(last_heartbeat_at, connected_at, created_at) DESC, id DESC
+      LIMIT 200
+    `,
+    [userId, normalizedGame]
+  );
+
+  const now = Date.now();
+  return rows.map((row) => serializeGameAgentSessionRow(row, now)).filter(Boolean);
+}
+
+async function findGameAgentSessionByToken(token) {
+  const normalizedToken = String(token || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(normalizedToken)) return null;
+
+  const tokenHash = hashSessionToken(normalizedToken);
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        public_id,
+        user_id,
+        game,
+        instance_id,
+        server_name,
+        server_host,
+        mod_version,
+        game_version,
+        connected_at,
+        last_heartbeat_at,
+        disconnected_at,
+        revoked_at,
+        last_ip,
+        last_payload,
+        created_at,
+        updated_at
+      FROM game_agent_sessions
+      WHERE token_hash = ?
+      LIMIT 1
+    `,
+    [tokenHash]
+  );
+
+  return rows[0] || null;
+}
+
+async function handleGameAgentPairingCreate(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req, GAME_AGENT_PAYLOAD_MAX_BYTES);
+  } catch (error) {
+    const statusCode = Number(error?.statusCode || 400);
+    sendJson(res, statusCode, { ok: false, error: statusCode === 413 ? "payload too large" : "invalid input" });
+    return;
+  }
+
+  const game = normalizeGameAgentGame(body?.game);
+  if (!game) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const pairing = await createGameAgentPairingForUser(user.id, game);
+    if (!pairing) {
+      sendJson(res, 500, { ok: false, error: "internal error" });
+      return;
+    }
+
+    sendJson(res, 201, {
+      ok: true,
+      data: {
+        ...pairing,
+        ttlMs: GAME_AGENT_PAIRING_TTL_MS,
+      },
+    });
+  } catch (error) {
+    if (error?.statusCode === 400) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    console.error("game_agent_pairing_create_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleGameAgentPairingsList(req, res, url) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const game = normalizeGameAgentGame(url.searchParams.get("game"));
+  if (!game) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    await cleanupGameAgentPairings();
+    const pairings = await listGameAgentPairingsForUser(user.id, game);
+    sendJson(res, 200, { ok: true, data: pairings });
+  } catch (error) {
+    console.error("game_agent_pairing_list_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleGameAgentSessionsList(req, res, url) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const game = normalizeGameAgentGame(url.searchParams.get("game"));
+  if (!game) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const sessions = await listGameAgentSessionsForUser(user.id, game);
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        game,
+        heartbeatStaleMs: GAME_AGENT_HEARTBEAT_STALE_MS,
+        sessions,
+      },
+    });
+  } catch (error) {
+    console.error("game_agent_sessions_list_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleGameAgentSessionRevoke(req, res, publicId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const normalizedPublicId = String(publicId || "").trim();
+  if (!isValidGameAgentPublicId(normalizedPublicId)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const [result] = await pool.query(
+      `
+        UPDATE game_agent_sessions
+        SET revoked_at = UTC_TIMESTAMP(3), disconnected_at = UTC_TIMESTAMP(3)
+        WHERE user_id = ?
+          AND public_id = ?
+          AND revoked_at IS NULL
+        LIMIT 1
+      `,
+      [user.id, normalizedPublicId]
+    );
+
+    if (!Number(result?.affectedRows || 0)) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("game_agent_session_revoke_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleGameAgentLink(req, res) {
+  let body = {};
+  try {
+    body = await readJsonBody(req, GAME_AGENT_PAYLOAD_MAX_BYTES);
+  } catch (error) {
+    const statusCode = Number(error?.statusCode || 400);
+    sendJson(res, statusCode, { ok: false, error: statusCode === 413 ? "payload too large" : "invalid input" });
+    return;
+  }
+
+  const pairingCode = normalizeGameAgentPairingCode(body?.pairingCode || body?.code);
+  const instanceId = normalizeGameAgentInstanceId(body?.instanceId || body?.instance_id);
+  const requestedGame = normalizeGameAgentGame(body?.game || "minecraft");
+  if (!pairingCode || !instanceId || !requestedGame) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const clientIp = getClientIp(req);
+  let connection = null;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [pairingRows] = await connection.query(
+      `
+        SELECT id, user_id, game, code, expires_at, used_at
+        FROM game_agent_pairings
+        WHERE code = ?
+          AND used_at IS NULL
+          AND expires_at > UTC_TIMESTAMP(3)
+        ORDER BY created_at DESC
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [pairingCode]
+    );
+
+    if (!pairingRows.length) {
+      await connection.rollback();
+      connection.release();
+      connection = null;
+      sendJson(res, 400, { ok: false, error: "invalid pairing code" });
+      return;
+    }
+
+    const pairing = pairingRows[0];
+    const game = normalizeGameAgentGame(pairing.game);
+    if (!game || game !== requestedGame) {
+      await connection.rollback();
+      connection.release();
+      connection = null;
+      sendJson(res, 400, { ok: false, error: "invalid pairing code" });
+      return;
+    }
+
+    const serverName = normalizeGameAgentServerName(body?.serverName || body?.server_name);
+    const serverHost = normalizeGameAgentServerHost(body?.serverHost || body?.server_host);
+    const modVersion = normalizeGameAgentVersion(body?.modVersion || body?.mod_version);
+    const gameVersion = normalizeGameAgentVersion(body?.gameVersion || body?.game_version);
+    const incomingPayload = normalizeGameAgentPayload(body);
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashSessionToken(token);
+    const tokenLast4 = token.slice(-4);
+
+    const [existingRows] = await connection.query(
+      `
+        SELECT
+          id,
+          public_id,
+          user_id,
+          game,
+          instance_id,
+          server_name,
+          server_host,
+          mod_version,
+          game_version,
+          connected_at,
+          last_heartbeat_at,
+          disconnected_at,
+          revoked_at,
+          last_ip,
+          last_payload,
+          created_at,
+          updated_at
+        FROM game_agent_sessions
+        WHERE user_id = ?
+          AND game = ?
+          AND instance_id = ?
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [pairing.user_id, game, instanceId]
+    );
+
+    let sessionId = null;
+    if (existingRows.length) {
+      const existing = existingRows[0];
+      const mergedPayload = mergeGameAgentPayload(parseGameAgentJsonColumn(existing.last_payload), incomingPayload);
+      await connection.query(
+        `
+          UPDATE game_agent_sessions
+          SET
+            server_name = ?,
+            server_host = ?,
+            mod_version = ?,
+            game_version = ?,
+            token_hash = ?,
+            token_last4 = ?,
+            connected_at = UTC_TIMESTAMP(3),
+            last_heartbeat_at = UTC_TIMESTAMP(3),
+            disconnected_at = NULL,
+            revoked_at = NULL,
+            last_ip = ?,
+            last_payload = ?
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [
+          serverName || existing.server_name || null,
+          serverHost || existing.server_host || null,
+          modVersion || existing.mod_version || null,
+          gameVersion || existing.game_version || null,
+          tokenHash,
+          tokenLast4,
+          clientIp || null,
+          JSON.stringify(mergedPayload),
+          existing.id,
+        ]
+      );
+      sessionId = Number(existing.id);
+    } else {
+      const publicId = await generateUniqueGameAgentPublicId(connection);
+      const [insertResult] = await connection.query(
+        `
+          INSERT INTO game_agent_sessions (
+            public_id,
+            user_id,
+            game,
+            instance_id,
+            server_name,
+            server_host,
+            mod_version,
+            game_version,
+            token_hash,
+            token_last4,
+            connected_at,
+            last_heartbeat_at,
+            last_ip,
+            last_payload
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), ?, ?)
+        `,
+        [
+          publicId,
+          pairing.user_id,
+          game,
+          instanceId,
+          serverName || null,
+          serverHost || null,
+          modVersion || null,
+          gameVersion || null,
+          tokenHash,
+          tokenLast4,
+          clientIp || null,
+          JSON.stringify(incomingPayload),
+        ]
+      );
+      sessionId = Number(insertResult.insertId);
+    }
+
+    await connection.query(
+      `
+        UPDATE game_agent_pairings
+        SET used_at = UTC_TIMESTAMP(3)
+        WHERE id = ?
+          AND used_at IS NULL
+        LIMIT 1
+      `,
+      [pairing.id]
+    );
+
+    const [sessionRows] = await connection.query(
+      `
+        SELECT
+          id,
+          public_id,
+          user_id,
+          game,
+          instance_id,
+          server_name,
+          server_host,
+          mod_version,
+          game_version,
+          connected_at,
+          last_heartbeat_at,
+          disconnected_at,
+          revoked_at,
+          last_ip,
+          last_payload,
+          created_at,
+          updated_at
+        FROM game_agent_sessions
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [sessionId]
+    );
+
+    await connection.commit();
+    connection.release();
+    connection = null;
+
+    const session = serializeGameAgentSessionRow(sessionRows[0], Date.now());
+    sendJson(res, 201, {
+      ok: true,
+      data: {
+        session,
+        token,
+        heartbeatIntervalMs: GAME_AGENT_HEARTBEAT_INTERVAL_MS,
+        heartbeatStaleMs: GAME_AGENT_HEARTBEAT_STALE_MS,
+      },
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        // ignore rollback errors
+      }
+      connection.release();
+    }
+    console.error("game_agent_link_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleGameAgentHeartbeat(req, res) {
+  const token = readGameAgentTokenFromRequest(req);
+  if (!token) {
+    sendJson(res, 401, { ok: false, error: "unauthorized" });
+    return;
+  }
+
+  let body = {};
+  try {
+    body = await readJsonBody(req, GAME_AGENT_PAYLOAD_MAX_BYTES);
+  } catch (error) {
+    const statusCode = Number(error?.statusCode || 400);
+    sendJson(res, statusCode, { ok: false, error: statusCode === 413 ? "payload too large" : "invalid input" });
+    return;
+  }
+
+  try {
+    const session = await findGameAgentSessionByToken(token);
+    if (!session) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    if (toTimestampMs(session.revoked_at)) {
+      sendJson(res, 403, { ok: false, error: "token revoked" });
+      return;
+    }
+
+    const incomingPayload = normalizeGameAgentPayload(body);
+    const mergedPayload = mergeGameAgentPayload(parseGameAgentJsonColumn(session.last_payload), incomingPayload);
+    const serverName = normalizeGameAgentServerName(body?.serverName || body?.server_name) || session.server_name || null;
+    const serverHost = normalizeGameAgentServerHost(body?.serverHost || body?.server_host) || session.server_host || null;
+    const modVersion = normalizeGameAgentVersion(body?.modVersion || body?.mod_version) || session.mod_version || null;
+    const gameVersion = normalizeGameAgentVersion(body?.gameVersion || body?.game_version) || session.game_version || null;
+    const clientIp = getClientIp(req);
+
+    const [updateResult] = await pool.query(
+      `
+        UPDATE game_agent_sessions
+        SET
+          server_name = ?,
+          server_host = ?,
+          mod_version = ?,
+          game_version = ?,
+          last_heartbeat_at = UTC_TIMESTAMP(3),
+          disconnected_at = NULL,
+          last_ip = ?,
+          last_payload = ?
+        WHERE id = ?
+          AND revoked_at IS NULL
+        LIMIT 1
+      `,
+      [serverName, serverHost, modVersion, gameVersion, clientIp || null, JSON.stringify(mergedPayload), session.id]
+    );
+    if (!Number(updateResult?.affectedRows || 0)) {
+      sendJson(res, 403, { ok: false, error: "token revoked" });
+      return;
+    }
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        heartbeatIntervalMs: GAME_AGENT_HEARTBEAT_INTERVAL_MS,
+        heartbeatStaleMs: GAME_AGENT_HEARTBEAT_STALE_MS,
+        checkedAt: Date.now(),
+      },
+    });
+  } catch (error) {
+    console.error("game_agent_heartbeat_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleGameAgentDisconnect(req, res) {
+  const token = readGameAgentTokenFromRequest(req);
+  if (!token) {
+    sendJson(res, 401, { ok: false, error: "unauthorized" });
+    return;
+  }
+
+  try {
+    const session = await findGameAgentSessionByToken(token);
+    if (!session) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    if (toTimestampMs(session.revoked_at)) {
+      sendJson(res, 403, { ok: false, error: "token revoked" });
+      return;
+    }
+
+    const [updateResult] = await pool.query(
+      `
+        UPDATE game_agent_sessions
+        SET disconnected_at = UTC_TIMESTAMP(3), last_heartbeat_at = UTC_TIMESTAMP(3)
+        WHERE id = ?
+          AND revoked_at IS NULL
+        LIMIT 1
+      `,
+      [session.id]
+    );
+    if (!Number(updateResult?.affectedRows || 0)) {
+      sendJson(res, 403, { ok: false, error: "token revoked" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("game_agent_disconnect_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
 async function cleanupOldChecks() {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await pool.query("DELETE FROM monitor_checks WHERE checked_at < ?", [cutoff]);
@@ -10948,8 +12282,12 @@ async function handleRequest(req, res) {
     return;
   }
 
+  const isGameAgentIngestPath =
+    pathname === "/api/game-agent/link" ||
+    pathname === "/api/game-agent/heartbeat" ||
+    pathname === "/api/game-agent/disconnect";
   const requiresOriginValidation =
-    pathname.startsWith("/api/") ||
+    (pathname.startsWith("/api/") && !isGameAgentIngestPath) ||
     pathname === "/monitor-create" ||
     pathname === "/create-monitor" ||
     pathname.startsWith("/monitor-create/") ||
@@ -11142,6 +12480,42 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && pathname === "/api/game-agent/pairings") {
+    await handleGameAgentPairingsList(req, res, url);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/game-agent/pairings") {
+    await handleGameAgentPairingCreate(req, res);
+    return;
+  }
+
+  if (method === "GET" && pathname === "/api/game-agent/sessions") {
+    await handleGameAgentSessionsList(req, res, url);
+    return;
+  }
+
+  const gameAgentSessionMatch = pathname.match(/^\/api\/game-agent\/sessions\/([A-Za-z0-9]{10,64})\/?$/);
+  if (method === "DELETE" && gameAgentSessionMatch) {
+    await handleGameAgentSessionRevoke(req, res, gameAgentSessionMatch[1]);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/game-agent/link") {
+    await handleGameAgentLink(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/game-agent/heartbeat") {
+    await handleGameAgentHeartbeat(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/game-agent/disconnect") {
+    await handleGameAgentDisconnect(req, res);
+    return;
+  }
+
   if (method === "GET" && pathname === "/api/owner/overview") {
     await handleOwnerOverview(req, res);
     return;
@@ -11201,6 +12575,11 @@ async function handleRequest(req, res) {
 
   if (method === "POST" && pathname === "/create-monitor") {
     await handleCreateMonitor(req, res);
+    return;
+  }
+
+  if (method === "GET" && pathname === "/api/game-monitor/minecraft/status") {
+    await handleGameMonitorMinecraftStatus(req, res, url);
     return;
   }
 
@@ -11457,6 +12836,13 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && (pathname === "/game-monitor" || pathname === "/game-monitor/")) {
+    const user = await requireAuth(req, res, { redirectToLogin: true });
+    if (!user) return;
+    await serveStaticFile(res, "game-monitor.html");
+    return;
+  }
+
   if (method === "GET" && (pathname === "/owner" || pathname === "/owner/")) {
     const owner = await requireOwner(req, res, { auth: { redirectToLogin: true }, redirectToApp: true });
     if (!owner) return;
@@ -11586,6 +12972,7 @@ if (HTTP_ENABLED) {
     await runMonitorChecks();
     if (shouldRunLeaderTasks()) {
       await cleanupExpiredSessions();
+      await cleanupGameAgentPairings();
       await cleanupOldChecks();
       await compactClosedDays();
       await compactProbeClosedDays();
@@ -11620,6 +13007,9 @@ if (HTTP_ENABLED) {
       });
       cleanupExpiredSessions().catch((error) => {
         console.error("session_cleanup_failed", error);
+      });
+      cleanupGameAgentPairings().catch((error) => {
+        console.error("game_agent_pairing_cleanup_failed", error);
       });
     }, MAINTENANCE_INTERVAL_MS);
 
