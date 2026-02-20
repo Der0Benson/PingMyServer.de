@@ -11,6 +11,7 @@ const { performance } = require("perf_hooks");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
+const { createSessionRepository } = require("../modules/auth/session.repository");
 const { createMonitorsRepository } = require("../modules/monitors/monitors.repository");
 const { handleDispatchedRoutes } = require("../modules/routes/dispatch");
 const { handleSystemRoutes } = require("../modules/system/system.routes");
@@ -5468,39 +5469,14 @@ async function initDb() {
   await ensureSchemaCompatibility();
 }
 
-async function cleanupExpiredSessions() {
-  await pool.query("DELETE FROM sessions WHERE expires_at < UTC_TIMESTAMP()");
-}
+const sessionRepository = createSessionRepository({
+  pool,
+  crypto,
+  hashSessionToken,
+  sessionTtlMs: SESSION_TTL_MS,
+});
 
-async function createSession(userId) {
-  const token = crypto.randomBytes(32).toString("hex");
-  const sessionId = hashSessionToken(token);
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await pool.query("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", [
-    sessionId,
-    userId,
-    expiresAt,
-  ]);
-  return token;
-}
-
-async function findSessionByHash(sessionId) {
-  const [rows] = await pool.query(
-    "SELECT id, user_id, expires_at, created_at FROM sessions WHERE id = ? LIMIT 1",
-    [sessionId]
-  );
-  if (!rows.length) return null;
-  return rows[0];
-}
-
-async function findUserById(userId) {
-  const [rows] = await pool.query(
-    "SELECT id, email, created_at FROM users WHERE id = ? LIMIT 1",
-    [userId]
-  );
-  if (!rows.length) return null;
-  return rows[0];
-}
+const { cleanupExpiredSessions, createSession, findSessionByHash, findUserById, findUserByEmail } = sessionRepository;
 
 async function getUserNotificationSettingsById(userId) {
   const [rows] = await pool.query(
@@ -5651,20 +5627,6 @@ async function updateUserStripeSubscriptionByCustomerId(customerId, payload = {}
     }
     throw error;
   }
-}
-
-async function findUserByEmail(email) {
-  const [rows] = await pool.query(
-    `
-      SELECT id, email, password_hash, github_id, github_login, google_sub, google_email, discord_id, discord_username, discord_email, created_at
-      FROM users
-      WHERE email = ?
-      LIMIT 1
-    `,
-    [email]
-  );
-  if (!rows.length) return null;
-  return rows[0];
 }
 
 async function findUserByGithubId(githubId) {
