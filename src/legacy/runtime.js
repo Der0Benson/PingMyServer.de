@@ -11,14 +11,8 @@ const { performance } = require("perf_hooks");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
-const { handleAuthRoutes } = require("../modules/auth/auth.routes");
-const { handleAccountRoutes } = require("../modules/account/account.routes");
-const { handleGameAgentRoutes } = require("../modules/game-agent/game-agent.routes");
-const { handleMonitorApiRoutes } = require("../modules/monitors/monitors.routes");
-const { handleOwnerRoutes } = require("../modules/owner/owner.routes");
-const { handleStatusRoutes } = require("../modules/status/status.routes");
+const { handleDispatchedRoutes } = require("../modules/routes/dispatch");
 const { handleSystemRoutes } = require("../modules/system/system.routes");
-const { handleWebRoutes } = require("../modules/web/web.routes");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -14886,7 +14880,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  const authHandled = await handleAuthRoutes({
+  const routed = await handleDispatchedRoutes({
     method,
     pathname,
     req,
@@ -14905,22 +14899,6 @@ async function handleRequest(req, res) {
       handleAuthLoginVerifyResend,
       handleAuthLogout,
       handleAuthLogoutAll,
-    },
-    utilities: {
-      enforceAuthRateLimit,
-      sendJson,
-    },
-  });
-  if (authHandled) {
-    return;
-  }
-
-  const accountHandled = await handleAccountRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    handlers: {
       handleAccountSessionsList,
       handleAccountConnectionsList,
       handleAccountDomainsList,
@@ -14947,25 +14925,6 @@ async function handleRequest(req, res) {
       handleAccountDomainDelete,
       handleAccountPasswordChange,
       handleAccountDelete,
-    },
-    utilities: {
-      requireAuth,
-      getNextPathForUser,
-      userToResponse,
-      sendJson,
-    },
-  });
-  if (accountHandled) {
-    return;
-  }
-
-  const gameAgentHandled = await handleGameAgentRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    url,
-    handlers: {
       handleGameAgentPairingsList,
       handleGameAgentPairingCreate,
       handleGameAgentSessionsList,
@@ -14973,37 +14932,11 @@ async function handleRequest(req, res) {
       handleGameAgentLink,
       handleGameAgentHeartbeat,
       handleGameAgentDisconnect,
-    },
-  });
-  if (gameAgentHandled) {
-    return;
-  }
-
-  const ownerHandled = await handleOwnerRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    url,
-    handlers: {
       handleOwnerOverview,
       handleOwnerMonitors,
       handleOwnerSecurity,
       handleOwnerDbStorage,
       handleOwnerEmailTest,
-    },
-  });
-  if (ownerHandled) {
-    return;
-  }
-
-  const monitorApiHandled = await handleMonitorApiRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    url,
-    handlers: {
       handleCreateMonitor,
       handleGameMonitorMinecraftStatus,
       handleMonitorFavicon,
@@ -15016,7 +14949,11 @@ async function handleRequest(req, res) {
       handleDeleteMonitor,
     },
     utilities: {
+      enforceAuthRateLimit,
+      sendJson,
       requireAuth,
+      getNextPathForUser,
+      userToResponse,
       listProbesForUser,
       parseMonitorLocationParam,
       listMonitorsForUserAtProbe,
@@ -15028,58 +14965,23 @@ async function handleRequest(req, res) {
       getMetricsForMonitorAtLocation,
       serializeMonitorRow,
       getMetricsForMonitor,
-      sendJson,
-    },
-    constants: {
-      MONITOR_CREATE_GET_ENABLED,
-      INCIDENT_LOOKBACK_DAYS,
-    },
-  });
-  if (monitorApiHandled) {
-    return;
-  }
-
-  const statusHandled = await handleStatusRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    url,
-    utilities: {
       getPublicMonitorByIdentifier,
-      requireAuth,
       getLatestMonitorForUser,
       getDefaultPublicMonitor,
       getLatestPublicMonitor,
-      getMetricsForMonitor,
       toPublicMonitorId,
       isAllowedPublicStatusIdentifier,
       sendRedirect,
       serveStaticFile,
-      sendJson,
+      requireOwner,
     },
     constants: {
+      MONITOR_CREATE_GET_ENABLED,
+      INCIDENT_LOOKBACK_DAYS,
       PUBLIC_STATUS_ALLOW_NUMERIC_ID,
     },
   });
-  if (statusHandled) {
-    return;
-  }
-
-  const webHandled = await handleWebRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    utilities: {
-      requireAuth,
-      requireOwner,
-      sendRedirect,
-      serveStaticFile,
-      sendJson,
-    },
-  });
-  if (webHandled) {
+  if (routed) {
     return;
   }
 
