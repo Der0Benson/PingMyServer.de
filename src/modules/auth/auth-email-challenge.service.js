@@ -188,6 +188,7 @@ function createAuthEmailChallengeService(dependencies = {}) {
       ownerEmail: String(user?.email || challenge?.email || "").trim(),
       code: challenge?.code,
       expiresAt: Number.isFinite(Number(challenge?.expiresAtMs)) ? new Date(Number(challenge.expiresAtMs)) : null,
+      language: user?.notify_email_language || user?.language || user?.lang || "",
     });
 
     await sendOwnerSmtpTestEmail({

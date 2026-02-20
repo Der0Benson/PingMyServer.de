@@ -91,7 +91,8 @@
 .notification-form input[type="email"],
 .notification-form input[type="number"],
 .notification-form input[type="password"],
-.notification-form input[type="text"] {
+.notification-form input[type="text"],
+.notification-form select {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(8, 14, 24, 0.9);
@@ -105,7 +106,8 @@
 .notification-form input[type="email"]:focus,
 .notification-form input[type="number"]:focus,
 .notification-form input[type="password"]:focus,
-.notification-form input[type="text"]:focus {
+.notification-form input[type="text"]:focus,
+.notification-form select:focus {
   outline: none;
   border-color: rgba(76, 201, 240, 0.55);
   box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);

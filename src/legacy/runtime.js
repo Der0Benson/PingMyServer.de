@@ -2368,9 +2368,28 @@ function encodeMimeBase64(value) {
   return encoded.replace(/.{1,76}/g, "$&\r\n").trim();
 }
 
-function formatOwnerVerificationEmailTime(date) {
+function parseNotificationLanguage(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "de" || normalized.startsWith("de-")) return "de";
+  if (normalized === "en" || normalized.startsWith("en-")) return "en";
+  return "";
+}
+
+function normalizeNotificationLanguage(value, fallback = "de") {
+  return parseNotificationLanguage(value) || parseNotificationLanguage(fallback) || "de";
+}
+
+function notificationLocaleFromLanguage(language) {
+  const normalized = normalizeNotificationLanguage(language);
+  return normalized === "en" ? "en-US" : "de-DE";
+}
+
+function formatOwnerVerificationEmailTime(date, language = "de") {
   try {
-    return new Intl.DateTimeFormat("de-DE", {
+    return new Intl.DateTimeFormat(notificationLocaleFromLanguage(language), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -2656,6 +2675,90 @@ function buildAuthLoginVerificationEmail(options = {}) {
 
   return {
     subject: "Dein PingMyServer Login-Code",
+    textBody,
+    htmlBody,
+    code: normalizedCode,
+    expiresAt,
+  };
+}
+
+function buildAuthLoginVerificationEmailLocalized(options = {}) {
+  const language = normalizeNotificationLanguage(options.language || options.lang, "de");
+  if (language !== "en") {
+    return buildAuthLoginVerificationEmail(options);
+  }
+
+  const normalizedCode = normalizeAuthEmailVerificationCode(options.code);
+  const codeDisplay = formatAuthEmailVerificationCodeDisplay(normalizedCode) || normalizedCode;
+  const expiresAt =
+    options.expiresAt instanceof Date ? options.expiresAt : new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
+  const expiresLabel = formatOwnerVerificationEmailTime(expiresAt, "en");
+  const generatedAtLabel = formatOwnerVerificationEmailTime(new Date(), "en");
+  const accountLabel = String(options.ownerEmail || "").trim() || "user";
+  const year = new Date().getUTCFullYear();
+
+  const textBody = [
+    "PingMyServer - Login verification",
+    "",
+    `Your login code: ${codeDisplay}`,
+    `Valid until: ${expiresLabel} (Europe/Berlin)`,
+    "",
+    "If you did not start this login, you can ignore this email.",
+    "Your password remains protected.",
+    "",
+    `Account: ${accountLabel}`,
+    `Generated at: ${generatedAtLabel}`,
+  ].join("\n");
+
+  const htmlBody = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>PingMyServer Login Verification</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e3ef;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#ffffff;">
+                <div style="font-size:20px;font-weight:800;">Confirm your sign-in</div>
+                <div style="margin-top:6px;font-size:12px;color:#c8d8ec;">PingMyServer security message</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 22px;">
+                <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
+                  Use this login code to complete your sign-in.
+                </p>
+                <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
+                  ${escapeSmtpHtml(codeDisplay)}
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
+                  Valid until: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
+                  Account: ${escapeSmtpHtml(accountLabel)}<br />
+                  Generated at: ${escapeSmtpHtml(generatedAtLabel)}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 22px;background:#f5f8fc;border-top:1px solid #e6edf5;font-size:11px;line-height:1.6;color:#6d8298;">
+                PingMyServer.de - Security notification - (c) ${year}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "Your PingMyServer login code",
     textBody,
     htmlBody,
     code: normalizedCode,
@@ -3617,6 +3720,10 @@ function getAccountEmailNotificationCooldownMinutes(account) {
     account?.notify_email_cooldown_minutes,
     EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT
   );
+}
+
+function getAccountEmailNotificationLanguage(account) {
+  return normalizeNotificationLanguage(account?.notify_email_language, "de");
 }
 
 function resolveNotificationEmailRecipient(account) {
@@ -4835,9 +4942,12 @@ async function ensureSchemaCompatibility() {
       "ALTER TABLE users ADD COLUMN notify_email_cooldown_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15 AFTER notify_email_enabled"
     );
   }
+  if (!(await hasColumn("users", "notify_email_language"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN notify_email_language VARCHAR(8) NOT NULL DEFAULT 'de' AFTER notify_email_cooldown_minutes");
+  }
   if (!(await hasColumn("users", "notify_discord_webhook_url"))) {
     await pool.query(
-      "ALTER TABLE users ADD COLUMN notify_discord_webhook_url VARCHAR(2048) NULL AFTER notify_email_cooldown_minutes"
+      "ALTER TABLE users ADD COLUMN notify_discord_webhook_url VARCHAR(2048) NULL AFTER notify_email_language"
     );
   }
   if (!(await hasColumn("users", "notify_discord_enabled"))) {
@@ -4894,6 +5004,9 @@ async function ensureSchemaCompatibility() {
       EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN,
       EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX,
     ]
+  );
+  await pool.query(
+    "UPDATE users SET notify_email_language = 'de' WHERE notify_email_language IS NULL OR LOWER(TRIM(notify_email_language)) NOT IN ('de', 'en')"
   );
   await pool.query(
     "UPDATE users SET notify_discord_enabled = 0 WHERE notify_discord_enabled IS NULL OR notify_discord_enabled NOT IN (0, 1)"
@@ -5241,6 +5354,7 @@ async function initDb() {
       notify_email_address VARCHAR(255) NULL,
       notify_email_enabled TINYINT(1) NOT NULL DEFAULT 0,
       notify_email_cooldown_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15,
+      notify_email_language VARCHAR(8) NOT NULL DEFAULT 'de',
       notify_discord_webhook_url VARCHAR(2048) NULL,
       notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0,
       notify_slack_webhook_url VARCHAR(2048) NULL,
@@ -5564,7 +5678,7 @@ const authEmailChallengeService = createAuthEmailChallengeService({
   isValidEmail,
   createAuthEmailVerificationCode,
   hashAuthEmailVerificationCode,
-  buildAuthLoginVerificationEmail,
+  buildAuthLoginVerificationEmail: buildAuthLoginVerificationEmailLocalized,
   sendOwnerSmtpTestEmail,
   maskNotificationEmailAddress,
   authEmailVerificationPurposeLogin: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
@@ -6143,6 +6257,7 @@ function toAccountNotificationsPayload(account) {
   const emailEnabled = emailConfigured && Number(account?.notify_email_enabled || 0) === 1;
   const usingAccountEmail = !isCustomNotificationEmailConfigured(account);
   const emailCooldownMinutes = getAccountEmailNotificationCooldownMinutes(account);
+  const emailLanguage = getAccountEmailNotificationLanguage(account);
 
   const normalizedWebhook = normalizeDiscordWebhookUrl(account?.notify_discord_webhook_url);
   const configured = !!normalizedWebhook;
@@ -6165,6 +6280,7 @@ function toAccountNotificationsPayload(account) {
       recipientMasked: emailConfigured ? maskNotificationEmailAddress(resolvedEmailRecipient) : null,
       usingAccountEmail,
       cooldownMinutes: emailCooldownMinutes,
+      language: emailLanguage,
     },
     discord: {
       available: true,
@@ -7120,11 +7236,11 @@ function normalizeMonitorStatusForNotification(value) {
   return "unknown";
 }
 
-function formatNotificationTimestamp(value) {
+function formatNotificationTimestamp(value, language = "de") {
   const dateValue = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(dateValue.getTime())) return formatSmtpMessageDate(new Date());
   try {
-    return new Intl.DateTimeFormat("de-DE", {
+    return new Intl.DateTimeFormat(notificationLocaleFromLanguage(language), {
       dateStyle: "medium",
       timeStyle: "medium",
       timeZone: "Europe/Berlin",
@@ -7364,6 +7480,231 @@ function buildEmailNotificationTestMessage(options = {}) {
   };
 }
 
+function buildMonitorStatusNotificationEmailLocalized(options = {}) {
+  const language = normalizeNotificationLanguage(options.language || options.lang, "de");
+  if (language !== "en") {
+    return buildMonitorStatusNotificationEmail(options);
+  }
+
+  const monitorName = String(options.monitorName || "Monitor").trim() || "Monitor";
+  const monitorUrl = String(options.monitorUrl || "-").trim() || "-";
+  const unsubscribeUrl = String(options.unsubscribeUrl || "").trim();
+  const previousStatus = normalizeMonitorStatusForNotification(options.previousStatus);
+  const nextStatus = normalizeMonitorStatusForNotification(options.nextStatus);
+  const checkedAt = options.checkedAt instanceof Date ? options.checkedAt : new Date();
+  const checkedAtLabel = formatNotificationTimestamp(checkedAt, "en");
+  const isOffline = nextStatus === "offline";
+  const eventLabel = isOffline ? "OFFLINE" : "ONLINE";
+  const responseMs = Math.max(0, Number(options.elapsedMs || 0));
+  const statusCodeLabel = Number.isFinite(Number(options.statusCode)) ? String(Number(options.statusCode)) : "-";
+  const errorLabel = String(options.errorMessage || "").trim() || "-";
+  const downtimeLabel = Number.isFinite(Number(options.recoveryDurationMs))
+    ? formatNotificationDuration(Number(options.recoveryDurationMs))
+    : "-";
+  const cooldownMinutes = normalizeEmailNotificationCooldownMinutes(options.cooldownMinutes);
+  const dashboardUrl = `${getDefaultTrustedOrigin()}/app`;
+  const subject = `[PingMyServer] ${isOffline ? "Outage" : "Recovered"}: ${monitorName}`.slice(0, 160);
+
+  const textBodyLines = [
+    `PingMyServer Monitor Alert (${eventLabel})`,
+    "",
+    `Monitor: ${monitorName}`,
+    `URL: ${monitorUrl}`,
+    `Status: ${previousStatus} -> ${nextStatus}`,
+    `Response time: ${responseMs} ms`,
+    `HTTP status: ${statusCodeLabel}`,
+    `Error: ${errorLabel}`,
+    `Checked at: ${checkedAtLabel} (Europe/Berlin)`,
+    `Anti-spam cooldown: ${cooldownMinutes} minute(s) per monitor`,
+  ];
+  if (!isOffline && downtimeLabel !== "-") {
+    textBodyLines.push(`Outage duration: ${downtimeLabel}`);
+  }
+  if (unsubscribeUrl) {
+    textBodyLines.push(`Unsubscribe: ${unsubscribeUrl}`);
+  }
+  textBodyLines.push("", `Dashboard: ${dashboardUrl}`, "", "Automatic system message from PingMyServer.");
+
+  const accent = isOffline ? "#c84a4a" : "#2b9f63";
+  const statusBadgeBg = isOffline ? "rgba(200,74,74,0.14)" : "rgba(43,159,99,0.14)";
+  const statusBadgeBorder = isOffline ? "rgba(200,74,74,0.4)" : "rgba(43,159,99,0.4)";
+  const htmlBody = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>PingMyServer Monitor Alert</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border:1px solid #d9e3ef;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#dce8f7;border-bottom:1px solid #1f3552;">
+                <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">PingMyServer Alert</div>
+                <div style="margin-top:8px;font-size:24px;line-height:1.2;color:#ffffff;font-weight:800;">${escapeSmtpHtml(monitorName)}</div>
+                <div style="margin-top:10px;display:inline-flex;padding:6px 10px;border-radius:999px;border:1px solid ${statusBadgeBorder};background:${statusBadgeBg};font-size:12px;font-weight:700;color:${accent};">
+                  ${escapeSmtpHtml(eventLabel)}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 22px 8px 22px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Status change</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      `${previousStatus} -> ${nextStatus}`
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">URL</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      monitorUrl
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Response time</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      `${responseMs} ms`
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">HTTP status</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      statusCodeLabel
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Error</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      errorLabel
+                    )}</td>
+                  </tr>
+                  ${
+                    !isOffline && downtimeLabel !== "-"
+                      ? `<tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Outage duration</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      downtimeLabel
+                    )}</td>
+                  </tr>`
+                      : ""
+                  }
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Checked at</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      checkedAtLabel
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;font-size:13px;color:#5f738c;">Anti-spam</td>
+                    <td style="padding:8px 0;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      `${cooldownMinutes} minute(s) cooldown`
+                    )}</td>
+                  </tr>
+                </table>
+                <p style="margin:14px 0 10px 0;font-size:12px;line-height:1.6;color:#61788f;">
+                  Dashboard: <a href="${escapeSmtpHtml(dashboardUrl)}" style="color:#2668b4;text-decoration:none;">${escapeSmtpHtml(
+                    dashboardUrl
+                  )}</a>
+                </p>
+                ${
+                  unsubscribeUrl
+                    ? `<p style="margin:0 0 10px 0;font-size:12px;line-height:1.6;color:#61788f;">
+                  Unsubscribe notifications:
+                  <a href="${escapeSmtpHtml(unsubscribeUrl)}" style="color:#2668b4;text-decoration:none;">Unsubscribe</a>
+                </p>`
+                    : ""
+                }
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 22px;background:#f5f8fc;border-top:1px solid #e6edf5;font-size:11px;line-height:1.6;color:#6d8298;">
+                Automatic system message from PingMyServer.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject,
+    textBody: textBodyLines.join("\n"),
+    htmlBody,
+  };
+}
+
+function buildEmailNotificationTestMessageLocalized(options = {}) {
+  const language = normalizeNotificationLanguage(options.language || options.lang, "de");
+  if (language !== "en") {
+    return buildEmailNotificationTestMessage(options);
+  }
+
+  const recipient = resolveNotificationEmailRecipient({ email: options.recipient });
+  const cooldownMinutes = normalizeEmailNotificationCooldownMinutes(options.cooldownMinutes);
+  const sentAtLabel = formatNotificationTimestamp(new Date(), "en");
+  const textBody = [
+    "PingMyServer email notification test",
+    "",
+    "Email notifications are configured correctly.",
+    `Recipient: ${recipient || "-"}`,
+    `Cooldown per monitor: ${cooldownMinutes} minute(s)`,
+    `Sent at: ${sentAtLabel} (Europe/Berlin)`,
+    "",
+    "This is an automatic test message.",
+  ].join("\n");
+
+  const htmlBody = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PingMyServer Email Test</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e3ef;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#ffffff;">
+                <div style="font-size:20px;font-weight:800;">Email test successful</div>
+                <div style="margin-top:6px;font-size:12px;color:#c8d8ec;">PingMyServer notification system</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 22px;">
+                <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
+                  Email notifications are configured correctly.
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
+                  Recipient: ${escapeSmtpHtml(recipient || "-")}<br />
+                  Cooldown per monitor: ${escapeSmtpHtml(String(cooldownMinutes))} minute(s)<br />
+                  Sent at: ${escapeSmtpHtml(sentAtLabel)} (Europe/Berlin)
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "PingMyServer email notification test",
+    textBody,
+    htmlBody,
+  };
+}
+
 async function getMonitorEmailNotificationState(monitorId) {
   const [rows] = await pool.query(
     "SELECT notify_email_last_sent_at, notify_email_last_sent_status FROM monitors WHERE id = ? LIMIT 1",
@@ -7442,6 +7783,7 @@ async function sendEmailStatusNotificationForMonitorChange({
   if (!Number.isInteger(monitorId) || monitorId <= 0) return;
 
   const cooldownMinutes = getAccountEmailNotificationCooldownMinutes(account);
+  const emailLanguage = getAccountEmailNotificationLanguage(account);
   const gate = await shouldSendEmailNotificationForMonitorChange(monitorId, nextStatus, cooldownMinutes);
   if (!gate.allowed) return;
 
@@ -7457,7 +7799,7 @@ async function sendEmailStatusNotificationForMonitorChange({
       ? Math.max(0, now.getTime() - previousSinceMs)
       : null;
 
-  const message = buildMonitorStatusNotificationEmail({
+  const message = buildMonitorStatusNotificationEmailLocalized({
     monitorName,
     monitorUrl: targetUrl,
     previousStatus: previous,
@@ -7469,6 +7811,7 @@ async function sendEmailStatusNotificationForMonitorChange({
     recoveryDurationMs,
     cooldownMinutes,
     unsubscribeUrl,
+    language: emailLanguage,
   });
 
   try {
@@ -7739,6 +8082,13 @@ async function handleAccountEmailNotificationUpsert(req, res) {
     return;
   }
 
+  const hasLanguageField = Object.prototype.hasOwnProperty.call(body || {}, "language");
+  const languageInput = hasLanguageField && typeof body?.language === "string" ? body.language : "";
+  if (hasLanguageField && typeof body?.language !== "string") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
   try {
     const account = await getUserNotificationSettingsById(user.id);
     if (!account) {
@@ -7772,10 +8122,20 @@ async function handleAccountEmailNotificationUpsert(req, res) {
     const nextCooldown = hasCooldownField
       ? normalizeEmailNotificationCooldownMinutes(cooldownNumeric, getAccountEmailNotificationCooldownMinutes(account))
       : getAccountEmailNotificationCooldownMinutes(account);
+    const currentLanguage = getAccountEmailNotificationLanguage(account);
+    let nextLanguage = currentLanguage;
+    if (hasLanguageField) {
+      const parsedLanguage = parseNotificationLanguage(languageInput);
+      if (!parsedLanguage) {
+        sendJson(res, 400, { ok: false, error: "invalid language" });
+        return;
+      }
+      nextLanguage = parsedLanguage;
+    }
 
     await pool.query(
-      "UPDATE users SET notify_email_address = ?, notify_email_enabled = ?, notify_email_cooldown_minutes = ? WHERE id = ? LIMIT 1",
-      [nextCustomRecipient, nextEnabled ? 1 : 0, nextCooldown, user.id]
+      "UPDATE users SET notify_email_address = ?, notify_email_enabled = ?, notify_email_cooldown_minutes = ?, notify_email_language = ? WHERE id = ? LIMIT 1",
+      [nextCustomRecipient, nextEnabled ? 1 : 0, nextCooldown, nextLanguage, user.id]
     );
 
     const updated = await getUserNotificationSettingsById(user.id);
@@ -7829,9 +8189,11 @@ async function handleAccountEmailNotificationTest(req, res) {
     }
 
     const cooldownMinutes = getAccountEmailNotificationCooldownMinutes(account);
-    const testMessage = buildEmailNotificationTestMessage({
+    const emailLanguage = getAccountEmailNotificationLanguage(account);
+    const testMessage = buildEmailNotificationTestMessageLocalized({
       recipient,
       cooldownMinutes,
+      language: emailLanguage,
     });
 
     await sendOwnerSmtpTestEmail({
