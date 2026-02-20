@@ -291,6 +291,10 @@ body.auth-locked {
   box-shadow: 0 0 8px rgba(185, 242, 124, 0.55);
 }
 
+a[data-owner-link][hidden] {
+  display: none !important;
+}
+
 .side-footer {
   margin-top: auto;
   display: grid;
