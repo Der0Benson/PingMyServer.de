@@ -3,12 +3,19 @@ const urlInput = document.getElementById("monitor-url");
 const nameInput = document.getElementById("monitor-name");
 const endpointsInput = document.getElementById("monitor-endpoints");
 const messageEl = document.getElementById("onboarding-message");
+const warmupModal = document.getElementById("warmup-modal");
+const warmupModalTitleEl = document.getElementById("warmup-modal-title");
+const warmupModalTextEl = document.getElementById("warmup-modal-text");
+const warmupModalExtraEl = document.getElementById("warmup-modal-extra");
+const warmupModalContinueButton = document.getElementById("warmup-modal-continue");
 
 const I18N = window.PMS_I18N || null;
 const t = (key, vars, fallback) =>
   I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
 
 const MAX_BATCH_ENDPOINTS = 50;
+const MONITOR_INITIAL_WARMUP_MINUTES = 5;
+let warmupModalResolve = null;
 
 function encodeBase64UrlUtf8(input) {
   const value = String(input || "");
@@ -192,6 +199,71 @@ function setMessage(text, type = "") {
   }
 }
 
+function resolveWarmupModal() {
+  if (!warmupModalResolve) return;
+  const resolve = warmupModalResolve;
+  warmupModalResolve = null;
+  resolve();
+}
+
+function getWarmupModalLines(createdCount = 1) {
+  const count = Math.max(1, Number(createdCount) || 1);
+  const title = t(
+    "onboarding.warmup.title",
+    { minutes: MONITOR_INITIAL_WARMUP_MINUTES },
+    `Monitor wird eingerichtet (${MONITOR_INITIAL_WARMUP_MINUTES} Minuten Warmup)`
+  );
+  const lineA =
+    count > 1
+      ? t(
+          "onboarding.warmup.line_a_many",
+          { count },
+          `${count} Monitore wurden erstellt und starten jetzt in die Einrichtungsphase.`
+        )
+      : t("onboarding.warmup.line_a_one", null, "Dein Monitor wurde erstellt und startet jetzt in die Einrichtungsphase.");
+  const lineB = t(
+    "onboarding.warmup.line_b",
+    { minutes: MONITOR_INITIAL_WARMUP_MINUTES },
+    `In den ersten ${MONITOR_INITIAL_WARMUP_MINUTES} Minuten sammeln wir erste Pings, senden keine Alerts und speichern keine Ausfaelle.`
+  );
+  const lineC = t(
+    "onboarding.warmup.line_c",
+    null,
+    "Nach Ablauf gilt der Monitor als offline, wenn auf beiden Servern keine Verbindung besteht."
+  );
+  const button = t("onboarding.warmup.button_continue", null, "Zum Dashboard");
+
+  return { title, lineA, lineB, lineC, button };
+}
+
+async function showWarmupModal(createdCount = 1) {
+  const lines = getWarmupModalLines(createdCount);
+
+  if (!warmupModal || typeof warmupModal.showModal !== "function") {
+    window.alert(`${lines.title}\n\n${lines.lineA}\n${lines.lineB}\n${lines.lineC}`);
+    return;
+  }
+
+  if (warmupModalTitleEl) warmupModalTitleEl.textContent = lines.title;
+  if (warmupModalTextEl) warmupModalTextEl.textContent = `${lines.lineA} ${lines.lineB}`;
+  if (warmupModalExtraEl) warmupModalExtraEl.textContent = lines.lineC;
+  if (warmupModalContinueButton) warmupModalContinueButton.textContent = lines.button;
+
+  if (warmupModal.open) {
+    warmupModal.close();
+  }
+
+  await new Promise((resolve) => {
+    warmupModalResolve = resolve;
+    warmupModal.showModal();
+  });
+}
+
+async function redirectAfterWarmupNotice(url, createdCount = 1) {
+  await showWarmupModal(createdCount);
+  window.location.href = String(url || "/app");
+}
+
 async function readApiResponse(response) {
   const rawText = await response.text().catch(() => "");
   let payload = null;
@@ -371,7 +443,7 @@ async function createMonitor(event) {
 
       setMessage(t("onboarding.msg.created_redirect", null, "Monitor created. Redirecting..."), "success");
       const monitorId = result.payload.id;
-      window.location.href = monitorId ? `/app/monitors/${monitorId}` : "/app";
+      await redirectAfterWarmupNotice(monitorId ? `/app/monitors/${monitorId}` : "/app", 1);
       return;
     }
 
@@ -447,7 +519,7 @@ async function createMonitor(event) {
       "success"
     );
     const firstMonitor = createdIds[0] || "";
-    window.location.href = firstMonitor ? `/app/monitors/${firstMonitor}` : "/app";
+    await redirectAfterWarmupNotice(firstMonitor ? `/app/monitors/${firstMonitor}` : "/app", createdIds.length);
   } catch (error) {
     setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
@@ -462,6 +534,13 @@ async function init() {
   if (!ok) return;
 
   await redirectIfMonitorExists();
+}
+
+if (warmupModal) {
+  warmupModal.addEventListener("close", resolveWarmupModal);
+  warmupModal.addEventListener("cancel", () => {
+    resolveWarmupModal();
+  });
 }
 
 init();

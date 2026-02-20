@@ -426,10 +426,15 @@ const PROBE_RESULT_STALE_MIN_MS = readEnvNumber("PROBE_RESULT_STALE_MIN_MS", 900
   min: 1000,
   max: 86400000,
 });
-const PROBE_MIN_CONFIRMATIONS_OFFLINE = readEnvNumber("PROBE_MIN_CONFIRMATIONS_OFFLINE", 1, {
+const PROBE_MIN_CONFIRMATIONS_OFFLINE = readEnvNumber("PROBE_MIN_CONFIRMATIONS_OFFLINE", 2, {
   integer: true,
   min: 1,
   max: 1000,
+});
+const MONITOR_INITIAL_WARMUP_MS = readEnvNumber("MONITOR_INITIAL_WARMUP_MS", 5 * 60 * 1000, {
+  integer: true,
+  min: 0,
+  max: 24 * 60 * 60 * 1000,
 });
 const CLUSTER_LEASE_NAME = readEnvString("CLUSTER_LEASE_NAME", "monitor-leader");
 const CLUSTER_LEASE_TTL_MS = readEnvNumber("CLUSTER_LEASE_TTL_MS", 15000, { integer: true, min: 1000, max: 600000 });
@@ -9050,7 +9055,8 @@ async function getDueMonitors() {
         last_status,
         status_since,
         last_checked_at,
-        last_check_at
+        last_check_at,
+        created_at
       FROM monitors
       WHERE user_id IS NOT NULL
         AND is_paused = 0
@@ -9086,7 +9092,8 @@ async function getDueMonitorsForProbe(probeId = PROBE_ID) {
         m.http_follow_redirects,
         m.http_max_redirects,
         m.http_timeout_ms,
-        m.is_paused
+        m.is_paused,
+        m.created_at
       FROM monitors m
       LEFT JOIN monitor_probe_state ps
         ON ps.monitor_id = m.id
@@ -9637,33 +9644,51 @@ async function performSingleMonitorHttpCheck(monitor) {
   };
 }
 
+function getMonitorWarmupRemainingMs(monitor, nowMs = Date.now()) {
+  if (!Number.isFinite(MONITOR_INITIAL_WARMUP_MS) || MONITOR_INITIAL_WARMUP_MS <= 0) return 0;
+  const createdAtMs = toTimestampMs(monitor?.created_at);
+  if (!Number.isFinite(createdAtMs)) return 0;
+  const elapsedMs = Math.max(0, nowMs - createdAtMs);
+  return Math.max(0, MONITOR_INITIAL_WARMUP_MS - elapsedMs);
+}
+
+function shouldSuppressOfflineDuringWarmup(monitor, nextStatus, nowMs = Date.now()) {
+  if (String(nextStatus || "").toLowerCase() !== "offline") return false;
+  return getMonitorWarmupRemainingMs(monitor, nowMs) > 0;
+}
+
 async function checkSingleMonitor(monitor) {
   const { monitorId, targetUrl, ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
 
   const nextStatus = ok ? "online" : "offline";
   const previousStatus = String(monitor.last_status || "online");
-  const statusChanged = previousStatus !== nextStatus;
   const now = new Date();
+  const nowMs = now.getTime();
+  const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus, nowMs);
+  const effectiveNextStatus = suppressOffline ? previousStatus : nextStatus;
+  const statusChanged = previousStatus !== effectiveNextStatus;
 
   let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
   if (!monitor.status_since || statusChanged) {
     statusSince = now;
   }
 
-  await pool.query(
-    `
-      INSERT INTO monitor_checks (
-        monitor_id,
-        checked_at,
-        ok,
-        response_ms,
-        status_code,
-        error_message
-      )
-      VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
-    `,
-    [monitorId, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
-  );
+  if (!suppressOffline) {
+    await pool.query(
+      `
+        INSERT INTO monitor_checks (
+          monitor_id,
+          checked_at,
+          ok,
+          response_ms,
+          status_code,
+          error_message
+        )
+        VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
+      `,
+      [monitorId, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
+    );
+  }
 
   await pool.query(
     `
@@ -9679,7 +9704,7 @@ async function checkSingleMonitor(monitor) {
         interval_ms = ?
       WHERE id = ?
     `,
-    [nextStatus, statusSince, elapsedMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
+    [effectiveNextStatus, statusSince, elapsedMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
   );
 
   if (statusChanged) {
@@ -9688,7 +9713,7 @@ async function checkSingleMonitor(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs,
         statusCode,
         errorMessage,
@@ -9698,7 +9723,7 @@ async function checkSingleMonitor(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs,
         statusCode,
         errorMessage,
@@ -9707,7 +9732,7 @@ async function checkSingleMonitor(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs,
         statusCode,
         errorMessage,
@@ -9716,7 +9741,7 @@ async function checkSingleMonitor(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs,
         statusCode,
         errorMessage,
@@ -9729,22 +9754,25 @@ async function checkSingleMonitorProbe(monitor, probeId = PROBE_ID) {
   const { monitorId, ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
   const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
   const nextStatus = ok ? "online" : "offline";
+  const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus);
 
-  await pool.query(
-    `
-      INSERT INTO monitor_probe_checks (
-        monitor_id,
-        probe_id,
-        checked_at,
-        ok,
-        response_ms,
-        status_code,
-        error_message
-      )
-      VALUES (?, ?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
-    `,
-    [monitorId, probe, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
-  );
+  if (!suppressOffline) {
+    await pool.query(
+      `
+        INSERT INTO monitor_probe_checks (
+          monitor_id,
+          probe_id,
+          checked_at,
+          ok,
+          response_ms,
+          status_code,
+          error_message
+        )
+        VALUES (?, ?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
+      `,
+      [monitorId, probe, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
+    );
+  }
 
   await pool.query(
     `
@@ -9823,6 +9851,7 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
 
   const onlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "online");
   const offlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "offline");
+  const requiredOfflineConfirmations = Math.max(2, PROBE_MIN_CONFIRMATIONS_OFFLINE);
 
   if (onlineStates.length) {
     const sample = pickFastestProbeState(onlineStates);
@@ -9837,7 +9866,7 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
     };
   }
 
-  if (offlineStates.length >= PROBE_MIN_CONFIRMATIONS_OFFLINE) {
+  if (offlineStates.length >= requiredOfflineConfirmations) {
     const sample = pickFastestProbeState(offlineStates);
     const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
     return {
@@ -9862,28 +9891,33 @@ async function checkSingleMonitorAggregate(monitor) {
   const { ok, responseMs, statusCode, errorMessage } = aggregate;
   const nextStatus = ok ? "online" : "offline";
   const previousStatus = String(monitor.last_status || "online");
-  const statusChanged = previousStatus !== nextStatus;
   const now = new Date();
+  const nowMs = now.getTime();
+  const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus, nowMs);
+  const effectiveNextStatus = suppressOffline ? previousStatus : nextStatus;
+  const statusChanged = previousStatus !== effectiveNextStatus;
 
   let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
   if (!monitor.status_since || statusChanged) {
     statusSince = now;
   }
 
-  await pool.query(
-    `
-      INSERT INTO monitor_checks (
-        monitor_id,
-        checked_at,
-        ok,
-        response_ms,
-        status_code,
-        error_message
-      )
-      VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
-    `,
-    [monitorId, ok ? 1 : 0, responseMs, statusCode, errorMessage]
-  );
+  if (!suppressOffline) {
+    await pool.query(
+      `
+        INSERT INTO monitor_checks (
+          monitor_id,
+          checked_at,
+          ok,
+          response_ms,
+          status_code,
+          error_message
+        )
+        VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
+      `,
+      [monitorId, ok ? 1 : 0, responseMs, statusCode, errorMessage]
+    );
+  }
 
   await pool.query(
     `
@@ -9899,7 +9933,7 @@ async function checkSingleMonitorAggregate(monitor) {
         interval_ms = ?
       WHERE id = ?
     `,
-    [nextStatus, statusSince, responseMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
+    [effectiveNextStatus, statusSince, responseMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
   );
 
   if (statusChanged) {
@@ -9908,7 +9942,7 @@ async function checkSingleMonitorAggregate(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs: responseMs,
         statusCode,
         errorMessage,
@@ -9918,7 +9952,7 @@ async function checkSingleMonitorAggregate(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs: responseMs,
         statusCode,
         errorMessage,
@@ -9927,7 +9961,7 @@ async function checkSingleMonitorAggregate(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs: responseMs,
         statusCode,
         errorMessage,
@@ -9936,7 +9970,7 @@ async function checkSingleMonitorAggregate(monitor) {
         userId: monitor.user_id,
         monitor,
         previousStatus,
-        nextStatus,
+        nextStatus: effectiveNextStatus,
         elapsedMs: responseMs,
         statusCode,
         errorMessage,
