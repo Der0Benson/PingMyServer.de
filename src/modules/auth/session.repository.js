@@ -39,12 +39,56 @@ function createSessionRepository(dependencies = {}) {
     return rows[0];
   }
 
+  async function deleteSessionById(sessionId, queryable = pool) {
+    const [result] = await queryable.query("DELETE FROM sessions WHERE id = ?", [sessionId]);
+    return Number(result?.affectedRows || 0);
+  }
+
+  async function deleteSessionsByUserId(userId, queryable = pool) {
+    const [result] = await queryable.query("DELETE FROM sessions WHERE user_id = ?", [userId]);
+    return Number(result?.affectedRows || 0);
+  }
+
+  async function deleteSessionForUser(userId, sessionId) {
+    const [result] = await pool.query("DELETE FROM sessions WHERE user_id = ? AND id = ? LIMIT 1", [userId, sessionId]);
+    return Number(result?.affectedRows || 0);
+  }
+
+  async function deleteSessionsByUserIdExcept(userId, keepSessionId) {
+    const [result] = await pool.query("DELETE FROM sessions WHERE user_id = ? AND id <> ?", [userId, keepSessionId]);
+    return Number(result?.affectedRows || 0);
+  }
+
+  async function listSessionsByUserId(userId) {
+    const [rows] = await pool.query(
+      `
+        SELECT id, created_at, expires_at
+        FROM sessions
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+      `,
+      [userId]
+    );
+    return rows;
+  }
+
+  async function countActiveSessions() {
+    const [rows] = await pool.query("SELECT COUNT(*) AS active_sessions FROM sessions");
+    return Number(rows[0]?.active_sessions || 0);
+  }
+
   return {
     cleanupExpiredSessions,
     createSession,
     findSessionByHash,
     findUserById,
     findUserByEmail,
+    deleteSessionById,
+    deleteSessionsByUserId,
+    deleteSessionForUser,
+    deleteSessionsByUserIdExcept,
+    listSessionsByUserId,
+    countActiveSessions,
   };
 }
 

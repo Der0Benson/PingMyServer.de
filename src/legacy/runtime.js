@@ -12,6 +12,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
 const { createAccountRepository } = require("../modules/account/account.repository");
+const { createAuthEmailChallengeRepository } = require("../modules/auth/auth-email-challenge.repository");
 const { createAuthFailureRepository } = require("../modules/auth/auth-failure.repository");
 const { createOauthRepository } = require("../modules/auth/oauth.repository");
 const { createSessionRepository } = require("../modules/auth/session.repository");
@@ -5479,7 +5480,19 @@ const sessionRepository = createSessionRepository({
   sessionTtlMs: SESSION_TTL_MS,
 });
 
-const { cleanupExpiredSessions, createSession, findSessionByHash, findUserById, findUserByEmail } = sessionRepository;
+const {
+  cleanupExpiredSessions,
+  createSession,
+  findSessionByHash,
+  findUserById,
+  findUserByEmail,
+  deleteSessionById,
+  deleteSessionsByUserId,
+  deleteSessionForUser,
+  deleteSessionsByUserIdExcept,
+  listSessionsByUserId,
+  countActiveSessions,
+} = sessionRepository;
 
 const accountRepository = createAccountRepository({ pool });
 
@@ -5519,90 +5532,35 @@ const authFailureRepository = createAuthFailureRepository({
 
 const { getAuthFailure, isAccountLocked, registerAuthFailure, clearAuthFailures } = authFailureRepository;
 
+const authEmailChallengeRepository = createAuthEmailChallengeRepository({
+  pool,
+  hashSessionToken,
+  normalizeEmail,
+  toTimestampMs,
+});
+
 async function cleanupExpiredAuthEmailChallenges() {
   const retentionMs = Math.max(AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS, 60 * 1000);
   const cutoff = new Date(Date.now() - retentionMs);
-  await pool.query(
-    `
-      DELETE FROM auth_email_challenges
-      WHERE expires_at < UTC_TIMESTAMP(3)
-         OR (consumed_at IS NOT NULL AND consumed_at < ?)
-    `,
-    [cutoff]
-  );
-}
-
-function serializeAuthEmailChallengeRow(row) {
-  if (!row || typeof row !== "object") return null;
-  return {
-    id: Number(row.id || 0),
-    tokenHash: String(row.token_hash || "").trim(),
-    userId: Number(row.user_id || 0),
-    email: normalizeEmail(row.email),
-    purpose: String(row.purpose || "").trim().toLowerCase(),
-    codeHash: String(row.code_hash || "").trim(),
-    codeLast4: String(row.code_last4 || "").trim(),
-    attempts: Number(row.attempts || 0),
-    maxAttempts: Number(row.max_attempts || 0),
-    sendCount: Number(row.send_count || 0),
-    lastSentAtMs: toTimestampMs(row.last_sent_at),
-    expiresAtMs: toTimestampMs(row.expires_at),
-    consumedAtMs: toTimestampMs(row.consumed_at),
-  };
+  await authEmailChallengeRepository.cleanupExpiredAuthEmailChallenges(cutoff);
 }
 
 async function findAuthEmailChallengeByToken(token, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
   const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
     .trim()
     .toLowerCase();
-  const challengeToken = String(token || "").trim();
-  if (!challengeToken || !/^[a-f0-9]{64}$/.test(challengeToken)) return null;
-
-  const [rows] = await pool.query(
-    `
-      SELECT
-        id,
-        token_hash,
-        user_id,
-        email,
-        purpose,
-        code_hash,
-        code_last4,
-        attempts,
-        max_attempts,
-        send_count,
-        last_sent_at,
-        expires_at,
-        consumed_at
-      FROM auth_email_challenges
-      WHERE token_hash = ? AND purpose = ?
-      LIMIT 1
-    `,
-    [hashSessionToken(challengeToken), normalizedPurpose]
-  );
-
-  return rows.length ? serializeAuthEmailChallengeRow(rows[0]) : null;
+  const challengeToken = String(token || "")
+    .trim()
+    .toLowerCase();
+  return authEmailChallengeRepository.findAuthEmailChallengeByToken(challengeToken, normalizedPurpose);
 }
 
 async function countRecentAuthEmailChallengesForUser(userId, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
-  const numericUserId = Number(userId);
-  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return 0;
   const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
     .trim()
     .toLowerCase();
   const lookback = new Date(Date.now() - 60 * 60 * 1000);
-
-  const [rows] = await pool.query(
-    `
-      SELECT COUNT(*) AS total
-      FROM auth_email_challenges
-      WHERE user_id = ?
-        AND purpose = ?
-        AND created_at >= ?
-    `,
-    [numericUserId, normalizedPurpose, lookback]
-  );
-  return Number(rows?.[0]?.total || 0);
+  return authEmailChallengeRepository.countRecentAuthEmailChallengesForUser(userId, normalizedPurpose, lookback);
 }
 
 function buildAuthVerificationChallengeResponse(challenge) {
@@ -5651,35 +5609,17 @@ async function createAuthEmailChallenge({ userId, email, purpose = AUTH_EMAIL_VE
   const now = new Date();
   const expiresAt = new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
 
-  await pool.query(
-    `
-      INSERT INTO auth_email_challenges (
-        token_hash,
-        user_id,
-        email,
-        purpose,
-        code_hash,
-        code_last4,
-        attempts,
-        max_attempts,
-        send_count,
-        last_sent_at,
-        expires_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, 1, ?, ?)
-    `,
-    [
-      hashSessionToken(challengeToken),
-      numericUserId,
-      normalizedEmail,
-      normalizedPurpose,
-      codeHash,
-      code.slice(-4),
-      AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS,
-      now,
-      expiresAt,
-    ]
-  );
+  await authEmailChallengeRepository.insertAuthEmailChallenge({
+    challengeToken,
+    userId: numericUserId,
+    email: normalizedEmail,
+    purpose: normalizedPurpose,
+    codeHash,
+    codeLast4: code.slice(-4),
+    maxAttempts: AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS,
+    lastSentAt: now,
+    expiresAt,
+  });
 
   return {
     token: challengeToken,
@@ -5695,12 +5635,10 @@ async function deleteAuthEmailChallengeByToken(token, purpose = AUTH_EMAIL_VERIF
   const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
     .trim()
     .toLowerCase();
-  const challengeToken = String(token || "").trim();
-  if (!challengeToken || !/^[a-f0-9]{64}$/.test(challengeToken)) return;
-  await pool.query("DELETE FROM auth_email_challenges WHERE token_hash = ? AND purpose = ?", [
-    hashSessionToken(challengeToken),
-    normalizedPurpose,
-  ]);
+  const challengeToken = String(token || "")
+    .trim()
+    .toLowerCase();
+  await authEmailChallengeRepository.deleteAuthEmailChallengeByToken(challengeToken, normalizedPurpose);
 }
 
 async function resendAuthEmailChallenge(challenge, challengeToken) {
@@ -5742,25 +5680,14 @@ async function resendAuthEmailChallenge(challenge, challengeToken) {
   const code = createAuthEmailVerificationCode();
   const codeHash = hashAuthEmailVerificationCode(challengeToken, code);
   const nextExpiresAt = new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
-  const [updateResult] = await pool.query(
-    `
-      UPDATE auth_email_challenges
-      SET
-        code_hash = ?,
-        code_last4 = ?,
-        send_count = send_count + 1,
-        last_sent_at = UTC_TIMESTAMP(3),
-        expires_at = ?,
-        updated_at = UTC_TIMESTAMP()
-      WHERE id = ?
-        AND consumed_at IS NULL
-        AND expires_at > UTC_TIMESTAMP(3)
-        AND send_count < ?
-      LIMIT 1
-    `,
-    [codeHash, code.slice(-4), nextExpiresAt, challengeId, AUTH_EMAIL_VERIFICATION_MAX_SENDS]
-  );
-  if (Number(updateResult?.affectedRows || 0) !== 1) {
+  const affectedRows = await authEmailChallengeRepository.updateAuthEmailChallengeForResend({
+    challengeId,
+    codeHash,
+    codeLast4: code.slice(-4),
+    nextExpiresAt,
+    maxSends: AUTH_EMAIL_VERIFICATION_MAX_SENDS,
+  });
+  if (affectedRows !== 1) {
     const error = new Error("challenge_update_conflict");
     error.code = "challenge_update_conflict";
     throw error;
@@ -5793,8 +5720,7 @@ async function sendAuthEmailChallenge(challenge, user) {
 }
 
 async function getNextPathForUser(userId) {
-  const [rows] = await pool.query("SELECT COUNT(*) AS total FROM monitors WHERE user_id = ?", [userId]);
-  const total = Number(rows[0]?.total || 0);
+  const total = await countMonitorsForUser(userId);
   return total > 0 ? "/app" : "/onboarding";
 }
 
@@ -5827,7 +5753,7 @@ async function requireAuth(req, res, options = {}) {
 
   const expiresAtMs = new Date(session.expires_at).getTime();
   if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
-    await pool.query("DELETE FROM sessions WHERE id = ?", [sessionId]);
+    await deleteSessionById(sessionId);
     clearSessionCookie(res);
     rejectUnauthorized();
     return null;
@@ -5835,7 +5761,7 @@ async function requireAuth(req, res, options = {}) {
 
   const user = await findUserById(session.user_id);
   if (!user) {
-    await pool.query("DELETE FROM sessions WHERE id = ?", [sessionId]);
+    await deleteSessionById(sessionId);
     clearSessionCookie(res);
     rejectUnauthorized();
     return null;
@@ -5884,6 +5810,8 @@ const monitorsRepository = createMonitorsRepository({
 
 const {
   serializeMonitorRow,
+  countMonitorsForUser,
+  createMonitorForUser,
   listMonitorsForUser,
   listMonitorsForUserAtProbe,
   listProbesForUser,
@@ -6006,7 +5934,7 @@ async function handleAuthGithubCallback(req, res, url) {
     await cleanupExpiredSessions();
 
     // Session fixation protection.
-    await pool.query("DELETE FROM sessions WHERE user_id = ?", [userId]);
+    await deleteSessionsByUserId(userId);
 
     const sessionToken = await createSession(userId);
     setSessionCookie(res, sessionToken);
@@ -6119,7 +6047,7 @@ async function handleAuthGoogleCallback(req, res, url) {
     await cleanupExpiredSessions();
 
     // Session fixation protection.
-    await pool.query("DELETE FROM sessions WHERE user_id = ?", [userId]);
+    await deleteSessionsByUserId(userId);
 
     const sessionToken = await createSession(userId);
     setSessionCookie(res, sessionToken);
@@ -6230,7 +6158,7 @@ async function handleAuthDiscordCallback(req, res, url) {
     await cleanupExpiredSessions();
 
     // Session fixation protection.
-    await pool.query("DELETE FROM sessions WHERE user_id = ?", [userId]);
+    await deleteSessionsByUserId(userId);
 
     const sessionToken = await createSession(userId);
     setSessionCookie(res, sessionToken);
@@ -6438,7 +6366,7 @@ async function handleAuthLogin(req, res) {
     }
 
     // Session fixation protection.
-    await pool.query("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+    await deleteSessionsByUserId(user.id);
 
     const sessionToken = await createSession(user.id);
     setSessionCookie(res, sessionToken);
@@ -6498,20 +6426,7 @@ async function handleAuthLoginVerify(req, res) {
     const expectedCodeHash = String(challenge.codeHash || "").trim();
     const providedCodeHash = hashAuthEmailVerificationCode(challengeToken, code);
     if (!timingSafeEqualHex(expectedCodeHash, providedCodeHash)) {
-      const [updateResult] = await pool.query(
-        `
-          UPDATE auth_email_challenges
-          SET attempts = attempts + 1
-          WHERE id = ?
-            AND consumed_at IS NULL
-            AND expires_at > UTC_TIMESTAMP(3)
-            AND attempts < max_attempts
-          LIMIT 1
-        `,
-        [challenge.id]
-      );
-
-      const didIncrement = Number(updateResult?.affectedRows || 0) === 1;
+      const didIncrement = (await authEmailChallengeRepository.incrementAuthEmailChallengeAttempts(challenge.id)) === 1;
       const nextAttempts = didIncrement ? attempts + 1 : attempts;
       const remaining = Math.max(0, maxAttempts - nextAttempts);
       const nextError = remaining > 0 ? "invalid code" : "challenge attempts exceeded";
@@ -6523,25 +6438,13 @@ async function handleAuthLoginVerify(req, res) {
       return;
     }
 
-    const [consumeResult] = await pool.query(
-      `
-        UPDATE auth_email_challenges
-        SET consumed_at = UTC_TIMESTAMP(3)
-        WHERE id = ?
-          AND consumed_at IS NULL
-          AND expires_at > UTC_TIMESTAMP(3)
-          AND attempts < max_attempts
-        LIMIT 1
-      `,
-      [challenge.id]
-    );
-    if (Number(consumeResult?.affectedRows || 0) !== 1) {
+    if ((await authEmailChallengeRepository.consumeAuthEmailChallenge(challenge.id)) !== 1) {
       sendJson(res, 409, { ok: false, error: "challenge used" });
       return;
     }
 
     await cleanupExpiredSessions();
-    await pool.query("DELETE FROM sessions WHERE user_id = ?", [challenge.userId]);
+    await deleteSessionsByUserId(challenge.userId);
 
     const sessionToken = await createSession(challenge.userId);
     setSessionCookie(res, sessionToken);
@@ -6636,7 +6539,7 @@ async function handleAuthLogout(req, res) {
 
   try {
     if (isValidSessionToken(token)) {
-      await pool.query("DELETE FROM sessions WHERE id = ?", [hashSessionToken(token)]);
+      await deleteSessionById(hashSessionToken(token));
     }
     clearSessionCookie(res);
     sendJson(res, 200, { ok: true });
@@ -6651,7 +6554,7 @@ async function handleAuthLogoutAll(req, res) {
   if (!user) return;
 
   try {
-    await pool.query("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+    await deleteSessionsByUserId(user.id);
     clearSessionCookie(res);
     sendJson(res, 200, { ok: true });
   } catch (error) {
@@ -6678,16 +6581,7 @@ function serializeAccountSessionRow(row, currentSessionId) {
 }
 
 async function listAccountSessionsForUser(userId, currentSessionId) {
-  const [rows] = await pool.query(
-    `
-      SELECT id, created_at, expires_at
-      FROM sessions
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-    `,
-    [userId]
-  );
-
+  const rows = await listSessionsByUserId(userId);
   const mapped = rows.map((row) => serializeAccountSessionRow(row, currentSessionId));
   mapped.sort((left, right) => {
     if (left.current === right.current) {
@@ -9342,11 +9236,8 @@ async function handleAccountSessionRevoke(req, res, sessionId) {
   }
 
   try {
-    const [result] = await pool.query("DELETE FROM sessions WHERE user_id = ? AND id = ? LIMIT 1", [
-      user.id,
-      normalizedSessionId,
-    ]);
-    if (!Number(result?.affectedRows || 0)) {
+    const affectedRows = await deleteSessionForUser(user.id, normalizedSessionId);
+    if (!affectedRows) {
       sendJson(res, 404, { ok: false, error: "not found" });
       return;
     }
@@ -9368,8 +9259,8 @@ async function handleAccountRevokeOtherSessions(req, res) {
   if (!user) return;
 
   try {
-    const [result] = await pool.query("DELETE FROM sessions WHERE user_id = ? AND id <> ?", [user.id, req.sessionId]);
-    sendJson(res, 200, { ok: true, revoked: Number(result?.affectedRows || 0) });
+    const revoked = await deleteSessionsByUserIdExcept(user.id, req.sessionId);
+    sendJson(res, 200, { ok: true, revoked });
   } catch (error) {
     console.error("account_revoke_other_sessions_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
@@ -9433,8 +9324,8 @@ async function handleAccountPasswordChange(req, res) {
     const nextHash = await bcrypt.hash(newPassword, BCRYPT_COST);
     await pool.query("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1", [nextHash, user.id]);
 
-    const [revokeResult] = await pool.query("DELETE FROM sessions WHERE user_id = ? AND id <> ?", [user.id, req.sessionId]);
-    sendJson(res, 200, { ok: true, revoked: Number(revokeResult?.affectedRows || 0) });
+    const revoked = await deleteSessionsByUserIdExcept(user.id, req.sessionId);
+    sendJson(res, 200, { ok: true, revoked });
   } catch (error) {
     console.error("account_password_change_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
@@ -9519,7 +9410,7 @@ async function handleAccountDelete(req, res) {
       [user.id]
     );
     await connection.query("DELETE FROM monitors WHERE user_id = ?", [user.id]);
-    await connection.query("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+    await deleteSessionsByUserId(user.id, connection);
     await connection.query("DELETE FROM auth_failures WHERE email = ?", [account.email]);
 
     const [deleteUserResult] = await connection.query("DELETE FROM users WHERE id = ? LIMIT 1", [user.id]);
@@ -9941,7 +9832,7 @@ async function handleOwnerOverview(req, res) {
         WHERE checked_at >= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 10 MINUTE)
       `
     );
-    const [sessionRows] = await pool.query("SELECT COUNT(*) AS active_sessions FROM sessions");
+    const activeSessions = await countActiveSessions();
 
     const monitorSummary = monitorRows[0] || {};
     const recentSummary = recentRows[0] || {};
@@ -9965,7 +9856,7 @@ async function handleOwnerOverview(req, res) {
           avgResponseMs10m: roundTo(recentSummary.avg_response_ms_10m, 2),
           maxResponseMs10m: roundTo(recentSummary.max_response_ms_10m, 2),
         },
-        activeSessions: Number(sessionRows[0]?.active_sessions || 0),
+        activeSessions,
         emailTest: getOwnerSmtpPublicConfig(),
         runtime,
       },
@@ -10311,8 +10202,7 @@ async function handleCreateMonitor(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
 
-  const [monitorCountRows] = await pool.query("SELECT COUNT(*) AS total FROM monitors WHERE user_id = ?", [user.id]);
-  const monitorCount = Number(monitorCountRows[0]?.total || 0);
+  const monitorCount = await countMonitorsForUser(user.id);
   if (monitorCount >= MONITORS_PER_USER_MAX) {
     sendJson(res, 429, { ok: false, error: "monitor limit reached" });
     return;
@@ -10396,23 +10286,14 @@ async function handleCreateMonitor(req, res) {
       const publicId = await generateUniqueMonitorPublicId();
 
       try {
-        await pool.query(
-          `
-            INSERT INTO monitors (
-              public_id,
-              user_id,
-              name,
-              url,
-              target_url,
-              interval_ms,
-              is_paused,
-              last_status,
-              status_since
-            )
-            VALUES (?, ?, ?, ?, ?, ?, 0, 'online', UTC_TIMESTAMP(3))
-          `,
-          [publicId, user.id, monitorName, normalizedUrl, normalizedUrl, intervalMs]
-        );
+        await createMonitorForUser({
+          publicId,
+          userId: user.id,
+          name: monitorName,
+          url: normalizedUrl,
+          targetUrl: normalizedUrl,
+          intervalMs,
+        });
 
         sendJson(res, 201, { ok: true, id: publicId });
         return;

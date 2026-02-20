@@ -47,6 +47,38 @@ function createMonitorsRepository(dependencies = {}) {
     return rows.map(serializeMonitorRow).filter(Boolean);
   }
 
+  async function countMonitorsForUser(userId) {
+    const [rows] = await pool.query("SELECT COUNT(*) AS total FROM monitors WHERE user_id = ?", [userId]);
+    return Number(rows?.[0]?.total || 0);
+  }
+
+  async function createMonitorForUser(payload = {}) {
+    const publicId = String(payload.publicId || "").trim();
+    const userId = Number(payload.userId || 0);
+    const name = String(payload.name || "").trim();
+    const url = String(payload.url || "").trim();
+    const targetUrl = String(payload.targetUrl || "").trim();
+    const intervalMs = Number(payload.intervalMs || 0);
+
+    await pool.query(
+      `
+        INSERT INTO monitors (
+          public_id,
+          user_id,
+          name,
+          url,
+          target_url,
+          interval_ms,
+          is_paused,
+          last_status,
+          status_since
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 0, 'online', UTC_TIMESTAMP(3))
+      `,
+      [publicId, userId, name, url, targetUrl, intervalMs]
+    );
+  }
+
   async function listMonitorsForUserAtProbe(userId, probeId) {
     const probe = parseProbeIdParam(probeId);
     if (!probe) return listMonitorsForUser(userId);
@@ -268,6 +300,8 @@ function createMonitorsRepository(dependencies = {}) {
 
   return {
     serializeMonitorRow,
+    countMonitorsForUser,
+    createMonitorForUser,
     listMonitorsForUser,
     listMonitorsForUserAtProbe,
     listProbesForUser,
