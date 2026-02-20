@@ -12,6 +12,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
 const { createAccountRepository } = require("../modules/account/account.repository");
+const { createOauthRepository } = require("../modules/auth/oauth.repository");
 const { createSessionRepository } = require("../modules/auth/session.repository");
 const { createMonitorsRepository } = require("../modules/monitors/monitors.repository");
 const { handleDispatchedRoutes } = require("../modules/routes/dispatch");
@@ -5490,99 +5491,24 @@ const {
   updateUserStripeSubscriptionByCustomerId,
 } = accountRepository;
 
-async function findUserByGithubId(githubId) {
-  const [rows] = await pool.query(
-    `
-      SELECT id, email, password_hash, github_id, github_login, google_sub, google_email, discord_id, discord_username, discord_email, created_at
-      FROM users
-      WHERE github_id = ?
-      LIMIT 1
-    `,
-    [githubId]
-  );
-  if (!rows.length) return null;
-  return rows[0];
-}
+const oauthRepository = createOauthRepository({
+  pool,
+  crypto,
+  bcrypt,
+  bcryptCost: BCRYPT_COST,
+});
 
-async function findUserByGoogleSub(googleSub) {
-  const [rows] = await pool.query(
-    `
-      SELECT id, email, password_hash, github_id, github_login, google_sub, google_email, discord_id, discord_username, discord_email, created_at
-      FROM users
-      WHERE google_sub = ?
-      LIMIT 1
-    `,
-    [googleSub]
-  );
-  if (!rows.length) return null;
-  return rows[0];
-}
-
-async function linkGithubToUser(userId, githubId, githubLogin) {
-  await pool.query(
-    "UPDATE users SET github_id = ?, github_login = ? WHERE id = ? LIMIT 1",
-    [githubId, githubLogin, userId]
-  );
-}
-
-async function createUserFromGithub(email, githubId, githubLogin) {
-  const randomPassword = crypto.randomBytes(32).toString("hex");
-  const passwordHash = await bcrypt.hash(randomPassword, BCRYPT_COST);
-  const [result] = await pool.query(
-    "INSERT INTO users (email, password_hash, github_id, github_login) VALUES (?, ?, ?, ?)",
-    [email, passwordHash, githubId, githubLogin]
-  );
-  return Number(result.insertId);
-}
-
-async function linkGoogleToUser(userId, googleSub, googleEmail) {
-  await pool.query("UPDATE users SET google_sub = ?, google_email = ? WHERE id = ? LIMIT 1", [
-    googleSub,
-    googleEmail,
-    userId,
-  ]);
-}
-
-async function createUserFromGoogle(email, googleSub, googleEmail) {
-  const randomPassword = crypto.randomBytes(32).toString("hex");
-  const passwordHash = await bcrypt.hash(randomPassword, BCRYPT_COST);
-  const [result] = await pool.query(
-    "INSERT INTO users (email, password_hash, google_sub, google_email) VALUES (?, ?, ?, ?)",
-    [email, passwordHash, googleSub, googleEmail]
-  );
-  return Number(result.insertId);
-}
-
-async function findUserByDiscordId(discordId) {
-  const [rows] = await pool.query(
-    `
-      SELECT id, email, password_hash, github_id, github_login, google_sub, google_email, discord_id, discord_username, discord_email, created_at
-      FROM users
-      WHERE discord_id = ?
-      LIMIT 1
-    `,
-    [discordId]
-  );
-  if (!rows.length) return null;
-  return rows[0];
-}
-
-async function linkDiscordToUser(userId, discordId, discordUsername, discordEmail) {
-  await pool.query(
-    "UPDATE users SET discord_id = ?, discord_username = ?, discord_email = ? WHERE id = ? LIMIT 1",
-    [discordId, discordUsername, discordEmail, userId]
-  );
-}
-
-async function createUserFromDiscord(email, discordId, discordUsername, discordEmail) {
-  const randomPassword = crypto.randomBytes(32).toString("hex");
-  const passwordHash = await bcrypt.hash(randomPassword, BCRYPT_COST);
-  const [result] = await pool.query(
-    "INSERT INTO users (email, password_hash, discord_id, discord_username, discord_email) VALUES (?, ?, ?, ?, ?)",
-    [email, passwordHash, discordId, discordUsername, discordEmail]
-  );
-  return Number(result.insertId);
-}
+const {
+  findUserByGithubId,
+  findUserByGoogleSub,
+  linkGithubToUser,
+  createUserFromGithub,
+  linkGoogleToUser,
+  createUserFromGoogle,
+  findUserByDiscordId,
+  linkDiscordToUser,
+  createUserFromDiscord,
+} = oauthRepository;
 
 async function getAuthFailure(email) {
   const [rows] = await pool.query(
