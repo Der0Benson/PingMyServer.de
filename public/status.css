@@ -127,6 +127,10 @@ body {
   gap: 8px;
 }
 
+.maintenance-banner[hidden] {
+  display: none !important;
+}
+
 .maintenance-banner-head {
   display: flex;
   align-items: center;
