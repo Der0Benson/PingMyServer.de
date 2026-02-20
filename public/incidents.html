@@ -20,9 +20,9 @@
     <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/footer.css" />
   </head>
-  <body>
+  <body class="dashboard-page">
     <div class="app">
-      <aside class="sidebar">
+      <aside class="sidebar" id="dashboard-sidebar">
         <a
           class="brand brand-link"
           href="/"
@@ -79,12 +79,31 @@
           <button class="btn ghost" id="logout-btn" type="button" data-i18n="common.logout">Abmelden</button>
         </div>
       </aside>
+      <button
+        class="mobile-nav-backdrop"
+        id="mobile-nav-backdrop"
+        type="button"
+        aria-label="Navigation schließen"
+        hidden
+      ></button>
 
       <div class="content">
         <div class="page">
           <div class="crumb" data-i18n="common.incidents">Vorfälle</div>
           <header class="topbar">
             <div class="title-block">
+              <button
+                class="mobile-sidebar-toggle"
+                id="mobile-nav-toggle"
+                type="button"
+                aria-controls="dashboard-sidebar"
+                aria-expanded="false"
+                aria-label="Navigation öffnen"
+              >
+                <span class="mobile-sidebar-toggle-line"></span>
+                <span class="mobile-sidebar-toggle-line"></span>
+                <span class="mobile-sidebar-toggle-line"></span>
+              </button>
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
                 <div class="title" data-i18n="incidents.title">Vorfall-Log</div>
@@ -166,6 +185,7 @@
     </div>
 
     <script src="/assets/i18n.js"></script>
+    <script src="/assets/dashboard-shell.js"></script>
     <script src="/assets/incidents.js"></script>
   </body>
 </html>
