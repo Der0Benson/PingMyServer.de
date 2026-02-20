@@ -454,14 +454,14 @@ async function createMonitor(event) {
 }
 
 async function init() {
+  if (form) {
+    form.addEventListener("submit", createMonitor);
+  }
+
   const ok = await ensureAuthenticated();
   if (!ok) return;
 
   await redirectIfMonitorExists();
-
-  if (form) {
-    form.addEventListener("submit", createMonitor);
-  }
 }
 
 init();
