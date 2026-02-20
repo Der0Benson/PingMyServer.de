@@ -577,3 +577,86 @@
     max-height: 180px;
   }
 }
+
+@media (max-width: 900px) {
+  .monitor-picker {
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: 8px 9px;
+  }
+
+  .monitor-picker label {
+    font-size: 0.63rem;
+    letter-spacing: 0.1em;
+  }
+
+  .monitor-picker select {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 40px;
+    border-color: rgba(255, 255, 255, 0.2);
+    border-radius: 9px;
+    padding: 9px 10px;
+    background: rgba(8, 14, 24, 0.95);
+  }
+
+  .interval-picker select {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .monitor-group-toggle,
+  .monitor-nav-item {
+    min-height: 44px;
+  }
+
+  .monitor-nav-delete {
+    min-width: 38px;
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 0.7rem;
+  }
+
+  .advanced-settings-body {
+    padding: 12px;
+  }
+
+  .advanced-settings-section + .advanced-settings-section {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .monitor-picker {
+    padding: 7px 8px;
+  }
+
+  .monitor-picker select {
+    min-height: 38px;
+    padding: 8px 9px;
+  }
+
+  .advanced-settings-summary {
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+
+  .advanced-settings-meta {
+    font-size: 0.62rem;
+    padding: 3px 8px;
+  }
+
+  .assertions-actions,
+  .maintenance-actions {
+    gap: 8px;
+  }
+
+  .maintenance-item {
+    padding: 10px 11px;
+  }
+}
