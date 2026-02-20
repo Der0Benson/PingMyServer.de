@@ -12,6 +12,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
 const { createAccountRepository } = require("../modules/account/account.repository");
+const { createAuthFailureRepository } = require("../modules/auth/auth-failure.repository");
 const { createOauthRepository } = require("../modules/auth/oauth.repository");
 const { createSessionRepository } = require("../modules/auth/session.repository");
 const { createMonitorsRepository } = require("../modules/monitors/monitors.repository");
@@ -5510,43 +5511,13 @@ const {
   createUserFromDiscord,
 } = oauthRepository;
 
-async function getAuthFailure(email) {
-  const [rows] = await pool.query(
-    "SELECT email, fails, last_fail, locked_until FROM auth_failures WHERE email = ? LIMIT 1",
-    [email]
-  );
-  if (!rows.length) return null;
-  return rows[0];
-}
+const authFailureRepository = createAuthFailureRepository({
+  pool,
+  authLockMaxFails: AUTH_LOCK_MAX_FAILS,
+  authLockDurationMs: AUTH_LOCK_DURATION_MS,
+});
 
-function isAccountLocked(failure) {
-  if (!failure || !failure.locked_until) return false;
-  const lockedUntilMs = new Date(failure.locked_until).getTime();
-  return Number.isFinite(lockedUntilMs) && lockedUntilMs > Date.now();
-}
-
-async function registerAuthFailure(email, failure) {
-  const nextFails = (failure?.fails || 0) + 1;
-  const nextLockedUntil = nextFails >= AUTH_LOCK_MAX_FAILS ? new Date(Date.now() + AUTH_LOCK_DURATION_MS) : null;
-
-  await pool.query(
-    `
-      INSERT INTO auth_failures (email, fails, last_fail, locked_until)
-      VALUES (?, ?, UTC_TIMESTAMP(), ?)
-      ON DUPLICATE KEY UPDATE
-        fails = VALUES(fails),
-        last_fail = VALUES(last_fail),
-        locked_until = VALUES(locked_until)
-    `,
-    [email, nextFails, nextLockedUntil]
-  );
-
-  return { fails: nextFails, lockedUntil: nextLockedUntil };
-}
-
-async function clearAuthFailures(email) {
-  await pool.query("DELETE FROM auth_failures WHERE email = ?", [email]);
-}
+const { getAuthFailure, isAccountLocked, registerAuthFailure, clearAuthFailures } = authFailureRepository;
 
 async function cleanupExpiredAuthEmailChallenges() {
   const retentionMs = Math.max(AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS, 60 * 1000);
