@@ -111,6 +111,35 @@
           <button class="btn primary" type="submit" data-i18n="login.button.create_account">Konto erstellen</button>
         </form>
 
+        <form id="verify-form" hidden novalidate>
+          <p class="verify-hint" id="verify-hint" data-i18n="login.verify.hint_default">
+            Wir haben dir einen Verifizierungscode per E-Mail gesendet.
+          </p>
+
+          <label for="verify-code" data-i18n="login.label.verification_code">Verifizierungscode</label>
+          <input
+            id="verify-code"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="8"
+            data-i18n-placeholder="login.placeholder.verification_code"
+            placeholder="123456"
+            required
+          />
+
+          <button class="btn primary" type="submit" data-i18n="login.button.verify_code">Code prüfen</button>
+
+          <div class="verify-actions">
+            <button class="btn ghost" id="verify-resend-btn" type="button" data-i18n="login.button.resend_code">
+              Code erneut senden
+            </button>
+            <button class="btn ghost" id="verify-back-btn" type="button" data-i18n="login.button.back_to_login">
+              Zurück zum Login
+            </button>
+          </div>
+        </form>
+
         <p class="auth-message" id="auth-message"></p>
       </section>
 

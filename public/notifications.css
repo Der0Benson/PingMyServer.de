@@ -8,6 +8,33 @@
   max-width: 720px;
 }
 
+.email-card {
+  position: relative;
+  border-color: rgba(76, 201, 240, 0.35);
+  background:
+    radial-gradient(120% 95% at 100% 0%, rgba(76, 201, 240, 0.12) 0%, rgba(11, 17, 29, 0) 52%),
+    linear-gradient(165deg, rgba(12, 22, 36, 0.94) 0%, rgba(9, 16, 26, 0.96) 100%);
+}
+
+.email-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 14px 0 0 14px;
+  background: linear-gradient(180deg, #4cc9f0 0%, #2fa36b 100%);
+}
+
+.email-hint-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed rgba(76, 201, 240, 0.45);
+  background: rgba(76, 201, 240, 0.08);
+  font-size: 0.74rem;
+}
+
 .status-row {
   display: flex;
   align-items: center;
@@ -61,6 +88,8 @@
 }
 
 .notification-form input[type="url"],
+.notification-form input[type="email"],
+.notification-form input[type="number"],
 .notification-form input[type="password"],
 .notification-form input[type="text"] {
   width: 100%;
@@ -73,6 +102,8 @@
 }
 
 .notification-form input[type="url"]:focus,
+.notification-form input[type="email"]:focus,
+.notification-form input[type="number"]:focus,
 .notification-form input[type="password"]:focus,
 .notification-form input[type="text"]:focus {
   outline: none;

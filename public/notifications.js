@@ -3,6 +3,17 @@ const logoutButton = document.getElementById("logout-btn");
 const publicStatusLinks = Array.from(document.querySelectorAll('a[href="/status"]'));
 const ownerLinks = Array.from(document.querySelectorAll("[data-owner-link]"));
 
+const emailForm = document.getElementById("email-form");
+const emailRecipientEl = document.getElementById("email-recipient");
+const emailCooldownMinutesEl = document.getElementById("email-cooldown-minutes");
+const emailEnabledEl = document.getElementById("email-enabled");
+const emailStateBadgeEl = document.getElementById("email-state-badge");
+const emailRecipientMaskEl = document.getElementById("email-recipient-mask");
+const emailDeliveryHintEl = document.getElementById("email-delivery-hint");
+const emailMessageEl = document.getElementById("email-message");
+const testEmailButton = document.getElementById("test-email-btn");
+const deleteEmailButton = document.getElementById("delete-email-btn");
+
 const discordForm = document.getElementById("discord-form");
 const discordWebhookUrlEl = document.getElementById("discord-webhook-url");
 const discordEnabledEl = document.getElementById("discord-enabled");
@@ -40,6 +51,9 @@ const billingUpgradeButton = document.getElementById("billing-upgrade-btn");
 const billingManageButton = document.getElementById("billing-manage-btn");
 
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
+const EMAIL_COOLDOWN_MIN_MINUTES = 1;
+const EMAIL_COOLDOWN_MAX_MINUTES = 1440;
+const EMAIL_COOLDOWN_DEFAULT_MINUTES = 15;
 let user = null;
 let notificationsState = null;
 let billingState = null;
@@ -54,6 +68,22 @@ function setPanelMessage(element, text, type = "") {
   element.textContent = text || "";
   element.classList.remove("error", "success");
   if (type) element.classList.add(type);
+}
+
+function isValidEmail(value) {
+  const email = String(value || "").trim();
+  if (!email || email.length > 254) return false;
+  return /^[^\s@]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email);
+}
+
+function normalizeEmailCooldownMinutes(value, fallback = EMAIL_COOLDOWN_DEFAULT_MINUTES) {
+  const fallbackNumeric = Number(fallback);
+  const safeFallback = Number.isFinite(fallbackNumeric)
+    ? Math.max(EMAIL_COOLDOWN_MIN_MINUTES, Math.min(EMAIL_COOLDOWN_MAX_MINUTES, Math.round(fallbackNumeric)))
+    : EMAIL_COOLDOWN_DEFAULT_MINUTES;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return safeFallback;
+  return Math.max(EMAIL_COOLDOWN_MIN_MINUTES, Math.min(EMAIL_COOLDOWN_MAX_MINUTES, Math.round(numeric)));
 }
 
 function syncOwnerLinks() {
@@ -139,6 +169,78 @@ async function ensureAuthenticated() {
     return true;
   } catch (error) {
     return false;
+  }
+}
+
+function renderEmailState(emailSettings) {
+  const data = emailSettings || {};
+  const available = !!data.available;
+  const configured = !!data.configured;
+  const enabled = !!data.enabled;
+  const recipientMasked = String(data.recipientMasked || "").trim();
+  const usingAccountEmail = !!data.usingAccountEmail;
+  const cooldownMinutes = normalizeEmailCooldownMinutes(data.cooldownMinutes, EMAIL_COOLDOWN_DEFAULT_MINUTES);
+
+  if (emailStateBadgeEl) {
+    emailStateBadgeEl.classList.remove("connected", "disabled");
+    if (!available) {
+      emailStateBadgeEl.textContent = t("notifications.email.state_unavailable", null, "Unavailable");
+      emailStateBadgeEl.classList.add("disabled");
+    } else if (!configured) {
+      emailStateBadgeEl.textContent = t("notifications.email.state_disconnected", null, "Not connected");
+    } else if (enabled) {
+      emailStateBadgeEl.textContent = t("notifications.email.state_active", null, "Active");
+      emailStateBadgeEl.classList.add("connected");
+    } else {
+      emailStateBadgeEl.textContent = t(
+        "notifications.email.state_configured_disabled",
+        null,
+        "Configured (disabled)"
+      );
+      emailStateBadgeEl.classList.add("disabled");
+    }
+  }
+
+  if (emailRecipientMaskEl) {
+    if (!available) {
+      emailRecipientMaskEl.textContent = t("notifications.email.smtp_missing", null, "SMTP is not configured.");
+    } else if (configured) {
+      emailRecipientMaskEl.textContent = usingAccountEmail
+        ? t("notifications.email.using_account_email", null, "Using your account email address.")
+        : recipientMasked || t("notifications.email.recipient_configured", null, "Recipient configured.");
+    } else {
+      emailRecipientMaskEl.textContent = t("notifications.email.no_recipient", null, "No recipient configured.");
+    }
+  }
+
+  if (emailDeliveryHintEl) {
+    emailDeliveryHintEl.textContent = t(
+      "notifications.email.cooldown_hint_value",
+      { minutes: cooldownMinutes },
+      `Anti-spam cooldown: ${cooldownMinutes} min per monitor`
+    );
+  }
+
+  if (emailEnabledEl) {
+    emailEnabledEl.checked = enabled;
+    emailEnabledEl.disabled = !available || !configured;
+  }
+
+  if (emailRecipientEl) {
+    emailRecipientEl.disabled = !available;
+  }
+
+  if (emailCooldownMinutesEl) {
+    emailCooldownMinutesEl.disabled = !available;
+    emailCooldownMinutesEl.value = String(cooldownMinutes);
+  }
+
+  if (testEmailButton) {
+    testEmailButton.disabled = !available || !configured;
+  }
+
+  if (deleteEmailButton) {
+    deleteEmailButton.disabled = !configured;
   }
 }
 
@@ -459,6 +561,7 @@ function applyBillingQueryMessage() {
 }
 
 async function loadNotifications() {
+  setPanelMessage(emailMessageEl, t("notifications.email.msg.loading", null, "Loading notifications..."));
   setPanelMessage(discordMessageEl, t("notifications.discord.msg.loading", null, "Loading notifications..."));
   setPanelMessage(slackMessageEl, t("notifications.slack.msg.loading", null, "Loading notifications..."));
   setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.loading", null, "Loading notifications..."));
@@ -470,9 +573,11 @@ async function loadNotifications() {
     }
     if (!response.ok || !payload?.ok || !payload.data) {
       notificationsState = null;
+      renderEmailState({});
       renderDiscordState({});
       renderSlackState({});
       renderWebhookState({});
+      setPanelMessage(emailMessageEl, t("notifications.email.msg.load_failed", null, "Settings could not be loaded."), "error");
       setPanelMessage(discordMessageEl, t("notifications.discord.msg.load_failed", null, "Settings could not be loaded."), "error");
       setPanelMessage(slackMessageEl, t("notifications.slack.msg.load_failed", null, "Settings could not be loaded."), "error");
       setPanelMessage(webhookMessageEl, t("notifications.webhook.msg.load_failed", null, "Settings could not be loaded."), "error");
@@ -480,20 +585,173 @@ async function loadNotifications() {
     }
 
     notificationsState = payload.data;
+    renderEmailState(notificationsState.email || {});
     renderDiscordState(notificationsState.discord || {});
     renderSlackState(notificationsState.slack || {});
     renderWebhookState(notificationsState.webhook || {});
+    setPanelMessage(emailMessageEl, "");
     setPanelMessage(discordMessageEl, "");
     setPanelMessage(slackMessageEl, "");
     setPanelMessage(webhookMessageEl, "");
   } catch (error) {
     notificationsState = null;
+    renderEmailState({});
     renderDiscordState({});
     renderSlackState({});
     renderWebhookState({});
+    setPanelMessage(emailMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
     setPanelMessage(discordMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
     setPanelMessage(slackMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
     setPanelMessage(webhookMessageEl, t("common.connection_failed", null, "Connection failed."), "error");
+  }
+}
+
+async function saveEmailSettings(event) {
+  event.preventDefault();
+  const available = !!notificationsState?.email?.available;
+  const configured = !!notificationsState?.email?.configured;
+  const enabled = !!emailEnabledEl?.checked;
+  const recipient = String(emailRecipientEl?.value || "").trim();
+  const cooldownMinutes = normalizeEmailCooldownMinutes(
+    emailCooldownMinutesEl?.value,
+    notificationsState?.email?.cooldownMinutes || EMAIL_COOLDOWN_DEFAULT_MINUTES
+  );
+
+  if (!available) {
+    setPanelMessage(emailMessageEl, t("notifications.email.msg.smtp_missing", null, "SMTP is not configured."), "error");
+    return;
+  }
+
+  if (recipient && !isValidEmail(recipient)) {
+    setPanelMessage(
+      emailMessageEl,
+      t("notifications.email.msg.invalid_recipient", null, "Please enter a valid recipient email."),
+      "error"
+    );
+    emailRecipientEl?.focus();
+    return;
+  }
+
+  setPanelMessage(emailMessageEl, t("notifications.email.msg.saving", null, "Saving settings..."));
+  try {
+    const body = {
+      email: recipient,
+      cooldownMinutes,
+    };
+    if (configured) {
+      body.enabled = enabled;
+    } else {
+      body.enabled = true;
+    }
+
+    const { response, payload } = await fetchJson("/api/account/notifications/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.data) {
+      if (payload?.error === "invalid recipient") {
+        setPanelMessage(
+          emailMessageEl,
+          t("notifications.email.msg.invalid_recipient", null, "Please enter a valid recipient email."),
+          "error"
+        );
+      } else if (payload?.error === "smtp not configured") {
+        setPanelMessage(emailMessageEl, t("notifications.email.msg.smtp_missing", null, "SMTP is not configured."), "error");
+      } else {
+        setPanelMessage(emailMessageEl, t("notifications.email.msg.save_failed", null, "Settings could not be saved."), "error");
+      }
+      return;
+    }
+
+    notificationsState = payload.data;
+    renderEmailState(notificationsState.email || {});
+    if (emailRecipientEl) emailRecipientEl.value = "";
+    setPanelMessage(emailMessageEl, t("notifications.email.msg.saved", null, "Email notifications saved."), "success");
+  } catch (error) {
+    setPanelMessage(emailMessageEl, t("notifications.email.msg.save_failed", null, "Settings could not be saved."), "error");
+  }
+}
+
+async function testEmailNotification() {
+  setPanelMessage(emailMessageEl, t("notifications.email.msg.testing", null, "Sending test email..."));
+  try {
+    const { response, payload } = await fetchJson("/api/account/notifications/email/test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      if (payload?.error === "invalid recipient") {
+        setPanelMessage(
+          emailMessageEl,
+          t("notifications.email.msg.invalid_recipient", null, "Please enter a valid recipient email."),
+          "error"
+        );
+      } else if (payload?.error === "smtp not configured") {
+        setPanelMessage(emailMessageEl, t("notifications.email.msg.smtp_missing", null, "SMTP is not configured."), "error");
+      } else {
+        setPanelMessage(emailMessageEl, t("notifications.email.msg.test_failed", null, "Test email could not be sent."), "error");
+      }
+      return;
+    }
+
+    setPanelMessage(emailMessageEl, t("notifications.email.msg.test_sent", null, "Test email sent."), "success");
+  } catch (error) {
+    setPanelMessage(emailMessageEl, t("notifications.email.msg.test_failed", null, "Test email could not be sent."), "error");
+  }
+}
+
+async function deleteEmailNotification() {
+  const confirmed = window.confirm(t("notifications.email.confirm_remove", null, "Disable email notifications?"));
+  if (!confirmed) return;
+
+  setPanelMessage(emailMessageEl, t("notifications.email.msg.removing", null, "Disabling email notifications..."));
+  try {
+    const { response, payload } = await fetchJson("/api/account/notifications/email", {
+      method: "DELETE",
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok || !payload.data) {
+      setPanelMessage(
+        emailMessageEl,
+        t("notifications.email.msg.remove_failed", null, "Email settings could not be removed."),
+        "error"
+      );
+      return;
+    }
+
+    notificationsState = payload.data;
+    renderEmailState(notificationsState.email || {});
+    if (emailRecipientEl) emailRecipientEl.value = "";
+    setPanelMessage(emailMessageEl, t("notifications.email.msg.removed", null, "Email notifications disabled."), "success");
+  } catch (error) {
+    setPanelMessage(
+      emailMessageEl,
+      t("notifications.email.msg.remove_failed", null, "Email settings could not be removed."),
+      "error"
+    );
   }
 }
 
@@ -849,6 +1107,23 @@ async function logout() {
 function bindEvents() {
   if (logoutButton) {
     logoutButton.addEventListener("click", logout);
+  }
+  if (emailForm) {
+    emailForm.addEventListener("submit", saveEmailSettings);
+  }
+  if (testEmailButton) {
+    testEmailButton.addEventListener("click", () => {
+      testEmailNotification().catch(() => {
+        // ignore
+      });
+    });
+  }
+  if (deleteEmailButton) {
+    deleteEmailButton.addEventListener("click", () => {
+      deleteEmailNotification().catch(() => {
+        // ignore
+      });
+    });
   }
   if (discordForm) {
     discordForm.addEventListener("submit", saveDiscordSettings);

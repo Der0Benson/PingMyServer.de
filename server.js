@@ -572,6 +572,101 @@ const OWNER_TOP_MONITOR_LIMIT = readEnvNumber("OWNER_TOP_MONITOR_LIMIT", 100, {
   min: 10,
   max: 1000,
 });
+const OWNER_DB_STORAGE_SNAPSHOT_INTERVAL_MS = readEnvNumber("OWNER_DB_STORAGE_SNAPSHOT_INTERVAL_MS", 300000, {
+  integer: true,
+  min: 60000,
+  max: 86400000,
+});
+const OWNER_DB_STORAGE_HISTORY_HOURS = readEnvNumber("OWNER_DB_STORAGE_HISTORY_HOURS", 72, {
+  integer: true,
+  min: 1,
+  max: 24 * 90,
+});
+const OWNER_DB_STORAGE_HISTORY_MAX_POINTS = readEnvNumber("OWNER_DB_STORAGE_HISTORY_MAX_POINTS", 480, {
+  integer: true,
+  min: 20,
+  max: 5000,
+});
+const OWNER_DB_STORAGE_RETENTION_DAYS = readEnvNumber("OWNER_DB_STORAGE_RETENTION_DAYS", 120, {
+  integer: true,
+  min: 7,
+  max: 3650,
+});
+const OWNER_SMTP_HOST = readEnvString("OWNER_SMTP_HOST", "");
+const OWNER_SMTP_PORT = readEnvNumber("OWNER_SMTP_PORT", 587, {
+  integer: true,
+  min: 1,
+  max: 65535,
+});
+const OWNER_SMTP_SECURE = readEnvBoolean("OWNER_SMTP_SECURE", false);
+const OWNER_SMTP_REQUIRE_TLS = readEnvBoolean("OWNER_SMTP_REQUIRE_TLS", true);
+const OWNER_SMTP_TLS_INSECURE = readEnvBoolean("OWNER_SMTP_TLS_INSECURE", false);
+const OWNER_SMTP_USER = readEnvString("OWNER_SMTP_USER", "");
+const OWNER_SMTP_PASSWORD = readEnvString("OWNER_SMTP_PASSWORD", "", { trim: false });
+const OWNER_SMTP_FROM = normalizeEmail(readEnvString("OWNER_SMTP_FROM", OWNER_SMTP_USER || ""));
+const OWNER_SMTP_HELO_NAME = readEnvString("OWNER_SMTP_HELO_NAME", "pingmyserver.local");
+const OWNER_SMTP_TIMEOUT_MS = readEnvNumber("OWNER_SMTP_TIMEOUT_MS", 15000, {
+  integer: true,
+  min: 2000,
+  max: 120000,
+});
+const AUTH_EMAIL_VERIFICATION_ENABLED = readEnvBoolean("AUTH_EMAIL_VERIFICATION_ENABLED", true);
+const AUTH_EMAIL_VERIFICATION_CODE_LENGTH = readEnvNumber("AUTH_EMAIL_VERIFICATION_CODE_LENGTH", 6, {
+  integer: true,
+  min: 4,
+  max: 8,
+});
+const AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS = readEnvNumber("AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS", 900, {
+  integer: true,
+  min: 60,
+  max: 3600,
+});
+const AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS = readEnvNumber("AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS", 6, {
+  integer: true,
+  min: 1,
+  max: 20,
+});
+const AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS = readEnvNumber(
+  "AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS",
+  45,
+  {
+    integer: true,
+    min: 5,
+    max: 600,
+  }
+);
+const AUTH_EMAIL_VERIFICATION_MAX_SENDS = readEnvNumber("AUTH_EMAIL_VERIFICATION_MAX_SENDS", 5, {
+  integer: true,
+  min: 1,
+  max: 20,
+});
+const AUTH_EMAIL_VERIFICATION_MAX_REQUESTS_PER_HOUR = readEnvNumber("AUTH_EMAIL_VERIFICATION_MAX_REQUESTS_PER_HOUR", 10, {
+  integer: true,
+  min: 1,
+  max: 200,
+});
+const AUTH_EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS = readEnvNumber("AUTH_EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS", 30 * 60 * 1000, {
+  integer: true,
+  min: 60 * 1000,
+  max: 24 * 60 * 60 * 1000,
+});
+const AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN = "login";
+const AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS = readEnvNumber(
+  "AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS",
+  24 * 60 * 60 * 1000,
+  {
+    integer: true,
+    min: 10 * 60 * 1000,
+    max: 30 * 24 * 60 * 60 * 1000,
+  }
+);
+const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN = 1;
+const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX = 1440;
+const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT = readEnvNumber("EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT", 15, {
+  integer: true,
+  min: EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN,
+  max: EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX,
+});
 const ACCOUNT_SENSITIVE_ACTION_MAX_SESSION_AGE_MS = readEnvNumber(
   "ACCOUNT_SENSITIVE_ACTION_MAX_SESSION_AGE_MS",
   900000,
@@ -631,6 +726,12 @@ const MYSQL_HOST = requireEnvString("MYSQL_HOST");
 const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 65535 });
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
+const EMAIL_UNSUBSCRIBE_SECRET = readEnvString("EMAIL_UNSUBSCRIBE_SECRET", MYSQL_PASSWORD, { trim: false });
+const EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS = readEnvNumber("EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS", 3650, {
+  integer: true,
+  min: 1,
+  max: 36500,
+});
 const MYSQL_DATABASE = requireEnvString("MYSQL_DATABASE");
 const MYSQL_CONNECTION_LIMIT = requireEnvNumber("MYSQL_CONNECTION_LIMIT", { integer: true, min: 1 });
 const MYSQL_TIMEZONE = requireEnvString("MYSQL_TIMEZONE");
@@ -916,6 +1017,8 @@ const runtimeTelemetry = {
     cpuPercentSamples: [],
   },
 };
+let ownerDbStorageDataDirCache = { value: "", fetchedAt: 0 };
+let ownerDbStorageLastCleanupAt = 0;
 
 function pushNumericSample(list, value, max = OWNER_RUNTIME_SAMPLE_MAX) {
   if (!Array.isArray(list)) return;
@@ -2070,6 +2173,703 @@ function isValidEmail(email) {
   return /^[^\s@]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email);
 }
 
+function isOwnerSmtpConfigured() {
+  if (!OWNER_SMTP_HOST || !OWNER_SMTP_FROM) return false;
+  if (!!OWNER_SMTP_USER !== !!OWNER_SMTP_PASSWORD) return false;
+  return true;
+}
+
+function getOwnerSmtpPublicConfig() {
+  return {
+    configured: isOwnerSmtpConfigured(),
+    host: OWNER_SMTP_HOST || null,
+    port: Number(OWNER_SMTP_PORT || 0) || null,
+    secure: !!OWNER_SMTP_SECURE,
+    requireTls: !!OWNER_SMTP_REQUIRE_TLS,
+    user: OWNER_SMTP_USER || null,
+    from: OWNER_SMTP_FROM || null,
+  };
+}
+
+function createSmtpResponseReader(socket) {
+  let buffer = "";
+  let closedError = null;
+  let partialCode = null;
+  let partialLines = [];
+  const readyBlocks = [];
+  const pendingReaders = [];
+
+  function settlePending(block, error) {
+    if (pendingReaders.length) {
+      const next = pendingReaders.shift();
+      if (!next) return;
+      clearTimeout(next.timer);
+      if (error) next.reject(error);
+      else next.resolve(block);
+      return;
+    }
+    if (!error && block) {
+      readyBlocks.push(block);
+    }
+  }
+
+  function failAll(error) {
+    if (closedError) return;
+    closedError = error instanceof Error ? error : new Error(String(error || "smtp_connection_closed"));
+    while (pendingReaders.length) {
+      settlePending(null, closedError);
+    }
+  }
+
+  function finalizeBlock(code, lines) {
+    const response = { code, lines: Array.isArray(lines) ? lines : [], text: Array.isArray(lines) ? lines.join("\n") : "" };
+    settlePending(response, null);
+  }
+
+  function parseLine(rawLine) {
+    const line = String(rawLine || "").replace(/\r$/, "");
+    if (!line) return;
+    const match = line.match(/^(\d{3})([ -])(.*)$/);
+    if (!match) return;
+
+    const code = Number(match[1]);
+    const separator = match[2];
+    const text = String(match[3] || "");
+
+    if (partialCode === null || partialCode !== code) {
+      partialCode = code;
+      partialLines = [];
+    }
+    partialLines.push(text);
+
+    if (separator === " ") {
+      finalizeBlock(partialCode, partialLines);
+      partialCode = null;
+      partialLines = [];
+    }
+  }
+
+  socket.on("data", (chunk) => {
+    buffer += Buffer.from(chunk).toString("utf8");
+    while (true) {
+      const newlineIndex = buffer.indexOf("\n");
+      if (newlineIndex < 0) break;
+      const line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      parseLine(line);
+    }
+  });
+
+  socket.on("error", (error) => {
+    failAll(error);
+  });
+
+  socket.on("close", () => {
+    failAll(new Error("smtp_connection_closed"));
+  });
+
+  return {
+    next(timeoutMs = OWNER_SMTP_TIMEOUT_MS) {
+      if (readyBlocks.length) return Promise.resolve(readyBlocks.shift());
+      if (closedError) return Promise.reject(closedError);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error("smtp_response_timeout"));
+        }, Math.max(1000, Number(timeoutMs) || OWNER_SMTP_TIMEOUT_MS));
+        pendingReaders.push({ resolve, reject, timer });
+      });
+    },
+  };
+}
+
+function smtpWrite(socket, data) {
+  return new Promise((resolve, reject) => {
+    socket.write(String(data || ""), (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+async function smtpSendCommand(socket, reader, command, expectedCodes) {
+  await smtpWrite(socket, `${String(command || "").trim()}\r\n`);
+  const response = await reader.next();
+  const allowed = Array.isArray(expectedCodes) ? expectedCodes.map((code) => Number(code)) : [Number(expectedCodes)];
+  if (!allowed.includes(Number(response?.code))) {
+    const error = new Error(`smtp_unexpected_response_${Number(response?.code || 0)}`);
+    error.response = response;
+    throw error;
+  }
+  return response;
+}
+
+function parseSmtpCapabilities(response) {
+  const lines = Array.isArray(response?.lines) ? response.lines : [];
+  const tokens = lines
+    .map((line) => String(line || "").trim().toUpperCase())
+    .filter(Boolean);
+
+  const authLine = tokens.find((line) => line.startsWith("AUTH ")) || "";
+  const authTokens = authLine
+    .replace(/^AUTH\s+/, "")
+    .split(/\s+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return {
+    supportsStartTls: tokens.some((line) => line === "STARTTLS" || line.startsWith("STARTTLS ")),
+    authMethods: new Set(authTokens),
+  };
+}
+
+function encodeSmtpHeader(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^[\x20-\x7E]+$/.test(text)) return text;
+  return `=?UTF-8?B?${Buffer.from(text, "utf8").toString("base64")}?=`;
+}
+
+function formatSmtpMessageDate(date = new Date()) {
+  try {
+    return date.toUTCString();
+  } catch (error) {
+    return new Date().toUTCString();
+  }
+}
+
+function encodeMimeBase64(value) {
+  const encoded = Buffer.from(String(value || ""), "utf8").toString("base64");
+  return encoded.replace(/.{1,76}/g, "$&\r\n").trim();
+}
+
+function formatOwnerVerificationEmailTime(date) {
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Europe/Berlin",
+    }).format(date instanceof Date ? date : new Date(date));
+  } catch (error) {
+    return formatSmtpMessageDate(date instanceof Date ? date : new Date(date));
+  }
+}
+
+function escapeSmtpHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildOwnerVerificationDesignEmail(options = {}) {
+  const ownerLabel = String(options.ownerEmail || "").trim() || "owner";
+  const codeRaw = String(options.code || Math.floor(100000 + Math.random() * 900000))
+    .replace(/\D+/g, "")
+    .slice(0, 6)
+    .padStart(6, "0");
+  const codeDisplay = `${codeRaw.slice(0, 3)} ${codeRaw.slice(3)}`;
+  const expiresAt = options.expiresAt instanceof Date ? options.expiresAt : new Date(Date.now() + 15 * 60 * 1000);
+  const expiresLabel = formatOwnerVerificationEmailTime(expiresAt);
+  const generatedAtLabel = formatOwnerVerificationEmailTime(new Date());
+  const year = new Date().getUTCFullYear();
+
+  const textBody = [
+    "PingMyServer - Verifizierungscode",
+    "",
+    `Dein Code lautet: ${codeDisplay}`,
+    `Gültig bis: ${expiresLabel} (Europe/Berlin)`,
+    "",
+    "Hinweis: Diese E-Mail ist aktuell nur ein Design-Test.",
+    "Der Code löst noch keine echte Verifizierung aus.",
+    "",
+    `Angefordert von: ${ownerLabel}`,
+    `Erstellt am: ${generatedAtLabel}`,
+    "",
+    "Sicherheitshinweis: Teile diesen Code niemals mit Dritten.",
+  ].join("\n");
+
+  const htmlBody = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <style>
+      a {
+        color: #b9ddff !important;
+      }
+      a[x-apple-data-detectors] {
+        color: inherit !important;
+        text-decoration: none !important;
+      }
+    </style>
+    <title>PingMyServer Verifizierung</title>
+  </head>
+  <body
+    style="margin:0;padding:0;background:transparent !important;color:#eaf3ff;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color-scheme:light;"
+    bgcolor="transparent"
+  >
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:transparent;padding:24px 12px;" bgcolor="transparent">
+      <tr>
+        <td align="center" style="background:transparent;" bgcolor="transparent">
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            style="max-width:640px;background:linear-gradient(165deg,#0e2240 0%,#0b1d37 58%,#081628 100%);border:1px solid #2f5f90;border-radius:20px;overflow:hidden;"
+          >
+            <tr>
+              <td style="padding:26px 28px 12px 28px;">
+                <div
+                  style="display:inline-block;padding:7px 12px;border-radius:999px;border:1px solid #6ec3ff;background:#143861;font-size:11px;font-weight:700;letter-spacing:0.12em;color:#dff2ff;text-transform:uppercase;"
+                >
+                  PingMyServer
+                </div>
+                <h1 style="margin:18px 0 10px 0;font-size:28px;line-height:1.2;color:#ffffff;font-weight:800;">Verifiziere deinen Login</h1>
+                <p style="margin:0 0 16px 0;font-size:16px;line-height:1.55;color:#d2e7ff;">
+                  Nutze den folgenden Verifizierungscode, um deine Anmeldung abzuschließen.
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+                  <tr>
+                    <td
+                      style="border:1px solid #5aa4da;border-radius:14px;background:linear-gradient(180deg,#15385f,#113052);padding:20px 16px;text-align:center;"
+                    >
+                      <div style="font-size:12px;letter-spacing:0.12em;color:#a4cdee;text-transform:uppercase;margin-bottom:8px;">Verifizierungscode</div>
+                      <div style="font-size:42px;line-height:1;font-weight:900;letter-spacing:0.24em;color:#ffffff;">${escapeSmtpHtml(codeDisplay)}</div>
+                      <div style="font-size:12px;color:#bdd8f2;margin-top:12px;">Gültig bis ${escapeSmtpHtml(expiresLabel)} Uhr</div>
+                    </td>
+                  </tr>
+                </table>
+                <div style="border:1px solid #3f719f;background:#123356;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;color:#c7def4;">
+                  Hinweis: Diese E-Mail ist aktuell ein Design-Test. Der Code löst noch keine echte Verifizierung aus.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 28px 24px 28px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #355f8b;border-radius:12px;overflow:hidden;background:#0f2949;">
+                  <tr>
+                    <td style="padding:10px 12px;font-size:12px;color:#b8d4ee;border-bottom:1px solid #355f8b;">Angefordert von</td>
+                    <td style="padding:10px 12px;font-size:12px;color:#f2f9ff;border-bottom:1px solid #355f8b;" align="right">${escapeSmtpHtml(ownerLabel)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;font-size:12px;color:#b8d4ee;">Erstellt am</td>
+                    <td style="padding:10px 12px;font-size:12px;color:#f2f9ff;" align="right">${escapeSmtpHtml(generatedAtLabel)} Uhr</td>
+                  </tr>
+                </table>
+                <p style="margin:14px 0 0 0;font-size:12px;line-height:1.5;color:#c5ddf4;">
+                  Teile den Code niemals mit anderen. Das PingMyServer Team fragt nie per E-Mail nach deinem Verifizierungscode.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:15px 28px;background:#09182e;border-top:1px solid #304f73;font-size:11px;line-height:1.6;color:#a7c4e1;">
+                PingMyServer.de · Sicherheitsbenachrichtigung · © ${year}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "Dein PingMyServer Verifizierungscode",
+    textBody,
+    htmlBody,
+    code: codeRaw,
+    expiresAt,
+  };
+}
+
+function normalizeAuthEmailVerificationCode(value) {
+  const normalized = String(value || "")
+    .replace(/\D+/g, "")
+    .slice(0, AUTH_EMAIL_VERIFICATION_CODE_LENGTH);
+  if (normalized.length !== AUTH_EMAIL_VERIFICATION_CODE_LENGTH) return "";
+  return normalized;
+}
+
+function formatAuthEmailVerificationCodeDisplay(code) {
+  const normalized = normalizeAuthEmailVerificationCode(code);
+  if (!normalized) return "";
+  if (normalized.length === 6) {
+    return `${normalized.slice(0, 3)} ${normalized.slice(3)}`;
+  }
+  return normalized.replace(/(.{4})(?=.)/g, "$1 ");
+}
+
+function createAuthEmailVerificationCode() {
+  const maxExclusive = 10 ** AUTH_EMAIL_VERIFICATION_CODE_LENGTH;
+  const randomValue = crypto.randomInt(0, maxExclusive);
+  return String(randomValue).padStart(AUTH_EMAIL_VERIFICATION_CODE_LENGTH, "0");
+}
+
+function hashAuthEmailVerificationCode(challengeToken, code) {
+  const safeToken = String(challengeToken || "").trim();
+  const normalizedCode = normalizeAuthEmailVerificationCode(code);
+  if (!safeToken || !normalizedCode) return "";
+  return crypto.createHash("sha256").update(`${safeToken}:${normalizedCode}`).digest("hex");
+}
+
+function buildAuthLoginVerificationEmail(options = {}) {
+  const normalizedCode = normalizeAuthEmailVerificationCode(options.code);
+  const codeDisplay = formatAuthEmailVerificationCodeDisplay(normalizedCode) || normalizedCode;
+  const expiresAt = options.expiresAt instanceof Date ? options.expiresAt : new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
+  const expiresLabel = formatOwnerVerificationEmailTime(expiresAt);
+  const generatedAtLabel = formatOwnerVerificationEmailTime(new Date());
+  const ownerLabel = String(options.ownerEmail || "").trim() || "user";
+  const year = new Date().getUTCFullYear();
+
+  const textBody = [
+    "PingMyServer - Login Verifizierung",
+    "",
+    `Dein Login-Code lautet: ${codeDisplay}`,
+    `Gültig bis: ${expiresLabel} (Europe/Berlin)`,
+    "",
+    "Wenn du diese Anmeldung nicht gestartet hast, ignoriere diese E-Mail.",
+    "Dein Passwort bleibt weiterhin geschützt.",
+    "",
+    `Konto: ${ownerLabel}`,
+    `Erstellt am: ${generatedAtLabel}`,
+  ].join("\n");
+
+  const htmlBody = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <style>
+      a {
+        color: #b9ddff !important;
+      }
+      a[x-apple-data-detectors] {
+        color: inherit !important;
+        text-decoration: none !important;
+      }
+    </style>
+    <title>PingMyServer Login Verifizierung</title>
+  </head>
+  <body
+    style="margin:0;padding:0;background:transparent !important;color:#eaf3ff;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color-scheme:light;"
+    bgcolor="transparent"
+  >
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:transparent;padding:24px 12px;" bgcolor="transparent">
+      <tr>
+        <td align="center" style="background:transparent;" bgcolor="transparent">
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            style="max-width:640px;background:linear-gradient(165deg,#0e2240 0%,#0b1d37 58%,#081628 100%);border:1px solid #2f5f90;border-radius:20px;overflow:hidden;"
+          >
+            <tr>
+              <td style="padding:26px 28px 12px 28px;">
+                <div
+                  style="display:inline-block;padding:7px 12px;border-radius:999px;border:1px solid #6ec3ff;background:#143861;font-size:11px;font-weight:700;letter-spacing:0.12em;color:#dff2ff;text-transform:uppercase;"
+                >
+                  PingMyServer
+                </div>
+                <h1 style="margin:18px 0 10px 0;font-size:28px;line-height:1.2;color:#ffffff;font-weight:800;">Bestätige deine Anmeldung</h1>
+                <p style="margin:0 0 16px 0;font-size:16px;line-height:1.55;color:#d2e7ff;">
+                  Nutze den folgenden Login-Code, um deine Anmeldung abzuschließen.
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+                  <tr>
+                    <td
+                      style="border:1px solid #5aa4da;border-radius:14px;background:linear-gradient(180deg,#15385f,#113052);padding:20px 16px;text-align:center;"
+                    >
+                      <div style="font-size:12px;letter-spacing:0.12em;color:#a4cdee;text-transform:uppercase;margin-bottom:8px;">Login-Code</div>
+                      <div style="font-size:42px;line-height:1;font-weight:900;letter-spacing:0.24em;color:#ffffff;">${escapeSmtpHtml(codeDisplay)}</div>
+                      <div style="font-size:12px;color:#bdd8f2;margin-top:12px;">Gültig bis ${escapeSmtpHtml(expiresLabel)} Uhr</div>
+                    </td>
+                  </tr>
+                </table>
+                <div style="border:1px solid #3f719f;background:#123356;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;color:#c7def4;">
+                  Wenn du diese Anmeldung nicht gestartet hast, ignoriere die E-Mail. Teile den Code niemals mit Dritten.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 28px 24px 28px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #355f8b;border-radius:12px;overflow:hidden;background:#0f2949;">
+                  <tr>
+                    <td style="padding:10px 12px;font-size:12px;color:#b8d4ee;border-bottom:1px solid #355f8b;">Konto</td>
+                    <td style="padding:10px 12px;font-size:12px;color:#f2f9ff;border-bottom:1px solid #355f8b;" align="right">${escapeSmtpHtml(ownerLabel)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;font-size:12px;color:#b8d4ee;">Erstellt am</td>
+                    <td style="padding:10px 12px;font-size:12px;color:#f2f9ff;" align="right">${escapeSmtpHtml(generatedAtLabel)} Uhr</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:15px 28px;background:#09182e;border-top:1px solid #304f73;font-size:11px;line-height:1.6;color:#a7c4e1;">
+                PingMyServer.de · Sicherheitsbenachrichtigung · © ${year}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "Dein PingMyServer Login-Code",
+    textBody,
+    htmlBody,
+    code: normalizedCode,
+    expiresAt,
+  };
+}
+
+function dotStuffSmtpBody(body) {
+  const normalized = String(body || "").replace(/\r?\n/g, "\r\n");
+  return normalized
+    .split("\r\n")
+    .map((line) => (line.startsWith(".") ? `.${line}` : line))
+    .join("\r\n");
+}
+
+function buildOwnerSmtpTestMessage({ from, to, subject, body, textBody, htmlBody, extraHeaders }) {
+  const safeFrom = String(from || "").trim();
+  const safeTo = String(to || "").trim();
+  const safeSubject = encodeSmtpHeader(subject || "Dein PingMyServer Verifizierungscode");
+  const plainContent = String(textBody || body || "SMTP Test").replace(/\r?\n/g, "\r\n");
+  const htmlContent = String(htmlBody || "").trim();
+  const messageIdToken = crypto.randomBytes(12).toString("hex");
+  const fromDomain = safeFrom.includes("@") ? safeFrom.split("@")[1] : "pingmyserver.local";
+  const additionalHeaders = [];
+  if (extraHeaders && typeof extraHeaders === "object" && !Array.isArray(extraHeaders)) {
+    for (const [rawName, rawValue] of Object.entries(extraHeaders)) {
+      const name = String(rawName || "")
+        .replace(/[\r\n:]/g, "")
+        .trim();
+      if (!name) continue;
+      const value = String(rawValue ?? "")
+        .replace(/[\r\n]/g, " ")
+        .trim();
+      if (!value) continue;
+      additionalHeaders.push(`${name}: ${value}`);
+    }
+  }
+
+  if (!htmlContent) {
+    const headers = [
+      `From: <${safeFrom}>`,
+      `To: <${safeTo}>`,
+      `Subject: ${safeSubject}`,
+      `Date: ${formatSmtpMessageDate(new Date())}`,
+      `Message-ID: <${messageIdToken}@${fromDomain}>`,
+      "Auto-Submitted: auto-generated",
+      "X-Auto-Response-Suppress: All",
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: 8bit",
+      ...additionalHeaders,
+    ];
+    return `${headers.join("\r\n")}\r\n\r\n${plainContent}`;
+  }
+
+  const boundary = `pms_owner_${crypto.randomBytes(12).toString("hex")}`;
+  const headers = [
+    `From: <${safeFrom}>`,
+    `To: <${safeTo}>`,
+    `Subject: ${safeSubject}`,
+    `Date: ${formatSmtpMessageDate(new Date())}`,
+    `Message-ID: <${messageIdToken}@${fromDomain}>`,
+    "Auto-Submitted: auto-generated",
+    "X-Auto-Response-Suppress: All",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ...additionalHeaders,
+  ];
+
+  const sections = [
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeMimeBase64(plainContent),
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeMimeBase64(htmlContent),
+    `--${boundary}--`,
+    "",
+  ];
+
+  return `${headers.join("\r\n")}\r\n\r\n${sections.join("\r\n")}`;
+}
+
+function openOwnerSmtpSocket() {
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      reject(error);
+    };
+
+    if (OWNER_SMTP_SECURE) {
+      const secureSocket = tls.connect({
+        host: OWNER_SMTP_HOST,
+        port: OWNER_SMTP_PORT,
+        servername: OWNER_SMTP_HOST,
+        rejectUnauthorized: !OWNER_SMTP_TLS_INSECURE,
+      });
+      secureSocket.setTimeout(OWNER_SMTP_TIMEOUT_MS, () => {
+        secureSocket.destroy(new Error("smtp_socket_timeout"));
+      });
+      secureSocket.once("secureConnect", () => {
+        secureSocket.removeListener("error", onError);
+        resolve(secureSocket);
+      });
+      secureSocket.once("error", onError);
+      return;
+    }
+
+    const plainSocket = net.createConnection({ host: OWNER_SMTP_HOST, port: OWNER_SMTP_PORT });
+    plainSocket.setTimeout(OWNER_SMTP_TIMEOUT_MS, () => {
+      plainSocket.destroy(new Error("smtp_socket_timeout"));
+    });
+    plainSocket.once("connect", () => {
+      plainSocket.removeListener("error", onError);
+      resolve(plainSocket);
+    });
+    plainSocket.once("error", onError);
+  });
+}
+
+function upgradeOwnerSmtpSocketToTls(socket) {
+  return new Promise((resolve, reject) => {
+    const secureSocket = tls.connect({
+      socket,
+      servername: OWNER_SMTP_HOST,
+      rejectUnauthorized: !OWNER_SMTP_TLS_INSECURE,
+    });
+    secureSocket.setTimeout(OWNER_SMTP_TIMEOUT_MS, () => {
+      secureSocket.destroy(new Error("smtp_tls_timeout"));
+    });
+    const onError = (error) => reject(error);
+    secureSocket.once("secureConnect", () => {
+      secureSocket.removeListener("error", onError);
+      resolve(secureSocket);
+    });
+    secureSocket.once("error", onError);
+  });
+}
+
+async function sendOwnerSmtpTestEmail(options = {}) {
+  if (!isOwnerSmtpConfigured()) {
+    const error = new Error("smtp_not_configured");
+    error.code = "smtp_not_configured";
+    throw error;
+  }
+
+  const to = normalizeEmail(options.to);
+  if (!isValidEmail(to)) {
+    const error = new Error("invalid_to");
+    error.code = "invalid_to";
+    throw error;
+  }
+
+  let socket = null;
+  let reader = null;
+
+  try {
+    socket = await openOwnerSmtpSocket();
+    reader = createSmtpResponseReader(socket);
+
+    const greeting = await reader.next();
+    if (Number(greeting?.code) !== 220) {
+      throw new Error(`smtp_unexpected_greeting_${Number(greeting?.code || 0)}`);
+    }
+
+    let ehloResponse = await smtpSendCommand(socket, reader, `EHLO ${OWNER_SMTP_HELO_NAME}`, [250]);
+    let capabilities = parseSmtpCapabilities(ehloResponse);
+
+    if (!OWNER_SMTP_SECURE && OWNER_SMTP_REQUIRE_TLS) {
+      if (!capabilities.supportsStartTls) {
+        const error = new Error("smtp_starttls_not_supported");
+        error.code = "smtp_starttls_not_supported";
+        throw error;
+      }
+
+      await smtpSendCommand(socket, reader, "STARTTLS", [220]);
+      socket = await upgradeOwnerSmtpSocketToTls(socket);
+      reader = createSmtpResponseReader(socket);
+      ehloResponse = await smtpSendCommand(socket, reader, `EHLO ${OWNER_SMTP_HELO_NAME}`, [250]);
+      capabilities = parseSmtpCapabilities(ehloResponse);
+    }
+
+    if (OWNER_SMTP_USER || OWNER_SMTP_PASSWORD) {
+      if (!OWNER_SMTP_USER || !OWNER_SMTP_PASSWORD) {
+        const error = new Error("smtp_auth_incomplete");
+        error.code = "smtp_auth_incomplete";
+        throw error;
+      }
+      const supportsLogin = capabilities.authMethods.has("LOGIN");
+      const supportsPlain = capabilities.authMethods.has("PLAIN");
+      if (!supportsLogin && !supportsPlain) {
+        const error = new Error("smtp_auth_not_supported");
+        error.code = "smtp_auth_not_supported";
+        throw error;
+      }
+
+      if (supportsLogin) {
+        await smtpSendCommand(socket, reader, "AUTH LOGIN", [334]);
+        await smtpSendCommand(socket, reader, Buffer.from(OWNER_SMTP_USER, "utf8").toString("base64"), [334]);
+        await smtpSendCommand(socket, reader, Buffer.from(OWNER_SMTP_PASSWORD, "utf8").toString("base64"), [235]);
+      } else {
+        const plainToken = Buffer.from(`\u0000${OWNER_SMTP_USER}\u0000${OWNER_SMTP_PASSWORD}`, "utf8").toString("base64");
+        await smtpSendCommand(socket, reader, `AUTH PLAIN ${plainToken}`, [235]);
+      }
+    }
+
+    await smtpSendCommand(socket, reader, `MAIL FROM:<${OWNER_SMTP_FROM}>`, [250]);
+    await smtpSendCommand(socket, reader, `RCPT TO:<${to}>`, [250, 251]);
+    await smtpSendCommand(socket, reader, "DATA", [354]);
+
+    const subject = String(options.subject || "").trim() || "Dein PingMyServer Verifizierungscode";
+    const body = String(options.body || "").trim() || `Dies ist eine Test-E-Mail aus dem Owner Dashboard (${formatSmtpMessageDate()}).`;
+    const textBody = String(options.textBody || "").trim() || body;
+    const htmlBody = String(options.htmlBody || "").trim();
+    const message = buildOwnerSmtpTestMessage({
+      from: OWNER_SMTP_FROM,
+      to,
+      subject,
+      textBody,
+      htmlBody,
+      extraHeaders: options.extraHeaders,
+    });
+
+    await smtpWrite(socket, `${dotStuffSmtpBody(message)}\r\n.\r\n`);
+    const dataResult = await reader.next();
+    if (Number(dataResult?.code) !== 250) {
+      throw new Error(`smtp_data_rejected_${Number(dataResult?.code || 0)}`);
+    }
+
+    await smtpWrite(socket, "QUIT\r\n");
+  } finally {
+    if (socket && typeof socket.destroy === "function") {
+      socket.destroy();
+    }
+  }
+}
+
 function validatePassword(password) {
   if (typeof password !== "string") return false;
   return password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH;
@@ -2761,6 +3561,120 @@ function normalizeWebhookSecret(input) {
   return raw.slice(0, WEBHOOK_SECRET_MAX_LENGTH);
 }
 
+function normalizeNotificationEmailAddress(input) {
+  const normalized = normalizeEmail(input);
+  if (!isValidEmail(normalized)) return null;
+  return normalized;
+}
+
+function normalizeEmailNotificationCooldownMinutes(
+  input,
+  fallback = EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT
+) {
+  const fallbackNumeric = Number(fallback);
+  const normalizedFallback = Number.isFinite(fallbackNumeric)
+    ? Math.max(
+        EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN,
+        Math.min(EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX, Math.round(fallbackNumeric))
+      )
+    : EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT;
+  const numeric = Number(input);
+  if (!Number.isFinite(numeric)) return normalizedFallback;
+  return Math.max(
+    EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN,
+    Math.min(EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX, Math.round(numeric))
+  );
+}
+
+function getAccountEmailNotificationCooldownMinutes(account) {
+  return normalizeEmailNotificationCooldownMinutes(
+    account?.notify_email_cooldown_minutes,
+    EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT
+  );
+}
+
+function resolveNotificationEmailRecipient(account) {
+  const custom = normalizeNotificationEmailAddress(account?.notify_email_address);
+  if (custom) return custom;
+  return normalizeNotificationEmailAddress(account?.email);
+}
+
+function isCustomNotificationEmailConfigured(account) {
+  return !!normalizeNotificationEmailAddress(account?.notify_email_address);
+}
+
+function maskNotificationEmailAddress(input) {
+  const normalized = normalizeNotificationEmailAddress(input);
+  if (!normalized) return null;
+
+  const [localPartRaw, domainPartRaw] = String(normalized).split("@");
+  const localPart = String(localPartRaw || "");
+  const domainPart = String(domainPartRaw || "");
+  if (!localPart || !domainPart) return null;
+
+  const localMasked =
+    localPart.length <= 2 ? `${localPart.slice(0, 1)}***` : `${localPart.slice(0, 2)}***${localPart.slice(-1)}`;
+  const domainSegments = domainPart.split(".");
+  const domainName = String(domainSegments[0] || "");
+  const domainSuffix = domainSegments.length > 1 ? `.${domainSegments.slice(1).join(".")}` : "";
+  const domainMasked =
+    domainName.length <= 2 ? `${domainName.slice(0, 1)}***` : `${domainName.slice(0, 2)}***${domainName.slice(-1)}`;
+
+  return `${localMasked}@${domainMasked}${domainSuffix}`;
+}
+
+function encodeBase64UrlUtf8(input) {
+  return Buffer.from(String(input || ""), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function createEmailNotificationUnsubscribeToken(options = {}) {
+  const numericUserId = Number(options.userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return "";
+  const expiresAtMs = Date.now() + Math.max(1, EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS) * 24 * 60 * 60 * 1000;
+  const expiresAtSeconds = Math.floor(expiresAtMs / 1000);
+  const payload = `${numericUserId}.${expiresAtSeconds}`;
+  const encodedPayload = encodeBase64UrlUtf8(payload);
+  const signature = crypto.createHmac("sha256", EMAIL_UNSUBSCRIBE_SECRET).update(encodedPayload).digest("hex");
+  return `${encodedPayload}.${signature}`;
+}
+
+function parseEmailNotificationUnsubscribeToken(token) {
+  const raw = String(token || "").trim();
+  const match = raw.match(/^([A-Za-z0-9_-]+)\.([a-f0-9]{64})$/);
+  if (!match) return { ok: false, error: "invalid token format" };
+
+  const encodedPayload = String(match[1] || "");
+  const signature = String(match[2] || "");
+  const expectedSignature = crypto.createHmac("sha256", EMAIL_UNSUBSCRIBE_SECRET).update(encodedPayload).digest("hex");
+  if (!timingSafeEqualHex(expectedSignature, signature)) {
+    return { ok: false, error: "invalid token signature" };
+  }
+
+  const decodedPayload = decodeBase64UrlUtf8(encodedPayload, 128);
+  if (!decodedPayload) return { ok: false, error: "invalid token payload" };
+
+  const payloadMatch = decodedPayload.match(/^(\d+)\.(\d{1,12})$/);
+  if (!payloadMatch) return { ok: false, error: "invalid token payload" };
+
+  const userId = Number(payloadMatch[1]);
+  const expiresAtSeconds = Number(payloadMatch[2]);
+  if (!Number.isInteger(userId) || userId <= 0) return { ok: false, error: "invalid token user" };
+  if (!Number.isInteger(expiresAtSeconds) || expiresAtSeconds <= 0) return { ok: false, error: "invalid token expiry" };
+  if (Math.floor(Date.now() / 1000) > expiresAtSeconds) return { ok: false, error: "expired token" };
+
+  return { ok: true, userId, expiresAtSeconds };
+}
+
+function buildEmailNotificationUnsubscribeUrl(userId) {
+  const token = createEmailNotificationUnsubscribeToken({ userId });
+  if (!token) return "";
+  return `${getDefaultTrustedOrigin()}/api/account/notifications/email/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
 async function validateOutboundWebhookTarget(targetUrl) {
   let parsed;
   try {
@@ -2830,12 +3744,14 @@ async function generateUniqueMonitorPublicId(maxAttempts = 20) {
   throw new Error("monitor_public_id_generation_failed");
 }
 
-const GAME_AGENT_ALLOWED_GAMES = new Set(["minecraft"]);
+const GAME_AGENT_DEFAULT_GAME = "minecraft";
 
 function normalizeGameAgentGame(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  if (!normalized) return "minecraft";
-  return GAME_AGENT_ALLOWED_GAMES.has(normalized) ? normalized : "";
+  if (!normalized) return GAME_AGENT_DEFAULT_GAME;
+  if (normalized.length < 2 || normalized.length > 24) return "";
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(normalized)) return "";
+  return normalized;
 }
 
 function isValidGameAgentPublicId(value) {
@@ -3882,8 +4798,21 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("users", "discord_email"))) {
     await pool.query("ALTER TABLE users ADD COLUMN discord_email VARCHAR(255) NULL AFTER discord_username");
   }
+  if (!(await hasColumn("users", "notify_email_address"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN notify_email_address VARCHAR(255) NULL AFTER discord_email");
+  }
+  if (!(await hasColumn("users", "notify_email_enabled"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN notify_email_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_email_address");
+  }
+  if (!(await hasColumn("users", "notify_email_cooldown_minutes"))) {
+    await pool.query(
+      "ALTER TABLE users ADD COLUMN notify_email_cooldown_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15 AFTER notify_email_enabled"
+    );
+  }
   if (!(await hasColumn("users", "notify_discord_webhook_url"))) {
-    await pool.query("ALTER TABLE users ADD COLUMN notify_discord_webhook_url VARCHAR(2048) NULL AFTER discord_email");
+    await pool.query(
+      "ALTER TABLE users ADD COLUMN notify_discord_webhook_url VARCHAR(2048) NULL AFTER notify_email_cooldown_minutes"
+    );
   }
   if (!(await hasColumn("users", "notify_discord_enabled"))) {
     await pool.query("ALTER TABLE users ADD COLUMN notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_discord_webhook_url");
@@ -3926,6 +4855,20 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("users", "stripe_current_period_end"))) {
     await pool.query("ALTER TABLE users ADD COLUMN stripe_current_period_end DATETIME NULL AFTER stripe_subscription_status");
   }
+  await pool.query(
+    "UPDATE users SET notify_email_enabled = 0 WHERE notify_email_enabled IS NULL OR notify_email_enabled NOT IN (0, 1)"
+  );
+  await pool.query(
+    "UPDATE users SET notify_email_address = NULL WHERE notify_email_address IS NOT NULL AND TRIM(notify_email_address) = ''"
+  );
+  await pool.query(
+    "UPDATE users SET notify_email_cooldown_minutes = ? WHERE notify_email_cooldown_minutes IS NULL OR notify_email_cooldown_minutes < ? OR notify_email_cooldown_minutes > ?",
+    [
+      EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT,
+      EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN,
+      EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX,
+    ]
+  );
   await pool.query(
     "UPDATE users SET notify_discord_enabled = 0 WHERE notify_discord_enabled IS NULL OR notify_discord_enabled NOT IN (0, 1)"
   );
@@ -4003,6 +4946,14 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("monitors", "last_checked_at"))) {
     await pool.query("ALTER TABLE monitors ADD COLUMN last_checked_at DATETIME(3) NULL AFTER last_check_at");
   }
+  if (!(await hasColumn("monitors", "notify_email_last_sent_at"))) {
+    await pool.query("ALTER TABLE monitors ADD COLUMN notify_email_last_sent_at DATETIME(3) NULL AFTER last_response_ms");
+  }
+  if (!(await hasColumn("monitors", "notify_email_last_sent_status"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN notify_email_last_sent_status ENUM('online','offline') NULL AFTER notify_email_last_sent_at"
+    );
+  }
 
   if (!(await hasColumn("monitor_checks", "error_message"))) {
     await pool.query("ALTER TABLE monitor_checks ADD COLUMN error_message VARCHAR(255) NULL AFTER status_code");
@@ -4055,6 +5006,9 @@ async function ensureSchemaCompatibility() {
     MONITOR_INTERVAL_MAX_MS,
   ]);
   await pool.query("UPDATE monitors SET is_paused = 0 WHERE is_paused IS NULL");
+  await pool.query(
+    "UPDATE monitors SET notify_email_last_sent_status = NULL WHERE notify_email_last_sent_status IS NOT NULL AND notify_email_last_sent_status NOT IN ('online', 'offline')"
+  );
   await pool.query(
     "UPDATE monitors SET name = LEFT(COALESCE(url, target_url, CONCAT('Monitor-', id)), 255) WHERE name IS NULL OR name = ''"
   );
@@ -4258,6 +5212,9 @@ async function initDb() {
       discord_id VARCHAR(64) NULL UNIQUE,
       discord_username VARCHAR(255) NULL,
       discord_email VARCHAR(255) NULL,
+      notify_email_address VARCHAR(255) NULL,
+      notify_email_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      notify_email_cooldown_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15,
       notify_discord_webhook_url VARCHAR(2048) NULL,
       notify_discord_enabled TINYINT(1) NOT NULL DEFAULT 0,
       notify_slack_webhook_url VARCHAR(2048) NULL,
@@ -4294,6 +5251,32 @@ async function initDb() {
       fails INT NOT NULL DEFAULT 0,
       last_fail TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       locked_until TIMESTAMP NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_email_challenges (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      token_hash CHAR(64) NOT NULL UNIQUE,
+      user_id BIGINT NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      purpose ENUM('login') NOT NULL DEFAULT 'login',
+      code_hash CHAR(64) NOT NULL,
+      code_last4 CHAR(4) NOT NULL,
+      attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+      max_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 6,
+      send_count SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+      last_sent_at DATETIME(3) NOT NULL,
+      expires_at DATETIME(3) NOT NULL,
+      consumed_at DATETIME(3) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_auth_email_challenges_user_purpose (user_id, purpose, created_at),
+      INDEX idx_auth_email_challenges_expires (expires_at),
+      INDEX idx_auth_email_challenges_consumed (consumed_at),
+      CONSTRAINT fk_auth_email_challenges_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
     )
   `);
 
@@ -4363,6 +5346,19 @@ async function initDb() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS owner_db_storage_snapshots (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      sampled_at DATETIME(3) NOT NULL,
+      used_bytes BIGINT UNSIGNED NOT NULL,
+      table_free_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      fs_total_bytes BIGINT UNSIGNED NULL,
+      fs_free_bytes BIGINT UNSIGNED NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_owner_db_storage_sampled_at (sampled_at)
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS monitors (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       public_id CHAR(12) NOT NULL UNIQUE,
@@ -4384,6 +5380,8 @@ async function initDb() {
       last_checked_at DATETIME(3) NULL,
       last_check_at DATETIME(3) NULL,
       last_response_ms INT NULL,
+      notify_email_last_sent_at DATETIME(3) NULL,
+      notify_email_last_sent_status ENUM('online','offline') NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_monitors_user_id (user_id),
@@ -4507,6 +5505,9 @@ async function getUserNotificationSettingsById(userId) {
       SELECT
         id,
         email,
+        notify_email_enabled,
+        notify_email_address,
+        notify_email_cooldown_minutes,
         notify_discord_enabled,
         notify_discord_webhook_url,
         notify_slack_enabled,
@@ -4793,6 +5794,279 @@ async function registerAuthFailure(email, failure) {
 
 async function clearAuthFailures(email) {
   await pool.query("DELETE FROM auth_failures WHERE email = ?", [email]);
+}
+
+async function cleanupExpiredAuthEmailChallenges() {
+  const retentionMs = Math.max(AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS, 60 * 1000);
+  const cutoff = new Date(Date.now() - retentionMs);
+  await pool.query(
+    `
+      DELETE FROM auth_email_challenges
+      WHERE expires_at < UTC_TIMESTAMP(3)
+         OR (consumed_at IS NOT NULL AND consumed_at < ?)
+    `,
+    [cutoff]
+  );
+}
+
+function serializeAuthEmailChallengeRow(row) {
+  if (!row || typeof row !== "object") return null;
+  return {
+    id: Number(row.id || 0),
+    tokenHash: String(row.token_hash || "").trim(),
+    userId: Number(row.user_id || 0),
+    email: normalizeEmail(row.email),
+    purpose: String(row.purpose || "").trim().toLowerCase(),
+    codeHash: String(row.code_hash || "").trim(),
+    codeLast4: String(row.code_last4 || "").trim(),
+    attempts: Number(row.attempts || 0),
+    maxAttempts: Number(row.max_attempts || 0),
+    sendCount: Number(row.send_count || 0),
+    lastSentAtMs: toTimestampMs(row.last_sent_at),
+    expiresAtMs: toTimestampMs(row.expires_at),
+    consumedAtMs: toTimestampMs(row.consumed_at),
+  };
+}
+
+async function findAuthEmailChallengeByToken(token, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
+  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
+    .trim()
+    .toLowerCase();
+  const challengeToken = String(token || "").trim();
+  if (!challengeToken || !/^[a-f0-9]{64}$/.test(challengeToken)) return null;
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        token_hash,
+        user_id,
+        email,
+        purpose,
+        code_hash,
+        code_last4,
+        attempts,
+        max_attempts,
+        send_count,
+        last_sent_at,
+        expires_at,
+        consumed_at
+      FROM auth_email_challenges
+      WHERE token_hash = ? AND purpose = ?
+      LIMIT 1
+    `,
+    [hashSessionToken(challengeToken), normalizedPurpose]
+  );
+
+  return rows.length ? serializeAuthEmailChallengeRow(rows[0]) : null;
+}
+
+async function countRecentAuthEmailChallengesForUser(userId, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return 0;
+  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
+    .trim()
+    .toLowerCase();
+  const lookback = new Date(Date.now() - 60 * 60 * 1000);
+
+  const [rows] = await pool.query(
+    `
+      SELECT COUNT(*) AS total
+      FROM auth_email_challenges
+      WHERE user_id = ?
+        AND purpose = ?
+        AND created_at >= ?
+    `,
+    [numericUserId, normalizedPurpose, lookback]
+  );
+  return Number(rows?.[0]?.total || 0);
+}
+
+function buildAuthVerificationChallengeResponse(challenge) {
+  const expiresAtMs = Number(challenge?.expiresAtMs || 0);
+  const now = Date.now();
+  const expiresInSeconds = Number.isFinite(expiresAtMs) ? Math.max(1, Math.ceil((expiresAtMs - now) / 1000)) : AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS;
+  return {
+    verifyRequired: true,
+    challengeToken: challenge?.token || "",
+    emailMasked: maskNotificationEmailAddress(challenge?.email) || challenge?.email || "",
+    expiresAt: Number.isFinite(expiresAtMs) ? expiresAtMs : now + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000,
+    expiresInSeconds,
+    resendAfterSeconds: AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS,
+    codeLength: AUTH_EMAIL_VERIFICATION_CODE_LENGTH,
+  };
+}
+
+async function createAuthEmailChallenge({ userId, email, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN }) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
+    const error = new Error("invalid_user_id");
+    error.code = "invalid_user_id";
+    throw error;
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  if (!isValidEmail(normalizedEmail)) {
+    const error = new Error("invalid_email");
+    error.code = "invalid_email";
+    throw error;
+  }
+
+  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
+    .trim()
+    .toLowerCase();
+  const recentCount = await countRecentAuthEmailChallengesForUser(numericUserId, normalizedPurpose);
+  if (recentCount >= AUTH_EMAIL_VERIFICATION_MAX_REQUESTS_PER_HOUR) {
+    const error = new Error("too_many_challenges");
+    error.code = "too_many_challenges";
+    throw error;
+  }
+
+  const challengeToken = crypto.randomBytes(32).toString("hex");
+  const code = createAuthEmailVerificationCode();
+  const codeHash = hashAuthEmailVerificationCode(challengeToken, code);
+  const now = new Date();
+  const expiresAt = new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
+
+  await pool.query(
+    `
+      INSERT INTO auth_email_challenges (
+        token_hash,
+        user_id,
+        email,
+        purpose,
+        code_hash,
+        code_last4,
+        attempts,
+        max_attempts,
+        send_count,
+        last_sent_at,
+        expires_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, 1, ?, ?)
+    `,
+    [
+      hashSessionToken(challengeToken),
+      numericUserId,
+      normalizedEmail,
+      normalizedPurpose,
+      codeHash,
+      code.slice(-4),
+      AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS,
+      now,
+      expiresAt,
+    ]
+  );
+
+  return {
+    token: challengeToken,
+    userId: numericUserId,
+    email: normalizedEmail,
+    purpose: normalizedPurpose,
+    code,
+    expiresAtMs: expiresAt.getTime(),
+  };
+}
+
+async function deleteAuthEmailChallengeByToken(token, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
+  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
+    .trim()
+    .toLowerCase();
+  const challengeToken = String(token || "").trim();
+  if (!challengeToken || !/^[a-f0-9]{64}$/.test(challengeToken)) return;
+  await pool.query("DELETE FROM auth_email_challenges WHERE token_hash = ? AND purpose = ?", [
+    hashSessionToken(challengeToken),
+    normalizedPurpose,
+  ]);
+}
+
+async function resendAuthEmailChallenge(challenge, challengeToken) {
+  const challengeId = Number(challenge?.id || 0);
+  if (!Number.isInteger(challengeId) || challengeId <= 0) {
+    const error = new Error("invalid_challenge");
+    error.code = "invalid_challenge";
+    throw error;
+  }
+
+  const now = Date.now();
+  const expiresAtMs = Number(challenge?.expiresAtMs || 0);
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now) {
+    const error = new Error("challenge_expired");
+    error.code = "challenge_expired";
+    throw error;
+  }
+  if (Number(challenge?.consumedAtMs || 0) > 0) {
+    const error = new Error("challenge_consumed");
+    error.code = "challenge_consumed";
+    throw error;
+  }
+  if (Number(challenge?.sendCount || 0) >= AUTH_EMAIL_VERIFICATION_MAX_SENDS) {
+    const error = new Error("challenge_send_limit");
+    error.code = "challenge_send_limit";
+    throw error;
+  }
+
+  const lastSentAtMs = Number(challenge?.lastSentAtMs || 0);
+  const resendDelayMs = AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS * 1000;
+  if (Number.isFinite(lastSentAtMs) && lastSentAtMs > 0 && now - lastSentAtMs < resendDelayMs) {
+    const retryAfter = Math.max(1, Math.ceil((resendDelayMs - (now - lastSentAtMs)) / 1000));
+    const error = new Error("challenge_resend_wait");
+    error.code = "challenge_resend_wait";
+    error.retryAfterSeconds = retryAfter;
+    throw error;
+  }
+
+  const code = createAuthEmailVerificationCode();
+  const codeHash = hashAuthEmailVerificationCode(challengeToken, code);
+  const nextExpiresAt = new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
+  const [updateResult] = await pool.query(
+    `
+      UPDATE auth_email_challenges
+      SET
+        code_hash = ?,
+        code_last4 = ?,
+        send_count = send_count + 1,
+        last_sent_at = UTC_TIMESTAMP(3),
+        expires_at = ?,
+        updated_at = UTC_TIMESTAMP()
+      WHERE id = ?
+        AND consumed_at IS NULL
+        AND expires_at > UTC_TIMESTAMP(3)
+        AND send_count < ?
+      LIMIT 1
+    `,
+    [codeHash, code.slice(-4), nextExpiresAt, challengeId, AUTH_EMAIL_VERIFICATION_MAX_SENDS]
+  );
+  if (Number(updateResult?.affectedRows || 0) !== 1) {
+    const error = new Error("challenge_update_conflict");
+    error.code = "challenge_update_conflict";
+    throw error;
+  }
+
+  return {
+    ...challenge,
+    code,
+    expiresAtMs: nextExpiresAt.getTime(),
+    sendCount: Number(challenge.sendCount || 0) + 1,
+  };
+}
+
+async function sendAuthEmailChallenge(challenge, user) {
+  const emailPayload = buildAuthLoginVerificationEmail({
+    ownerEmail: String(user?.email || challenge?.email || "").trim(),
+    code: challenge?.code,
+    expiresAt: Number.isFinite(Number(challenge?.expiresAtMs)) ? new Date(Number(challenge.expiresAtMs)) : null,
+  });
+
+  await sendOwnerSmtpTestEmail({
+    to: String(challenge?.email || "").trim(),
+    subject: emailPayload.subject,
+    textBody: emailPayload.textBody,
+    htmlBody: emailPayload.htmlBody,
+    extraHeaders: {
+      "X-PMS-Notification-Type": "auth_email_verification",
+    },
+  });
 }
 
 async function getNextPathForUser(userId) {
@@ -5510,6 +6784,50 @@ async function handleAuthRegister(req, res) {
     );
 
     await cleanupExpiredSessions();
+    if (AUTH_EMAIL_VERIFICATION_ENABLED) {
+      if (!isOwnerSmtpConfigured()) {
+        sendJson(res, 503, { ok: false, error: "verification unavailable" });
+        return;
+      }
+
+      await cleanupExpiredAuthEmailChallenges();
+      let challenge = null;
+      try {
+        challenge = await createAuthEmailChallenge({
+          userId: result.insertId,
+          email,
+          purpose: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
+        });
+        await sendAuthEmailChallenge(challenge, { email, id: result.insertId });
+      } catch (error) {
+        if (challenge?.token) {
+          await deleteAuthEmailChallengeByToken(challenge.token, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN).catch(() => {
+            // ignore cleanup errors
+          });
+        }
+
+        if (error?.code === "too_many_challenges") {
+          sendJson(
+            res,
+            429,
+            { ok: false, error: "verification throttled" },
+            { "Retry-After": "3600" }
+          );
+          return;
+        }
+
+        console.error("register_verification_send_failed", Number(result.insertId), error?.code || error?.message || error);
+        sendJson(res, 500, { ok: false, error: "verification send failed" });
+        return;
+      }
+
+      sendJson(res, 201, {
+        ok: true,
+        ...buildAuthVerificationChallengeResponse(challenge),
+      });
+      return;
+    }
+
     const sessionToken = await createSession(result.insertId);
     setSessionCookie(res, sessionToken);
 
@@ -5585,6 +6903,50 @@ async function handleAuthLogin(req, res) {
     await clearAuthFailures(email);
     await cleanupExpiredSessions();
 
+    if (AUTH_EMAIL_VERIFICATION_ENABLED) {
+      if (!isOwnerSmtpConfigured()) {
+        sendJson(res, 503, { ok: false, error: "verification unavailable" });
+        return;
+      }
+
+      await cleanupExpiredAuthEmailChallenges();
+      let challenge = null;
+      try {
+        challenge = await createAuthEmailChallenge({
+          userId: user.id,
+          email: user.email,
+          purpose: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
+        });
+        await sendAuthEmailChallenge(challenge, user);
+      } catch (error) {
+        if (challenge?.token) {
+          await deleteAuthEmailChallengeByToken(challenge.token, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN).catch(() => {
+            // ignore cleanup errors
+          });
+        }
+
+        if (error?.code === "too_many_challenges") {
+          sendJson(
+            res,
+            429,
+            { ok: false, error: "verification throttled" },
+            { "Retry-After": "3600" }
+          );
+          return;
+        }
+
+        console.error("auth_email_verification_send_failed", Number(user.id), error?.code || error?.message || error);
+        sendJson(res, 500, { ok: false, error: "verification send failed" });
+        return;
+      }
+
+      sendJson(res, 200, {
+        ok: true,
+        ...buildAuthVerificationChallengeResponse(challenge),
+      });
+      return;
+    }
+
     // Session fixation protection.
     await pool.query("DELETE FROM sessions WHERE user_id = ?", [user.id]);
 
@@ -5596,6 +6958,185 @@ async function handleAuthLogin(req, res) {
   } catch (error) {
     console.error("login_failed", error);
     sendJson(res, 500, { ok: false, error: "invalid credentials" });
+  }
+}
+
+async function handleAuthLoginVerify(req, res) {
+  if (!AUTH_EMAIL_VERIFICATION_ENABLED) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const challengeToken = String(body?.challengeToken || body?.challenge_token || "").trim().toLowerCase();
+  const code = normalizeAuthEmailVerificationCode(body?.code);
+  if (!/^[a-f0-9]{64}$/.test(challengeToken) || !code) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    await cleanupExpiredAuthEmailChallenges();
+    const challenge = await findAuthEmailChallengeByToken(challengeToken, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN);
+    if (!challenge) {
+      sendJson(res, 404, { ok: false, error: "invalid challenge" });
+      return;
+    }
+    if (Number(challenge.consumedAtMs || 0) > 0) {
+      sendJson(res, 409, { ok: false, error: "challenge used" });
+      return;
+    }
+    if (!Number.isFinite(Number(challenge.expiresAtMs)) || Number(challenge.expiresAtMs) <= Date.now()) {
+      sendJson(res, 410, { ok: false, error: "challenge expired" });
+      return;
+    }
+
+    const maxAttempts = Math.max(1, Number(challenge.maxAttempts || AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS));
+    const attempts = Math.max(0, Number(challenge.attempts || 0));
+    if (attempts >= maxAttempts) {
+      sendJson(res, 429, { ok: false, error: "challenge attempts exceeded" });
+      return;
+    }
+
+    const expectedCodeHash = String(challenge.codeHash || "").trim();
+    const providedCodeHash = hashAuthEmailVerificationCode(challengeToken, code);
+    if (!timingSafeEqualHex(expectedCodeHash, providedCodeHash)) {
+      const [updateResult] = await pool.query(
+        `
+          UPDATE auth_email_challenges
+          SET attempts = attempts + 1
+          WHERE id = ?
+            AND consumed_at IS NULL
+            AND expires_at > UTC_TIMESTAMP(3)
+            AND attempts < max_attempts
+          LIMIT 1
+        `,
+        [challenge.id]
+      );
+
+      const didIncrement = Number(updateResult?.affectedRows || 0) === 1;
+      const nextAttempts = didIncrement ? attempts + 1 : attempts;
+      const remaining = Math.max(0, maxAttempts - nextAttempts);
+      const nextError = remaining > 0 ? "invalid code" : "challenge attempts exceeded";
+      sendJson(res, remaining > 0 ? 401 : 429, {
+        ok: false,
+        error: nextError,
+        remainingAttempts: remaining,
+      });
+      return;
+    }
+
+    const [consumeResult] = await pool.query(
+      `
+        UPDATE auth_email_challenges
+        SET consumed_at = UTC_TIMESTAMP(3)
+        WHERE id = ?
+          AND consumed_at IS NULL
+          AND expires_at > UTC_TIMESTAMP(3)
+          AND attempts < max_attempts
+        LIMIT 1
+      `,
+      [challenge.id]
+    );
+    if (Number(consumeResult?.affectedRows || 0) !== 1) {
+      sendJson(res, 409, { ok: false, error: "challenge used" });
+      return;
+    }
+
+    await cleanupExpiredSessions();
+    await pool.query("DELETE FROM sessions WHERE user_id = ?", [challenge.userId]);
+
+    const sessionToken = await createSession(challenge.userId);
+    setSessionCookie(res, sessionToken);
+
+    const next = await getNextPathForUser(challenge.userId);
+    sendJson(res, 200, { ok: true, next });
+  } catch (error) {
+    console.error("auth_login_verify_failed", error?.code || error?.message || error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAuthLoginVerifyResend(req, res) {
+  if (!AUTH_EMAIL_VERIFICATION_ENABLED) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+  if (!isOwnerSmtpConfigured()) {
+    sendJson(res, 503, { ok: false, error: "verification unavailable" });
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const challengeToken = String(body?.challengeToken || body?.challenge_token || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(challengeToken)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    await cleanupExpiredAuthEmailChallenges();
+    const challenge = await findAuthEmailChallengeByToken(challengeToken, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN);
+    if (!challenge) {
+      sendJson(res, 404, { ok: false, error: "invalid challenge" });
+      return;
+    }
+    if (Number(challenge.consumedAtMs || 0) > 0) {
+      sendJson(res, 409, { ok: false, error: "challenge used" });
+      return;
+    }
+    if (!Number.isFinite(Number(challenge.expiresAtMs)) || Number(challenge.expiresAtMs) <= Date.now()) {
+      sendJson(res, 410, { ok: false, error: "challenge expired" });
+      return;
+    }
+
+    let resent;
+    try {
+      resent = await resendAuthEmailChallenge(challenge, challengeToken);
+    } catch (error) {
+      if (error?.code === "challenge_resend_wait") {
+        const retryAfterSeconds = Math.max(1, Number(error.retryAfterSeconds || AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS));
+        sendJson(
+          res,
+          429,
+          { ok: false, error: "resend cooldown", retryAfterSeconds },
+          { "Retry-After": String(retryAfterSeconds) }
+        );
+        return;
+      }
+      if (error?.code === "challenge_send_limit") {
+        sendJson(res, 429, { ok: false, error: "resend limit reached" });
+        return;
+      }
+      throw error;
+    }
+
+    await sendAuthEmailChallenge(resent, { email: resent.email, id: resent.userId });
+
+    sendJson(res, 200, {
+      ok: true,
+      ...buildAuthVerificationChallengeResponse({
+        ...resent,
+        token: challengeToken,
+      }),
+    });
+  } catch (error) {
+    console.error("auth_login_verify_resend_failed", error?.code || error?.message || error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
 
@@ -6137,6 +7678,13 @@ function hasLinkedOauthConnection(account) {
 }
 
 function toAccountNotificationsPayload(account) {
+  const emailAvailable = isOwnerSmtpConfigured();
+  const resolvedEmailRecipient = resolveNotificationEmailRecipient(account);
+  const emailConfigured = emailAvailable && !!resolvedEmailRecipient;
+  const emailEnabled = emailConfigured && Number(account?.notify_email_enabled || 0) === 1;
+  const usingAccountEmail = !isCustomNotificationEmailConfigured(account);
+  const emailCooldownMinutes = getAccountEmailNotificationCooldownMinutes(account);
+
   const normalizedWebhook = normalizeDiscordWebhookUrl(account?.notify_discord_webhook_url);
   const configured = !!normalizedWebhook;
   const enabled = configured && Number(account?.notify_discord_enabled || 0) === 1;
@@ -6151,6 +7699,14 @@ function toAccountNotificationsPayload(account) {
   const genericSecretConfigured = !!normalizeWebhookSecret(account?.notify_webhook_secret);
 
   return {
+    email: {
+      available: emailAvailable,
+      configured: emailConfigured,
+      enabled: emailEnabled,
+      recipientMasked: emailConfigured ? maskNotificationEmailAddress(resolvedEmailRecipient) : null,
+      usingAccountEmail,
+      cooldownMinutes: emailCooldownMinutes,
+    },
     discord: {
       available: true,
       configured,
@@ -7097,6 +8653,388 @@ async function postGenericWebhook(webhookUrl, payload, options = {}) {
   }
 }
 
+function normalizeMonitorStatusForNotification(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "online" || normalized === "offline") return normalized;
+  return "unknown";
+}
+
+function formatNotificationTimestamp(value) {
+  const dateValue = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(dateValue.getTime())) return formatSmtpMessageDate(new Date());
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      dateStyle: "medium",
+      timeStyle: "medium",
+      timeZone: "Europe/Berlin",
+    }).format(dateValue);
+  } catch (error) {
+    return formatSmtpMessageDate(dateValue);
+  }
+}
+
+function formatNotificationDuration(durationMs) {
+  const totalSeconds = Math.max(0, Math.round(Number(durationMs || 0) / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (!parts.length || seconds > 0) parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
+function buildMonitorStatusNotificationEmail(options = {}) {
+  const monitorName = String(options.monitorName || "Monitor").trim() || "Monitor";
+  const monitorUrl = String(options.monitorUrl || "-").trim() || "-";
+  const unsubscribeUrl = String(options.unsubscribeUrl || "").trim();
+  const previousStatus = normalizeMonitorStatusForNotification(options.previousStatus);
+  const nextStatus = normalizeMonitorStatusForNotification(options.nextStatus);
+  const checkedAt = options.checkedAt instanceof Date ? options.checkedAt : new Date();
+  const checkedAtLabel = formatNotificationTimestamp(checkedAt);
+  const isOffline = nextStatus === "offline";
+  const eventLabel = isOffline ? "OFFLINE" : "ONLINE";
+  const responseMs = Math.max(0, Number(options.elapsedMs || 0));
+  const statusCodeLabel = Number.isFinite(Number(options.statusCode)) ? String(Number(options.statusCode)) : "-";
+  const errorLabel = String(options.errorMessage || "").trim() || "-";
+  const downtimeLabel = Number.isFinite(Number(options.recoveryDurationMs))
+    ? formatNotificationDuration(Number(options.recoveryDurationMs))
+    : "-";
+  const cooldownMinutes = normalizeEmailNotificationCooldownMinutes(options.cooldownMinutes);
+  const dashboardUrl = `${getDefaultTrustedOrigin()}/app`;
+  const subjectPrefix = "[PingMyServer]";
+  const subject = `${subjectPrefix} ${isOffline ? "Ausfall" : "Wieder online"}: ${monitorName}`.slice(0, 160);
+
+  const textBodyLines = [
+    `PingMyServer Monitor Alert (${eventLabel})`,
+    "",
+    `Monitor: ${monitorName}`,
+    `URL: ${monitorUrl}`,
+    `Status: ${previousStatus} -> ${nextStatus}`,
+    `Antwortzeit: ${responseMs} ms`,
+    `HTTP Status: ${statusCodeLabel}`,
+    `Fehler: ${errorLabel}`,
+    `Check-Zeit: ${checkedAtLabel} (Europe/Berlin)`,
+    `Anti-Spam Cooldown: ${cooldownMinutes} Minute(n) pro Monitor`,
+  ];
+  if (!isOffline && downtimeLabel !== "-") {
+    textBodyLines.push(`Dauer des Ausfalls: ${downtimeLabel}`);
+  }
+  if (unsubscribeUrl) {
+    textBodyLines.push(`Abmelden: ${unsubscribeUrl}`);
+  }
+  textBodyLines.push("", `Dashboard: ${dashboardUrl}`, "", "Automatische Systemnachricht von PingMyServer.");
+
+  const accent = isOffline ? "#c84a4a" : "#2b9f63";
+  const statusBadgeBg = isOffline ? "rgba(200,74,74,0.14)" : "rgba(43,159,99,0.14)";
+  const statusBadgeBorder = isOffline ? "rgba(200,74,74,0.4)" : "rgba(43,159,99,0.4)";
+  const htmlBody = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>PingMyServer Monitor Alert</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border:1px solid #d9e3ef;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#dce8f7;border-bottom:1px solid #1f3552;">
+                <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">PingMyServer Alert</div>
+                <div style="margin-top:8px;font-size:24px;line-height:1.2;color:#ffffff;font-weight:800;">${escapeSmtpHtml(monitorName)}</div>
+                <div style="margin-top:10px;display:inline-flex;padding:6px 10px;border-radius:999px;border:1px solid ${statusBadgeBorder};background:${statusBadgeBg};font-size:12px;font-weight:700;color:${accent};">
+                  ${escapeSmtpHtml(eventLabel)}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 22px 8px 22px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Statuswechsel</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      `${previousStatus} -> ${nextStatus}`
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">URL</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      monitorUrl
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Antwortzeit</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      `${responseMs} ms`
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">HTTP Status</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      statusCodeLabel
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Fehler</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      errorLabel
+                    )}</td>
+                  </tr>
+                  ${
+                    !isOffline && downtimeLabel !== "-"
+                      ? `<tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Ausfalldauer</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      downtimeLabel
+                    )}</td>
+                  </tr>`
+                      : ""
+                  }
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#5f738c;">Check-Zeit</td>
+                    <td style="padding:8px 0;border-bottom:1px solid #e6edf5;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      checkedAtLabel
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;font-size:13px;color:#5f738c;">Anti-Spam</td>
+                    <td style="padding:8px 0;font-size:13px;color:#172a40;" align="right">${escapeSmtpHtml(
+                      `${cooldownMinutes} Minute(n) Cooldown`
+                    )}</td>
+                  </tr>
+                </table>
+                <p style="margin:14px 0 10px 0;font-size:12px;line-height:1.6;color:#61788f;">
+                  Dashboard: <a href="${escapeSmtpHtml(dashboardUrl)}" style="color:#2668b4;text-decoration:none;">${escapeSmtpHtml(
+                    dashboardUrl
+                  )}</a>
+                </p>
+                ${
+                  unsubscribeUrl
+                    ? `<p style="margin:0 0 10px 0;font-size:12px;line-height:1.6;color:#61788f;">
+                  Benachrichtigungen beenden:
+                  <a href="${escapeSmtpHtml(unsubscribeUrl)}" style="color:#2668b4;text-decoration:none;">Abmelden</a>
+                </p>`
+                    : ""
+                }
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 22px;background:#f5f8fc;border-top:1px solid #e6edf5;font-size:11px;line-height:1.6;color:#6d8298;">
+                Automatische Systemnachricht von PingMyServer.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject,
+    textBody: textBodyLines.join("\n"),
+    htmlBody,
+  };
+}
+
+function buildEmailNotificationTestMessage(options = {}) {
+  const recipient = resolveNotificationEmailRecipient({ email: options.recipient });
+  const cooldownMinutes = normalizeEmailNotificationCooldownMinutes(options.cooldownMinutes);
+  const sentAtLabel = formatNotificationTimestamp(new Date());
+  const textBody = [
+    "PingMyServer E-Mail Benachrichtigung Test",
+    "",
+    "Die E-Mail-Benachrichtigungen sind korrekt eingerichtet.",
+    `Empfaenger: ${recipient || "-"}`,
+    `Cooldown je Monitor: ${cooldownMinutes} Minute(n)`,
+    `Gesendet am: ${sentAtLabel} (Europe/Berlin)`,
+    "",
+    "Dies ist eine automatische Testnachricht.",
+  ].join("\n");
+
+  const htmlBody = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PingMyServer E-Mail Test</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e3ef;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#ffffff;">
+                <div style="font-size:20px;font-weight:800;">E-Mail Test erfolgreich</div>
+                <div style="margin-top:6px;font-size:12px;color:#c8d8ec;">PingMyServer Benachrichtigungssystem</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 22px;">
+                <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
+                  Die E-Mail-Benachrichtigungen sind korrekt eingerichtet.
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
+                  Empfaenger: ${escapeSmtpHtml(recipient || "-")}<br />
+                  Cooldown je Monitor: ${escapeSmtpHtml(String(cooldownMinutes))} Minute(n)<br />
+                  Gesendet am: ${escapeSmtpHtml(sentAtLabel)} (Europe/Berlin)
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "PingMyServer E-Mail Benachrichtigung Test",
+    textBody,
+    htmlBody,
+  };
+}
+
+async function getMonitorEmailNotificationState(monitorId) {
+  const [rows] = await pool.query(
+    "SELECT notify_email_last_sent_at, notify_email_last_sent_status FROM monitors WHERE id = ? LIMIT 1",
+    [monitorId]
+  );
+  return rows.length ? rows[0] : null;
+}
+
+async function shouldSendEmailNotificationForMonitorChange(monitorId, nextStatus, cooldownMinutes) {
+  const numericMonitorId = Number(monitorId);
+  if (!Number.isInteger(numericMonitorId) || numericMonitorId <= 0) {
+    return { allowed: false, reason: "invalid_monitor_id" };
+  }
+
+  const normalizedNextStatus = normalizeMonitorStatusForNotification(nextStatus);
+  if (normalizedNextStatus === "unknown") {
+    return { allowed: false, reason: "invalid_status" };
+  }
+
+  const state = await getMonitorEmailNotificationState(numericMonitorId);
+  if (!state) return { allowed: false, reason: "monitor_not_found" };
+
+  const cooldownMs = Math.max(0, normalizeEmailNotificationCooldownMinutes(cooldownMinutes)) * 60 * 1000;
+  if (cooldownMs <= 0) return { allowed: true, reason: "cooldown_disabled" };
+
+  const lastSentAtMs = toTimestampMs(state.notify_email_last_sent_at);
+  if (!Number.isFinite(lastSentAtMs)) return { allowed: true, reason: "no_previous_send" };
+
+  const elapsedMs = Date.now() - lastSentAtMs;
+  if (elapsedMs >= cooldownMs) return { allowed: true, reason: "cooldown_elapsed" };
+
+  const lastStatus = normalizeMonitorStatusForNotification(state.notify_email_last_sent_status);
+  if (lastStatus === "offline" && normalizedNextStatus === "online") {
+    return { allowed: true, reason: "recovery_after_offline" };
+  }
+
+  return { allowed: false, reason: "cooldown_active" };
+}
+
+async function markMonitorEmailNotificationSent(monitorId, status) {
+  const numericMonitorId = Number(monitorId);
+  if (!Number.isInteger(numericMonitorId) || numericMonitorId <= 0) return;
+  const normalizedStatus = normalizeMonitorStatusForNotification(status);
+  if (normalizedStatus === "unknown") return;
+
+  await pool.query(
+    "UPDATE monitors SET notify_email_last_sent_at = UTC_TIMESTAMP(3), notify_email_last_sent_status = ? WHERE id = ? LIMIT 1",
+    [normalizedStatus, numericMonitorId]
+  );
+}
+
+async function sendEmailStatusNotificationForMonitorChange({
+  userId,
+  monitor,
+  previousStatus,
+  nextStatus,
+  elapsedMs,
+  statusCode,
+  errorMessage,
+  previousStatusSince,
+}) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return;
+  if (!monitor || !isOwnerSmtpConfigured()) return;
+
+  const account = await getUserNotificationSettingsById(numericUserId);
+  if (!account) return;
+
+  const enabled = Number(account.notify_email_enabled || 0) === 1;
+  if (!enabled) return;
+
+  const recipient = resolveNotificationEmailRecipient(account);
+  if (!recipient) return;
+
+  const monitorId = Number(monitor.id);
+  if (!Number.isInteger(monitorId) || monitorId <= 0) return;
+
+  const cooldownMinutes = getAccountEmailNotificationCooldownMinutes(account);
+  const gate = await shouldSendEmailNotificationForMonitorChange(monitorId, nextStatus, cooldownMinutes);
+  if (!gate.allowed) return;
+
+  const targetUrl = getMonitorUrl(monitor);
+  const monitorName = String(monitor.name || getDefaultMonitorName(targetUrl)).slice(0, 255);
+  const unsubscribeUrl = buildEmailNotificationUnsubscribeUrl(numericUserId);
+  const previous = normalizeMonitorStatusForNotification(previousStatus);
+  const next = normalizeMonitorStatusForNotification(nextStatus);
+  const now = new Date();
+  const previousSinceMs = toTimestampMs(previousStatusSince);
+  const recoveryDurationMs =
+    previous === "offline" && next === "online" && Number.isFinite(previousSinceMs)
+      ? Math.max(0, now.getTime() - previousSinceMs)
+      : null;
+
+  const message = buildMonitorStatusNotificationEmail({
+    monitorName,
+    monitorUrl: targetUrl,
+    previousStatus: previous,
+    nextStatus: next,
+    elapsedMs,
+    statusCode,
+    errorMessage,
+    checkedAt: now,
+    recoveryDurationMs,
+    cooldownMinutes,
+    unsubscribeUrl,
+  });
+
+  try {
+    await sendOwnerSmtpTestEmail({
+      to: recipient,
+      subject: message.subject,
+      textBody: message.textBody,
+      htmlBody: message.htmlBody,
+      extraHeaders: {
+        "X-PMS-Notification-Type": "monitor_status_change",
+        "X-PMS-Monitor-Id": String(monitor.public_id || monitor.id || ""),
+        ...(unsubscribeUrl
+          ? {
+              "List-Unsubscribe": `<${unsubscribeUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            }
+          : {}),
+      },
+    });
+    await markMonitorEmailNotificationSent(monitorId, next);
+  } catch (error) {
+    console.error("email_monitor_notification_failed", numericUserId, monitorId, error?.code || error?.message || error);
+  }
+}
+
 async function sendDiscordStatusNotificationForMonitorChange({
   userId,
   monitor,
@@ -7298,6 +9236,202 @@ async function handleAccountNotificationsGet(req, res) {
   } catch (error) {
     console.error("account_notifications_get_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountEmailNotificationUpsert(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  if (!isOwnerSmtpConfigured()) {
+    sendJson(res, 503, { ok: false, error: "smtp not configured" });
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasEnabledField = Object.prototype.hasOwnProperty.call(body || {}, "enabled");
+  const enabledInput = body?.enabled;
+  if (hasEnabledField && typeof enabledInput !== "boolean") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasEmailField = Object.prototype.hasOwnProperty.call(body || {}, "email");
+  const emailInput = hasEmailField && typeof body?.email === "string" ? body.email.trim() : "";
+  if (hasEmailField && typeof body?.email !== "string") {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const hasCooldownField = Object.prototype.hasOwnProperty.call(body || {}, "cooldownMinutes");
+  const cooldownInput = body?.cooldownMinutes;
+  const cooldownNumeric = Number(cooldownInput);
+  if (hasCooldownField && (!Number.isFinite(cooldownNumeric) || !Number.isInteger(cooldownNumeric))) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const account = await getUserNotificationSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const currentCustomRecipient = normalizeNotificationEmailAddress(account.notify_email_address);
+    let nextCustomRecipient = currentCustomRecipient;
+    if (hasEmailField) {
+      if (!emailInput) {
+        nextCustomRecipient = null;
+      } else {
+        const normalized = normalizeNotificationEmailAddress(emailInput);
+        if (!normalized) {
+          sendJson(res, 400, { ok: false, error: "invalid recipient" });
+          return;
+        }
+        nextCustomRecipient = normalized;
+      }
+    }
+
+    const fallbackAccountEmail = normalizeNotificationEmailAddress(account.email);
+    const effectiveRecipient = nextCustomRecipient || fallbackAccountEmail;
+    if (!effectiveRecipient) {
+      sendJson(res, 400, { ok: false, error: "invalid recipient" });
+      return;
+    }
+
+    const nextEnabled = hasEnabledField ? enabledInput === true : true;
+    const nextCooldown = hasCooldownField
+      ? normalizeEmailNotificationCooldownMinutes(cooldownNumeric, getAccountEmailNotificationCooldownMinutes(account))
+      : getAccountEmailNotificationCooldownMinutes(account);
+
+    await pool.query(
+      "UPDATE users SET notify_email_address = ?, notify_email_enabled = ?, notify_email_cooldown_minutes = ? WHERE id = ? LIMIT 1",
+      [nextCustomRecipient, nextEnabled ? 1 : 0, nextCooldown, user.id]
+    );
+
+    const updated = await getUserNotificationSettingsById(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
+  } catch (error) {
+    console.error("account_email_notification_upsert_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountEmailNotificationDelete(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    await pool.query("UPDATE users SET notify_email_address = NULL, notify_email_enabled = 0 WHERE id = ? LIMIT 1", [
+      user.id,
+    ]);
+    const updated = await getUserNotificationSettingsById(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
+  } catch (error) {
+    console.error("account_email_notification_delete_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountEmailNotificationTest(req, res) {
+  if (!enforceAuthRateLimit(req, res)) return;
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  if (!isOwnerSmtpConfigured()) {
+    sendJson(res, 503, { ok: false, error: "smtp not configured" });
+    return;
+  }
+
+  try {
+    const account = await getUserNotificationSettingsById(user.id);
+    if (!account) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const recipient = resolveNotificationEmailRecipient(account);
+    if (!recipient) {
+      sendJson(res, 400, { ok: false, error: "invalid recipient" });
+      return;
+    }
+
+    const cooldownMinutes = getAccountEmailNotificationCooldownMinutes(account);
+    const testMessage = buildEmailNotificationTestMessage({
+      recipient,
+      cooldownMinutes,
+    });
+
+    await sendOwnerSmtpTestEmail({
+      to: recipient,
+      subject: testMessage.subject,
+      textBody: testMessage.textBody,
+      htmlBody: testMessage.htmlBody,
+      extraHeaders: {
+        "X-PMS-Notification-Type": "email_test",
+      },
+    });
+
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    console.error("account_email_notification_test_failed", error?.code || error?.message || error);
+    sendJson(res, 502, { ok: false, error: "delivery failed" });
+  }
+}
+
+async function handleAccountEmailNotificationUnsubscribe(req, res, url) {
+  const token = String(url?.searchParams?.get("token") || "").trim();
+  const parsed = parseEmailNotificationUnsubscribeToken(token);
+  const isPost = (req.method || "GET").toUpperCase() === "POST";
+
+  if (!parsed.ok) {
+    if (isPost) {
+      sendJson(res, 400, { ok: false, error: "invalid token" });
+      return;
+    }
+    res.writeHead(400, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Ungültiger Link</title><body style="font-family:Segoe UI,Roboto,Arial,sans-serif;padding:28px;background:#f4f7fb;color:#18273a;"><h1>Abmeldung fehlgeschlagen</h1><p>Der Abmelde-Link ist ungültig oder abgelaufen.</p></body></html>`);
+    return;
+  }
+
+  try {
+    await pool.query("UPDATE users SET notify_email_enabled = 0 WHERE id = ? LIMIT 1", [parsed.userId]);
+    if (isPost) {
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Erfolgreich abgemeldet</title><body style="font-family:Segoe UI,Roboto,Arial,sans-serif;padding:28px;background:#f4f7fb;color:#18273a;"><h1>Abmeldung erfolgreich</h1><p>E-Mail-Benachrichtigungen wurden deaktiviert.</p></body></html>`);
+  } catch (error) {
+    console.error("account_email_notification_unsubscribe_failed", parsed.userId, error);
+    if (isPost) {
+      sendJson(res, 500, { ok: false, error: "internal error" });
+      return;
+    }
+    res.writeHead(500, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Fehler</title><body style="font-family:Segoe UI,Roboto,Arial,sans-serif;padding:28px;background:#f4f7fb;color:#18273a;"><h1>Fehler</h1><p>Die Abmeldung konnte aktuell nicht verarbeitet werden.</p></body></html>`);
   }
 }
 
@@ -7998,6 +10132,206 @@ function buildOwnerRuntimeSnapshot() {
   };
 }
 
+function toNonNegativeInteger(value, fallback = 0) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized < 0) return fallback;
+  return Math.round(normalized);
+}
+
+function toNullablePercent(part, total) {
+  const numerator = Number(part);
+  const denominator = Number(total);
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return null;
+  return roundTo((numerator / denominator) * 100, 2);
+}
+
+async function getOwnerDbDataDir() {
+  const now = Date.now();
+  if (ownerDbStorageDataDirCache.value && now - ownerDbStorageDataDirCache.fetchedAt < 10 * 60 * 1000) {
+    return ownerDbStorageDataDirCache.value;
+  }
+
+  try {
+    const [rows] = await pool.query("SELECT @@datadir AS datadir");
+    const dataDir = String(rows?.[0]?.datadir || "").trim();
+    ownerDbStorageDataDirCache = { value: dataDir, fetchedAt: now };
+    return dataDir;
+  } catch (error) {
+    ownerDbStorageDataDirCache = { value: ownerDbStorageDataDirCache.value || "", fetchedAt: now };
+    return ownerDbStorageDataDirCache.value;
+  }
+}
+
+async function readFilesystemUsageForPath(targetPath) {
+  const statfsFn = fs?.promises && typeof fs.promises.statfs === "function" ? fs.promises.statfs.bind(fs.promises) : null;
+  if (!statfsFn) return null;
+
+  const candidatePath = String(targetPath || "").trim() || process.cwd();
+
+  try {
+    const stats = await statfsFn(candidatePath);
+    const blockSize = Number(stats?.bsize || 0);
+    const blocks = Number(stats?.blocks || 0);
+    const availableBlocks = Number(stats?.bavail ?? stats?.bfree ?? 0);
+
+    if (!Number.isFinite(blockSize) || !Number.isFinite(blocks) || blockSize <= 0 || blocks <= 0) {
+      return null;
+    }
+
+    const totalBytes = Math.max(0, Math.round(blockSize * blocks));
+    const freeBytes = Math.max(0, Math.round(blockSize * Math.max(0, availableBlocks)));
+    return { totalBytes, freeBytes };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function collectOwnerDbStorageSnapshot() {
+  const [rows] = await pool.query(
+    `
+      SELECT
+        COALESCE(SUM(data_length + index_length), 0) AS used_bytes,
+        COALESCE(SUM(data_free), 0) AS table_free_bytes
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+    `
+  );
+
+  const info = rows?.[0] || {};
+  const usedBytes = toNonNegativeInteger(info.used_bytes, 0);
+  const tableFreeBytes = toNonNegativeInteger(info.table_free_bytes, 0);
+
+  const dataDir = await getOwnerDbDataDir();
+  const fsUsage = await readFilesystemUsageForPath(dataDir);
+  const serverTotalBytes = fsUsage ? toNonNegativeInteger(fsUsage.totalBytes, 0) : null;
+  const serverFreeBytes = fsUsage ? toNonNegativeInteger(fsUsage.freeBytes, 0) : null;
+  const serverUsedBytes =
+    serverTotalBytes !== null && serverFreeBytes !== null ? Math.max(0, serverTotalBytes - serverFreeBytes) : null;
+
+  return {
+    sampledAt: Date.now(),
+    usedBytes,
+    tableFreeBytes,
+    serverTotalBytes,
+    serverFreeBytes,
+    serverUsedBytes,
+    serverFreePercent: toNullablePercent(serverFreeBytes, serverTotalBytes),
+    serverUsedPercent: toNullablePercent(serverUsedBytes, serverTotalBytes),
+  };
+}
+
+function serializeOwnerDbStorageSnapshotRow(row) {
+  const sampledAt = toTimestampMs(row?.sampled_at);
+  const usedBytes = toNonNegativeInteger(row?.used_bytes, 0);
+  const tableFreeBytes = toNonNegativeInteger(row?.table_free_bytes, 0);
+  const serverTotalBytes = row?.fs_total_bytes === null || row?.fs_total_bytes === undefined ? null : toNonNegativeInteger(row.fs_total_bytes, 0);
+  const serverFreeBytes = row?.fs_free_bytes === null || row?.fs_free_bytes === undefined ? null : toNonNegativeInteger(row.fs_free_bytes, 0);
+  const serverUsedBytes =
+    serverTotalBytes !== null && serverFreeBytes !== null ? Math.max(0, serverTotalBytes - serverFreeBytes) : null;
+
+  return {
+    sampledAt,
+    usedBytes,
+    tableFreeBytes,
+    serverTotalBytes,
+    serverFreeBytes,
+    serverUsedBytes,
+    serverFreePercent: toNullablePercent(serverFreeBytes, serverTotalBytes),
+    serverUsedPercent: toNullablePercent(serverUsedBytes, serverTotalBytes),
+  };
+}
+
+function downsampleOwnerDbStorageHistory(points, maxPoints) {
+  if (!Array.isArray(points) || points.length <= maxPoints) return Array.isArray(points) ? points : [];
+  const limit = Math.max(2, toNonNegativeInteger(maxPoints, OWNER_DB_STORAGE_HISTORY_MAX_POINTS));
+  const step = (points.length - 1) / (limit - 1);
+  const sampled = [];
+
+  for (let index = 0; index < limit; index += 1) {
+    sampled.push(points[Math.round(index * step)]);
+  }
+
+  const deduped = [];
+  let lastTs = -1;
+  for (const point of sampled) {
+    const ts = toNonNegativeInteger(point?.sampledAt, 0);
+    if (ts <= 0 || ts === lastTs) continue;
+    deduped.push(point);
+    lastTs = ts;
+  }
+
+  return deduped.length ? deduped : [points[0], points[points.length - 1]].filter(Boolean);
+}
+
+async function listOwnerDbStorageSnapshotHistory(options = {}) {
+  const requestedHours = Number(options.hours);
+  const requestedMaxPoints = Number(options.maxPoints);
+  const hours = Math.max(1, Math.min(24 * 90, Number.isFinite(requestedHours) ? Math.round(requestedHours) : OWNER_DB_STORAGE_HISTORY_HOURS));
+  const maxPoints = Math.max(
+    20,
+    Math.min(5000, Number.isFinite(requestedMaxPoints) ? Math.round(requestedMaxPoints) : OWNER_DB_STORAGE_HISTORY_MAX_POINTS)
+  );
+
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+  const [rows] = await pool.query(
+    `
+      SELECT sampled_at, used_bytes, table_free_bytes, fs_total_bytes, fs_free_bytes
+      FROM owner_db_storage_snapshots
+      WHERE sampled_at >= ?
+      ORDER BY sampled_at ASC
+    `,
+    [since]
+  );
+
+  const history = rows.map((row) => serializeOwnerDbStorageSnapshotRow(row)).filter((entry) => Number(entry.sampledAt) > 0);
+  return downsampleOwnerDbStorageHistory(history, maxPoints);
+}
+
+async function persistOwnerDbStorageSnapshot(snapshot) {
+  const now = Date.now();
+  const [latestRows] = await pool.query(
+    `
+      SELECT sampled_at
+      FROM owner_db_storage_snapshots
+      ORDER BY sampled_at DESC
+      LIMIT 1
+    `
+  );
+  const latestTs = toTimestampMs(latestRows?.[0]?.sampled_at);
+  if (latestTs > 0 && now - latestTs < OWNER_DB_STORAGE_SNAPSHOT_INTERVAL_MS) {
+    return;
+  }
+
+  await pool.query(
+    `
+      INSERT INTO owner_db_storage_snapshots (sampled_at, used_bytes, table_free_bytes, fs_total_bytes, fs_free_bytes)
+      VALUES (UTC_TIMESTAMP(3), ?, ?, ?, ?)
+    `,
+    [
+      toNonNegativeInteger(snapshot?.usedBytes, 0),
+      toNonNegativeInteger(snapshot?.tableFreeBytes, 0),
+      snapshot?.serverTotalBytes === null || snapshot?.serverTotalBytes === undefined
+        ? null
+        : toNonNegativeInteger(snapshot.serverTotalBytes, 0),
+      snapshot?.serverFreeBytes === null || snapshot?.serverFreeBytes === undefined
+        ? null
+        : toNonNegativeInteger(snapshot.serverFreeBytes, 0),
+    ]
+  );
+
+  if (now - ownerDbStorageLastCleanupAt >= 6 * 60 * 60 * 1000) {
+    ownerDbStorageLastCleanupAt = now;
+    const cutoff = new Date(Date.now() - OWNER_DB_STORAGE_RETENTION_DAYS * DAY_MS);
+    await pool.query(
+      `
+        DELETE FROM owner_db_storage_snapshots
+        WHERE sampled_at < ?
+      `,
+      [cutoff]
+    );
+  }
+}
+
 function toOwnerMonitorCostRow(row) {
   const checks24h = Number(row.checks_24h || 0);
   const fail24h = Number(row.fail_24h || 0);
@@ -8142,6 +10476,7 @@ async function handleOwnerOverview(req, res) {
           maxResponseMs10m: roundTo(recentSummary.max_response_ms_10m, 2),
         },
         activeSessions: Number(sessionRows[0]?.active_sessions || 0),
+        emailTest: getOwnerSmtpPublicConfig(),
         runtime,
       },
     });
@@ -8259,6 +10594,226 @@ async function handleOwnerSecurity(req, res) {
   } catch (error) {
     console.error("owner_security_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleOwnerDbStorage(req, res, url) {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+
+  const requestedHours = Number(url?.searchParams?.get("hours") || OWNER_DB_STORAGE_HISTORY_HOURS);
+  const requestedPoints = Number(url?.searchParams?.get("points") || OWNER_DB_STORAGE_HISTORY_MAX_POINTS);
+  const hours = Math.max(1, Math.min(24 * 90, Number.isFinite(requestedHours) ? Math.round(requestedHours) : OWNER_DB_STORAGE_HISTORY_HOURS));
+  const points = Math.max(
+    20,
+    Math.min(5000, Number.isFinite(requestedPoints) ? Math.round(requestedPoints) : OWNER_DB_STORAGE_HISTORY_MAX_POINTS)
+  );
+
+  try {
+    const snapshot = await collectOwnerDbStorageSnapshot();
+    await persistOwnerDbStorageSnapshot(snapshot);
+
+    let history = await listOwnerDbStorageSnapshotHistory({ hours, maxPoints: points });
+    const currentSnapshot = {
+      sampledAt: Number(snapshot.sampledAt || Date.now()),
+      usedBytes: toNonNegativeInteger(snapshot.usedBytes, 0),
+      tableFreeBytes: toNonNegativeInteger(snapshot.tableFreeBytes, 0),
+      serverTotalBytes:
+        snapshot.serverTotalBytes === null || snapshot.serverTotalBytes === undefined
+          ? null
+          : toNonNegativeInteger(snapshot.serverTotalBytes, 0),
+      serverFreeBytes:
+        snapshot.serverFreeBytes === null || snapshot.serverFreeBytes === undefined
+          ? null
+          : toNonNegativeInteger(snapshot.serverFreeBytes, 0),
+      serverUsedBytes:
+        snapshot.serverUsedBytes === null || snapshot.serverUsedBytes === undefined
+          ? null
+          : toNonNegativeInteger(snapshot.serverUsedBytes, 0),
+      serverFreePercent:
+        snapshot.serverFreePercent === null || snapshot.serverFreePercent === undefined
+          ? null
+          : roundTo(snapshot.serverFreePercent, 2),
+      serverUsedPercent:
+        snapshot.serverUsedPercent === null || snapshot.serverUsedPercent === undefined
+          ? null
+          : roundTo(snapshot.serverUsedPercent, 2),
+    };
+
+    const lastHistoryEntry = history.length ? history[history.length - 1] : null;
+    if (!lastHistoryEntry || Math.abs(Number(lastHistoryEntry.sampledAt || 0) - currentSnapshot.sampledAt) > 1000) {
+      history = [...history, currentSnapshot];
+      history = downsampleOwnerDbStorageHistory(history, points);
+    }
+
+    const baselineEntry = history.length ? history[0] : currentSnapshot;
+    const latestEntry = history.length ? history[history.length - 1] : currentSnapshot;
+    const growthBytes = toNonNegativeInteger(latestEntry.usedBytes, 0) - toNonNegativeInteger(baselineEntry.usedBytes, 0);
+    const growthPercent =
+      Number(baselineEntry.usedBytes || 0) > 0 ? roundTo((growthBytes / Number(baselineEntry.usedBytes || 1)) * 100, 2) : null;
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        ownerUserId: Number(owner.id),
+        windowHours: hours,
+        points: history.length,
+        sampledAt: currentSnapshot.sampledAt,
+        usedBytes: currentSnapshot.usedBytes,
+        tableFreeBytes: currentSnapshot.tableFreeBytes,
+        serverTotalBytes: currentSnapshot.serverTotalBytes,
+        serverFreeBytes: currentSnapshot.serverFreeBytes,
+        serverUsedBytes: currentSnapshot.serverUsedBytes,
+        serverFreePercent: currentSnapshot.serverFreePercent,
+        serverUsedPercent: currentSnapshot.serverUsedPercent,
+        growthBytes,
+        growthPercent,
+        history,
+      },
+    });
+  } catch (error) {
+    console.error("owner_db_storage_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+const OWNER_EMAIL_TEST_TEMPLATE_TYPES = new Set(["verification", "alert_started", "alert_resolved"]);
+
+function normalizeOwnerEmailTestTemplateType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return OWNER_EMAIL_TEST_TEMPLATE_TYPES.has(normalized) ? normalized : null;
+}
+
+function buildOwnerEmailTestTemplatePayload({ templateType, owner }) {
+  const normalizedTemplateType = normalizeOwnerEmailTestTemplateType(templateType);
+  if (!normalizedTemplateType) return null;
+
+  const ownerLabel = String(owner?.email || owner?.id || "").trim() || "owner";
+  if (normalizedTemplateType === "verification") {
+    const message = buildOwnerVerificationDesignEmail({ ownerEmail: ownerLabel });
+    return {
+      templateType: normalizedTemplateType,
+      subject: message.subject,
+      textBody: message.textBody,
+      htmlBody: message.htmlBody,
+      extraHeaders: {
+        "X-PMS-Notification-Type": "owner_email_test_verification",
+      },
+    };
+  }
+
+  const ownerId = Number(owner?.id);
+  const unsubscribeUrl =
+    Number.isInteger(ownerId) && ownerId > 0 ? buildEmailNotificationUnsubscribeUrl(ownerId) : "";
+  const isAlertResolved = normalizedTemplateType === "alert_resolved";
+  const message = buildMonitorStatusNotificationEmail({
+    monitorName: "Demo API Health",
+    monitorUrl: "https://demo-api.pingmyserver.com/health",
+    previousStatus: isAlertResolved ? "offline" : "online",
+    nextStatus: isAlertResolved ? "online" : "offline",
+    elapsedMs: isAlertResolved ? 184 : 10000,
+    statusCode: isAlertResolved ? 200 : 503,
+    errorMessage: isAlertResolved ? "" : "connect ECONNREFUSED 203.0.113.42:443",
+    checkedAt: new Date(),
+    recoveryDurationMs: isAlertResolved ? 17 * 60 * 1000 + 24 * 1000 : null,
+    cooldownMinutes: EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT,
+    unsubscribeUrl,
+  });
+
+  const extraHeaders = {
+    "X-PMS-Notification-Type": isAlertResolved
+      ? "owner_email_test_alert_resolved"
+      : "owner_email_test_alert_started",
+  };
+  if (unsubscribeUrl) {
+    extraHeaders["List-Unsubscribe"] = `<${unsubscribeUrl}>`;
+    extraHeaders["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+  }
+
+  return {
+    templateType: normalizedTemplateType,
+    subject: message.subject,
+    textBody: message.textBody,
+    htmlBody: message.htmlBody,
+    extraHeaders,
+  };
+}
+
+async function handleOwnerEmailTest(req, res) {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+
+  if (!isOwnerSmtpConfigured()) {
+    sendJson(res, 400, {
+      ok: false,
+      error: "smtp not configured",
+      data: { config: getOwnerSmtpPublicConfig() },
+    });
+    return;
+  }
+
+  let body = null;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const to = normalizeEmail(body?.to);
+  if (!isValidEmail(to)) {
+    sendJson(res, 400, { ok: false, error: "invalid recipient" });
+    return;
+  }
+
+  const templateType = normalizeOwnerEmailTestTemplateType(body?.templateType || body?.template || "verification");
+  if (!templateType) {
+    sendJson(res, 400, { ok: false, error: "invalid template" });
+    return;
+  }
+
+  const subject = String(body?.subject || "").trim().slice(0, 160);
+
+  try {
+    const templatePayload = buildOwnerEmailTestTemplatePayload({
+      templateType,
+      owner,
+    });
+    if (!templatePayload) {
+      sendJson(res, 400, { ok: false, error: "invalid template" });
+      return;
+    }
+
+    await sendOwnerSmtpTestEmail({
+      to,
+      subject: subject || templatePayload.subject,
+      textBody: templatePayload.textBody,
+      htmlBody: templatePayload.htmlBody,
+      extraHeaders: {
+        ...(templatePayload.extraHeaders || {}),
+        "X-PMS-Template-Type": templateType,
+      },
+    });
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        to,
+        from: OWNER_SMTP_FROM,
+        host: OWNER_SMTP_HOST,
+        port: OWNER_SMTP_PORT,
+        templateType,
+        sentAt: Date.now(),
+      },
+    });
+  } catch (error) {
+    console.error("owner_email_test_failed", error?.code || error?.message || error);
+    sendJson(res, 500, {
+      ok: false,
+      error: "email send failed",
+    });
   }
 }
 
@@ -9070,7 +11625,7 @@ async function cleanupGameAgentPairings() {
   );
 }
 
-async function listGameAgentPairingsForUser(userId, game = "minecraft") {
+async function listGameAgentPairingsForUser(userId, game = GAME_AGENT_DEFAULT_GAME) {
   const normalizedGame = normalizeGameAgentGame(game);
   if (!normalizedGame) return [];
 
@@ -9090,7 +11645,7 @@ async function listGameAgentPairingsForUser(userId, game = "minecraft") {
   return rows.map((row) => serializeGameAgentPairingRow(row)).filter(Boolean);
 }
 
-async function createGameAgentPairingForUser(userId, game = "minecraft") {
+async function createGameAgentPairingForUser(userId, game = GAME_AGENT_DEFAULT_GAME) {
   const normalizedGame = normalizeGameAgentGame(game);
   if (!normalizedGame) {
     const error = new Error("invalid_game");
@@ -9141,7 +11696,7 @@ async function createGameAgentPairingForUser(userId, game = "minecraft") {
   throw new Error("pairing_code_generation_failed");
 }
 
-async function listGameAgentSessionsForUser(userId, game = "minecraft") {
+async function listGameAgentSessionsForUser(userId, game = GAME_AGENT_DEFAULT_GAME) {
   const normalizedGame = normalizeGameAgentGame(game);
   if (!normalizedGame) return [];
 
@@ -9349,7 +11904,7 @@ async function handleGameAgentLink(req, res) {
 
   const pairingCode = normalizeGameAgentPairingCode(body?.pairingCode || body?.code);
   const instanceId = normalizeGameAgentInstanceId(body?.instanceId || body?.instance_id);
-  const requestedGame = normalizeGameAgentGame(body?.game || "minecraft");
+  const requestedGame = normalizeGameAgentGame(body?.game || GAME_AGENT_DEFAULT_GAME);
   if (!pairingCode || !instanceId || !requestedGame) {
     sendJson(res, 400, { ok: false, error: "invalid input" });
     return;
@@ -10700,6 +13255,16 @@ async function checkSingleMonitor(monitor) {
 
   if (statusChanged) {
     Promise.allSettled([
+      sendEmailStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs,
+        statusCode,
+        errorMessage,
+        previousStatusSince: monitor.status_since,
+      }),
       sendDiscordStatusNotificationForMonitorChange({
         userId: monitor.user_id,
         monitor,
@@ -10910,6 +13475,16 @@ async function checkSingleMonitorAggregate(monitor) {
 
   if (statusChanged) {
     Promise.allSettled([
+      sendEmailStatusNotificationForMonitorChange({
+        userId: monitor.user_id,
+        monitor,
+        previousStatus,
+        nextStatus,
+        elapsedMs: responseMs,
+        statusCode,
+        errorMessage,
+        previousStatusSince: monitor.status_since,
+      }),
       sendDiscordStatusNotificationForMonitorChange({
         userId: monitor.user_id,
         monitor,
@@ -12282,12 +14857,18 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if ((method === "GET" || method === "POST") && pathname === "/api/account/notifications/email/unsubscribe") {
+    await handleAccountEmailNotificationUnsubscribe(req, res, url);
+    return;
+  }
+
   const isGameAgentIngestPath =
     pathname === "/api/game-agent/link" ||
     pathname === "/api/game-agent/heartbeat" ||
     pathname === "/api/game-agent/disconnect";
+  const isEmailUnsubscribePath = pathname === "/api/account/notifications/email/unsubscribe";
   const requiresOriginValidation =
-    (pathname.startsWith("/api/") && !isGameAgentIngestPath) ||
+    (pathname.startsWith("/api/") && !isGameAgentIngestPath && !isEmailUnsubscribePath) ||
     pathname === "/monitor-create" ||
     pathname === "/create-monitor" ||
     pathname.startsWith("/monitor-create/") ||
@@ -12338,6 +14919,16 @@ async function handleRequest(req, res) {
 
     if (method === "POST" && pathname === "/api/auth/login") {
       await handleAuthLogin(req, res);
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/auth/login/verify") {
+      await handleAuthLoginVerify(req, res);
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/auth/login/verify/resend") {
+      await handleAuthLoginVerifyResend(req, res);
       return;
     }
 
@@ -12403,6 +14994,11 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "POST" && pathname === "/api/account/notifications/email") {
+    await handleAccountEmailNotificationUpsert(req, res);
+    return;
+  }
+
   if (method === "POST" && pathname === "/api/account/notifications/slack") {
     await handleAccountSlackNotificationUpsert(req, res);
     return;
@@ -12428,6 +15024,11 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "DELETE" && pathname === "/api/account/notifications/email") {
+    await handleAccountEmailNotificationDelete(req, res);
+    return;
+  }
+
   if (method === "DELETE" && pathname === "/api/account/notifications/slack") {
     await handleAccountSlackNotificationDelete(req, res);
     return;
@@ -12440,6 +15041,11 @@ async function handleRequest(req, res) {
 
   if (method === "POST" && pathname === "/api/account/notifications/discord/test") {
     await handleAccountDiscordNotificationTest(req, res);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/account/notifications/email/test") {
+    await handleAccountEmailNotificationTest(req, res);
     return;
   }
 
@@ -12528,6 +15134,16 @@ async function handleRequest(req, res) {
 
   if (method === "GET" && pathname === "/api/owner/security") {
     await handleOwnerSecurity(req, res);
+    return;
+  }
+
+  if (method === "GET" && pathname === "/api/owner/db-storage") {
+    await handleOwnerDbStorage(req, res, url);
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/owner/email-test") {
+    await handleOwnerEmailTest(req, res);
     return;
   }
 
@@ -12972,6 +15588,7 @@ if (HTTP_ENABLED) {
     await runMonitorChecks();
     if (shouldRunLeaderTasks()) {
       await cleanupExpiredSessions();
+      await cleanupExpiredAuthEmailChallenges();
       await cleanupGameAgentPairings();
       await cleanupOldChecks();
       await compactClosedDays();
@@ -13012,6 +15629,14 @@ if (HTTP_ENABLED) {
         console.error("game_agent_pairing_cleanup_failed", error);
       });
     }, MAINTENANCE_INTERVAL_MS);
+
+    setInterval(() => {
+      if (!shouldRunLeaderTasks()) return;
+
+      cleanupExpiredAuthEmailChallenges().catch((error) => {
+        console.error("auth_email_challenge_cleanup_failed", error);
+      });
+    }, AUTH_EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS);
 
     setInterval(() => {
       if (!shouldRunLeaderTasks()) return;

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="de">
   <head>
     <meta charset="utf-8" />
@@ -14,7 +14,7 @@
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title data-i18n="meta.game_monitor.title">Game Monitor · PingMyServer</title>
+    <title data-i18n="meta.game_monitor.title">Game Monitor - PingMyServer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -98,6 +98,7 @@
               </div>
             </div>
             <div class="top-actions">
+              <button class="btn primary" id="add-game-btn" type="button">Neues Spiel hinzufügen</button>
               <button class="btn ghost" id="refresh-btn" type="button" data-i18n="common.refresh">Aktualisieren</button>
             </div>
           </header>
@@ -106,71 +107,76 @@
             <div class="game-monitor-layout">
               <section class="card game-list-card">
                 <div class="card-title" data-i18n="game_monitor.games.title">Spiele</div>
+                <p class="muted game-list-copy">Wähle ein verbundenes Spiel oder füge ein neues über das Modal hinzu.</p>
                 <div class="game-list" id="game-list" aria-label="Spiele">
-                  <button class="game-item active" type="button" data-game="minecraft" aria-current="page">
-                    <span class="game-item-name" data-i18n="game_monitor.games.minecraft_name">Minecraft</span>
-                    <span class="game-item-note" data-i18n="game_monitor.games.minecraft_note">Java Edition</span>
-                  </button>
+                  <div class="empty-state">
+                    <div class="title">Keine Spiele konfiguriert.</div>
+                    <div class="muted">Starte mit "Neues Spiel hinzufügen".</div>
+                  </div>
                 </div>
               </section>
 
-              <section class="card wide minecraft-panel">
-                <div class="minecraft-head">
+              <section class="card wide game-overview-card">
+                <header class="overview-head">
                   <div>
-                    <div class="card-title" data-i18n="game_monitor.minecraft.title">Minecraft Server</div>
-                    <div class="muted" data-i18n="game_monitor.minecraft.sub">
-                      Trage Server ein und verfolge Status, Ping, Spielerzahlen und Version.
+                    <div class="card-title" id="overview-game-label">Ausgewähltes Spiel</div>
+                    <h2 class="overview-title" id="overview-title">Minecraft</h2>
+                    <p class="muted overview-sub" id="overview-sub">Verbindungsdaten und Live-Metriken.</p>
+                  </div>
+                  <div class="overview-head-actions">
+                    <span class="status-pill loading" id="overview-status-pill">Wird aktualisiert</span>
+                  </div>
+                </header>
+
+                <div class="overview-kpis">
+                  <article class="kpi-card">
+                    <div class="card-title">Verbindungsstatus</div>
+                    <div class="metric" id="kpi-health">-</div>
+                    <div class="muted" id="kpi-health-sub">Noch keine Daten</div>
+                  </article>
+                  <article class="kpi-card">
+                    <div class="card-title">Online Verbindungen</div>
+                    <div class="metric" id="kpi-online">0</div>
+                    <div class="muted">Direkt + Agent</div>
+                  </article>
+                  <article class="kpi-card">
+                    <div class="card-title">Gesamt Verbindungen</div>
+                    <div class="metric" id="kpi-total">0</div>
+                    <div class="muted">Targets + Sessions</div>
+                  </article>
+                  <article class="kpi-card">
+                    <div class="card-title">Letztes Update</div>
+                    <div class="metric" id="kpi-updated">-</div>
+                    <div class="muted">Auto Refresh alle 30s</div>
+                  </article>
+                </div>
+
+                <section class="direct-section" id="direct-probe-panel">
+                  <div class="section-head">
+                    <div class="card-title">Direkte Server (IP)</div>
+                    <button class="btn ghost" id="add-direct-server-btn" type="button">Server via IP hinzufügen</button>
+                  </div>
+                  <p class="panel-message" id="minecraft-message"></p>
+                  <div class="minecraft-servers" id="minecraft-servers-list">
+                    <div class="empty-state">
+                      <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                      <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
                     </div>
                   </div>
-                </div>
+                </section>
 
-                <form id="minecraft-server-form" class="minecraft-form" novalidate autocomplete="off">
-                  <label for="minecraft-server-name">
-                    <span data-i18n="game_monitor.form.name_label">Servername (optional)</span>
-                    <input
-                      id="minecraft-server-name"
-                      type="text"
-                      maxlength="80"
-                      data-i18n-placeholder="game_monitor.form.name_placeholder"
-                      placeholder="Mein Survival Server"
-                    />
-                  </label>
-                  <label for="minecraft-server-host">
-                    <span data-i18n="game_monitor.form.host_label">Host oder IP</span>
-                    <input
-                      id="minecraft-server-host"
-                      type="text"
-                      maxlength="255"
-                      required
-                      data-i18n-placeholder="game_monitor.form.host_placeholder"
-                      placeholder="play.example.net:25565"
-                    />
-                  </label>
-                  <button class="btn primary" type="submit" data-i18n="game_monitor.form.add">Server hinzufügen</button>
-                </form>
-
-                <p class="minecraft-hint muted" data-i18n="game_monitor.hint_tps">
-                  TPS ist oft nur verfügbar, wenn der Server es aktiv bereitstellt (z. B. per Plugin/RCON).
-                </p>
-                <p class="panel-message" id="minecraft-message"></p>
-
-                <div class="minecraft-servers" id="minecraft-servers-list">
-                  <div class="empty-state">
-                    <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
-                    <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
-                  </div>
-                </div>
+                <p class="panel-message" id="direct-probe-unavailable" hidden></p>
 
                 <section class="mod-panel">
                   <div class="mod-panel-head">
-                    <div class="card-title" data-i18n="game_monitor.mod.title">Minecraft Mod Verbindung</div>
+                    <div class="card-title" data-i18n="game_monitor.mod.title">Game Agent Verbindung</div>
                     <button class="btn ghost" id="mod-create-pairing-btn" type="button" data-i18n="game_monitor.mod.create_pairing">
                       Verifizierungscode erzeugen
                     </button>
                   </div>
 
                   <p class="muted mod-panel-sub" data-i18n="game_monitor.mod.sub">
-                    Erstelle einen Pairing-Code im Web und nutze ihn in deiner Mod. Solange der Server läuft und Heartbeats sendet,
+                    Erstelle einen Pairing-Code im Web und nutze ihn in deinem Agent/Mod. Solange Heartbeats gesendet werden,
                     bleibt die Verbindung online.
                   </p>
 
@@ -210,6 +216,80 @@
             </nav>
           </footer>
         </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="game-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="game-modal-title">
+        <div class="modal-head">
+          <h3 id="game-modal-title">Neues Spiel hinzufügen</h3>
+          <button class="btn ghost modal-close" id="game-modal-close" type="button">Schließen</button>
+        </div>
+        <p class="modal-subtitle">Lege ein neues Spiel an und entscheide, ob die Verbindung per IP oder per Connection Key läuft.</p>
+
+        <form id="game-modal-form" class="game-modal-form" novalidate autocomplete="off">
+          <label for="game-modal-name">
+            <span>Spielname</span>
+            <input id="game-modal-name" type="text" maxlength="60" placeholder="z. B. Minecraft, Rust, CS2" required />
+          </label>
+
+          <label for="game-modal-key">
+            <span>Spiel-Key (slug)</span>
+            <input id="game-modal-key" type="text" maxlength="24" placeholder="z. B. minecraft oder cs2" />
+          </label>
+
+          <fieldset class="method-switch">
+            <legend>Verbindungstyp</legend>
+            <label class="method-option" for="game-mode-ip">
+              <input id="game-mode-ip" type="radio" name="game-connection-mode" value="ip" checked />
+              <span class="method-indicator" aria-hidden="true"></span>
+              <span class="method-copy">
+                <strong>Direkt via IP/Host</strong>
+                <small>Sofortige Live-Abfrage für Minecraft-Server.</small>
+              </span>
+            </label>
+            <label class="method-option" for="game-mode-key">
+              <input id="game-mode-key" type="radio" name="game-connection-mode" value="key" />
+              <span class="method-indicator" aria-hidden="true"></span>
+              <span class="method-copy">
+                <strong>Agent/Mod mit Connection Key</strong>
+                <small>Empfohlen für neue Spiele und künftige Integrationen.</small>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="modal-fields" id="game-modal-ip-fields">
+            <label for="game-modal-server-name">
+              <span>Servername (optional)</span>
+              <input id="game-modal-server-name" type="text" maxlength="80" placeholder="Mein Survival Server" />
+            </label>
+            <label for="game-modal-host">
+              <span>Host oder IP</span>
+              <input id="game-modal-host" type="text" maxlength="255" placeholder="play.example.net:25565" />
+            </label>
+          </div>
+
+          <div class="modal-fields" id="game-modal-key-fields" hidden>
+            <p class="muted">Beim Speichern wird direkt ein Connection Key für dein ausgewähltes Spiel erzeugt.</p>
+            <div class="mod-pairing-box" id="game-modal-pairing-box" hidden>
+              <div class="mod-pairing-row">
+                <span class="mod-pairing-label">Connection Key</span>
+                <code class="mod-pairing-code" id="game-modal-pairing-code">------</code>
+              </div>
+              <div class="mod-pairing-row">
+                <span class="mod-pairing-label">Gültig bis</span>
+                <span class="mod-pairing-expiry" id="game-modal-pairing-expiry">-</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="panel-message" id="game-modal-message"></p>
+
+          <div class="modal-actions">
+            <button class="btn ghost" id="game-modal-cancel" type="button">Abbrechen</button>
+            <button class="btn primary" id="game-modal-submit" type="submit">Spiel hinzufügen</button>
+          </div>
+        </form>
       </div>
     </div>
 

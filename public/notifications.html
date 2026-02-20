@@ -100,6 +100,52 @@
           </header>
 
           <main class="notifications-page">
+            <section class="card wide email-card">
+              <div class="card-title" data-i18n="notifications.email.title">E-Mail Benachrichtigung</div>
+              <p class="muted card-copy" data-i18n="notifications.email.copy">
+                Bei Statuswechseln (online/offline) senden wir eine E-Mail. Der Anti-Spam Cooldown verhindert Mail-Flut bei Flapping.
+              </p>
+              <div class="status-row">
+                <span class="status-badge" id="email-state-badge" data-i18n="notifications.email.state_disconnected">Nicht verbunden</span>
+                <span class="muted" id="email-recipient-mask" data-i18n="notifications.email.no_recipient"
+                  >Kein Empfaenger hinterlegt.</span
+                >
+                <span class="muted email-hint-chip" id="email-delivery-hint" data-i18n="notifications.email.cooldown_hint"
+                  >Anti-Spam Cooldown aktiv.</span
+                >
+              </div>
+
+              <form id="email-form" class="notification-form" novalidate>
+                <label for="email-recipient">
+                  <span data-i18n="notifications.email.label_address">Empfaenger E-Mail (optional)</span>
+                  <input
+                    id="email-recipient"
+                    type="email"
+                    autocomplete="off"
+                    data-i18n-placeholder="notifications.email.placeholder_address"
+                    placeholder="alerts@example.com"
+                  />
+                </label>
+                <label for="email-cooldown-minutes">
+                  <span data-i18n="notifications.email.label_cooldown">Cooldown pro Monitor (Minuten)</span>
+                  <input id="email-cooldown-minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" />
+                </label>
+                <label class="check-row" for="email-enabled">
+                  <input id="email-enabled" type="checkbox" />
+                  <span data-i18n="notifications.email.enable">Benachrichtigungen aktivieren</span>
+                </label>
+                <div class="form-actions">
+                  <button class="btn primary" id="save-email-btn" type="submit" data-i18n="common.save">Speichern</button>
+                  <button class="btn ghost" id="test-email-btn" type="button" data-i18n="notifications.email.test">Test senden</button>
+                  <button class="btn ghost danger-btn" id="delete-email-btn" type="button" data-i18n="notifications.email.remove"
+                    >E-Mail deaktivieren</button
+                  >
+                </div>
+              </form>
+
+              <p class="panel-message" id="email-message"></p>
+            </section>
+
             <section class="card wide">
               <div class="card-title" data-i18n="notifications.discord.title">Discord Webhook</div>
               <p class="muted card-copy" data-i18n="notifications.discord.copy">
@@ -230,4 +276,3 @@
     <script src="/assets/notifications.js"></script>
   </body>
 </html>
-

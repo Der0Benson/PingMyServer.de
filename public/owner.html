@@ -45,7 +45,7 @@
           <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
           <a href="/game-monitor" data-i18n="common.game_monitor">Game Monitor</a>
           <a href="/connections" data-i18n="common.connections">Connections</a>
-          <a class="active" href="/owner" data-i18n="common.owner_ops">Owner Ops</a>
+          <a class="active" href="/owner" data-owner-link hidden data-i18n="common.owner_ops">Owner Ops</a>
           <a href="/status" target="_blank" rel="noreferrer" data-i18n="common.status_page">Statusseite</a>
         </nav>
         <div class="side-footer">
@@ -170,6 +170,90 @@
                 </article>
               </div>
             </section>
+
+            <section class="card wide">
+              <div class="card-title" data-i18n="owner.cards.db_storage.title">DB-Speicherverlauf</div>
+              <p class="muted card-subtitle" data-i18n="owner.cards.db_storage.sub">
+                Wachstum der Datenbank und freier Speicherplatz auf dem Server.
+              </p>
+              <div class="stats-grid" id="db-storage-stats">
+                <article class="stat-item">
+                  <div class="stat-label">DB belegt</div>
+                  <div class="stat-value">-</div>
+                </article>
+                <article class="stat-item">
+                  <div class="stat-label">Wachstum</div>
+                  <div class="stat-value">-</div>
+                </article>
+                <article class="stat-item">
+                  <div class="stat-label">Server frei</div>
+                  <div class="stat-value">-</div>
+                </article>
+                <article class="stat-item">
+                  <div class="stat-label">Letzte Messung</div>
+                  <div class="stat-value">-</div>
+                </article>
+              </div>
+              <div class="db-storage-chart-wrap">
+                <svg id="db-storage-chart" viewBox="0 0 960 320" role="img" aria-label="Datenbank Speicherverlauf"></svg>
+              </div>
+              <p class="muted chart-footnote" id="db-storage-footnote">Lade Speicherverlauf...</p>
+            </section>
+
+            <section class="card">
+              <div class="card-title" data-i18n="owner.email_test.title">E-Mail-Test (Owner)</div>
+              <p class="muted card-subtitle" data-i18n="owner.email_test.sub">
+                Sende eine Test-E-Mail über den konfigurierten SMTP-Account.
+              </p>
+
+              <form class="owner-email-test-form" id="owner-email-test-form" novalidate autocomplete="off">
+                <label class="owner-email-test-field" for="owner-email-test-from">
+                  <span data-i18n="owner.email_test.from">Von</span>
+                  <input id="owner-email-test-from" type="text" readonly />
+                </label>
+
+                <label class="owner-email-test-field" for="owner-email-test-to">
+                  <span data-i18n="owner.email_test.to">An (Empfänger)</span>
+                  <input
+                    id="owner-email-test-to"
+                    type="email"
+                    maxlength="254"
+                    data-i18n-placeholder="owner.email_test.placeholder_to"
+                    placeholder="deine-mail@example.com"
+                    required
+                  />
+                </label>
+
+                <label class="owner-email-test-field owner-email-test-field-wide" for="owner-email-test-template">
+                  <span data-i18n="owner.email_test.template">E-Mail Typ</span>
+                  <select id="owner-email-test-template">
+                    <option value="verification" data-i18n="owner.email_test.template_verification">Verifikations-Mail testen</option>
+                    <option value="alert_started" data-i18n="owner.email_test.template_alert_started">Alert eingeleitet Mail testen</option>
+                    <option value="alert_resolved" data-i18n="owner.email_test.template_alert_resolved">Alert aufgehoben Mail testen</option>
+                  </select>
+                </label>
+
+                <label class="owner-email-test-field owner-email-test-field-wide" for="owner-email-test-subject">
+                  <span data-i18n="owner.email_test.subject">Betreff (optional)</span>
+                  <input
+                    id="owner-email-test-subject"
+                    type="text"
+                    maxlength="160"
+                    data-i18n-placeholder="owner.email_test.placeholder_subject"
+                    placeholder="Dein PingMyServer Verifizierungscode"
+                  />
+                </label>
+
+                <div class="owner-email-test-actions owner-email-test-field-wide">
+                  <button class="btn primary" id="owner-email-test-send" type="submit" data-i18n="owner.email_test.send">
+                    Test-E-Mail senden
+                  </button>
+                  <span class="muted owner-email-test-config" id="owner-email-test-config"></span>
+                </div>
+              </form>
+
+              <p class="panel-message" id="owner-email-test-message"></p>
+            </section>
           </main>
 
           <footer class="site-footer">
@@ -188,4 +272,3 @@
     <script src="/assets/owner.js"></script>
   </body>
 </html>
-

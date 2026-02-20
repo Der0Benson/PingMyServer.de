@@ -21,7 +21,7 @@ function encodeBase64UrlUtf8(input) {
 }
 
 function isAbsoluteUrl(value) {
-  return /^[a-zA-Z][a-zA-Z\\d+\\-.]*:\\/\\//.test(String(value || "").trim());
+  return /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(String(value || "").trim());
 }
 
 function parseBaseUrlForJoin(input) {
@@ -38,7 +38,7 @@ function parseBaseUrlForJoin(input) {
 function parseEndpointLines(rawValue) {
   const raw = String(rawValue || "");
   return raw
-    .split(/\\r?\\n/)
+    .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => Boolean(line) && !line.startsWith("#"));
 }

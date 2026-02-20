@@ -132,7 +132,174 @@ tbody td {
   line-height: 1.35;
 }
 
+.db-storage-chart-wrap {
+  margin-top: 8px;
+  border: 1px solid rgba(76, 201, 240, 0.2);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(76, 201, 240, 0.14), transparent 42%),
+    linear-gradient(170deg, rgba(8, 16, 32, 0.85), rgba(7, 12, 25, 0.78));
+  overflow: hidden;
+}
+
+#db-storage-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 280px;
+}
+
+.db-storage-chart-grid-line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.db-storage-chart-grid-label {
+  fill: rgba(197, 214, 236, 0.78);
+  font-size: 12px;
+  font-family: "Manrope", sans-serif;
+}
+
+.db-storage-chart-axis-label {
+  fill: rgba(197, 214, 236, 0.88);
+  font-size: 12px;
+  font-family: "Manrope", sans-serif;
+}
+
+.db-storage-chart-area {
+  fill: url(#db-storage-area-gradient);
+}
+
+.db-storage-chart-line {
+  fill: none;
+  stroke: #67d4ff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 10px rgba(103, 212, 255, 0.32));
+}
+
+.db-storage-chart-point {
+  fill: #8be4ff;
+  stroke: rgba(7, 15, 32, 0.95);
+  stroke-width: 2;
+}
+
+.db-storage-chart-empty {
+  fill: rgba(197, 214, 236, 0.86);
+  font-size: 14px;
+  font-family: "Manrope", sans-serif;
+}
+
+.chart-footnote {
+  margin: 8px 0 0;
+}
+
+.owner-email-test-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.owner-email-test-field {
+  display: grid;
+  gap: 6px;
+}
+
+.owner-email-test-field span {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.owner-email-test-field input,
+.owner-email-test-field select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+}
+
+.owner-email-test-field select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(180, 212, 240, 0.92) 50%),
+    linear-gradient(135deg, rgba(180, 212, 240, 0.92) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px);
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
+.owner-email-test-field input:focus,
+.owner-email-test-field select:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.15);
+}
+
+.owner-email-test-field input[readonly] {
+  color: #b6c9e8;
+}
+
+.owner-email-test-field input:disabled,
+.owner-email-test-field select:disabled {
+  opacity: 0.75;
+  color: #9db3cd;
+}
+
+.owner-email-test-field-wide {
+  grid-column: 1 / -1;
+}
+
+.owner-email-test-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.owner-email-test-config {
+  text-align: right;
+  font-size: 0.78rem;
+}
+
+.panel-message {
+  min-height: 18px;
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.panel-message.success {
+  color: #b5f89d;
+}
+
+.panel-message.error {
+  color: #f7b8b8;
+}
+
 @media (max-width: 780px) {
+  .owner-email-test-form {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-email-test-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .owner-email-test-config {
+    text-align: left;
+  }
+
   .top-actions {
     width: 100%;
   }
