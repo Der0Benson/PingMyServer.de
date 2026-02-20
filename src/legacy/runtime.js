@@ -14,6 +14,7 @@ const mysql = require("mysql2/promise");
 const { handleAuthRoutes } = require("../modules/auth/auth.routes");
 const { handleAccountRoutes } = require("../modules/account/account.routes");
 const { handleGameAgentRoutes } = require("../modules/game-agent/game-agent.routes");
+const { handleMonitorApiRoutes } = require("../modules/monitors/monitors.routes");
 const { handleOwnerRoutes } = require("../modules/owner/owner.routes");
 
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -14994,219 +14995,45 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (method === "GET" && pathname === "/api/probes") {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const probes = await listProbesForUser(user.id);
-    sendJson(res, 200, { ok: true, data: probes });
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/monitors") {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const location = parseMonitorLocationParam(url.searchParams.get("location"));
-    const monitors =
-      location.type === "probe"
-        ? await listMonitorsForUserAtProbe(user.id, location.probeId)
-        : await listMonitorsForUser(user.id);
-    sendJson(res, 200, { ok: true, data: monitors });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/monitors") {
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/monitor-create") {
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/monitor-create") {
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/create-monitor") {
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/create-monitor") {
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/game-monitor/minecraft/status") {
-    await handleGameMonitorMinecraftStatus(req, res, url);
-    return;
-  }
-
-  const createMonitorPathMatch = pathname.match(
-    /^\/(?:api\/)?(?:monitor-create|create-monitor)\/[A-Za-z0-9_-]{1,4096}(?:\/[A-Za-z0-9_-]{1,1024})?\/?$/
-  );
-  if (method === "POST" && createMonitorPathMatch) {
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  const isLegacyCreateGetRoute =
-    method === "GET" &&
-    (pathname === "/api/monitor-create" ||
-      pathname === "/monitor-create" ||
-      pathname === "/api/create-monitor" ||
-      pathname === "/create-monitor" ||
-      !!createMonitorPathMatch);
-  if (isLegacyCreateGetRoute) {
-    if (!MONITOR_CREATE_GET_ENABLED) {
-      sendJson(res, 405, { ok: false, error: "method not allowed" });
-      return;
-    }
-
-    const hasCreateMarker = hasMonitorCreateRequestHeader(req);
-    const sameOrigin = isValidOrigin(req);
-    if (!hasCreateMarker && !sameOrigin) {
-      sendJson(res, 403, { ok: false, error: "forbidden" });
-      return;
-    }
-    await handleCreateMonitor(req, res);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/incidents") {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const incidents = await getIncidentsForUser(user.id, {
-      monitor: url.searchParams.get("monitor") || "all",
-      sort: url.searchParams.get("sort") || "start",
-      order: url.searchParams.get("order") || "desc",
-      lookbackDays: Number(url.searchParams.get("lookbackDays") || INCIDENT_LOOKBACK_DAYS),
-      limit: Number(url.searchParams.get("limit") || 200),
-    });
-
-    sendJson(res, 200, { ok: true, data: incidents });
-    return;
-  }
-
-  const monitorMetricsMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/metrics\/?$/);
-  if (method === "GET" && monitorMetricsMatch) {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const monitorId = monitorMetricsMatch[1];
-    const monitor = await getMonitorByIdForUser(user.id, monitorId);
-    if (!monitor) {
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-
-    const location = parseMonitorLocationParam(url.searchParams.get("location"));
-    const metrics = await getMetricsForMonitorAtLocation(monitor, location);
-    sendJson(res, 200, { ok: true, data: metrics });
-    return;
-  }
-
-  const monitorFaviconMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/favicon\/?$/);
-  if (method === "GET" && monitorFaviconMatch) {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const monitorId = monitorFaviconMatch[1];
-    const monitor = await getMonitorByIdForUser(user.id, monitorId);
-    if (!monitor) {
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-
-    await handleMonitorFavicon(req, res, monitor);
-    return;
-  }
-
-  const monitorAssertionsMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/assertions\/?$/);
-  if (monitorAssertionsMatch) {
-    const monitorId = monitorAssertionsMatch[1];
-    if (method === "GET") {
-      await handleMonitorHttpAssertionsGet(req, res, monitorId);
-      return;
-    }
-    if (method === "PUT" || method === "PATCH") {
-      await handleMonitorHttpAssertionsUpdate(req, res, monitorId);
-      return;
-    }
-  }
-
-  const monitorIntervalMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/interval\/?$/);
-  if (monitorIntervalMatch) {
-    const monitorId = monitorIntervalMatch[1];
-    if (method === "PUT" || method === "PATCH") {
-      await handleMonitorIntervalUpdate(req, res, monitorId);
-      return;
-    }
-  }
-
-  const monitorMaintenancesMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/maintenances\/?$/);
-  if (monitorMaintenancesMatch) {
-    const monitorId = monitorMaintenancesMatch[1];
-    if (method === "GET") {
-      await handleMonitorMaintenancesList(req, res, monitorId);
-      return;
-    }
-    if (method === "POST") {
-      await handleMonitorMaintenanceCreate(req, res, monitorId);
-      return;
-    }
-  }
-
-  const monitorMaintenanceCancelMatch = pathname.match(
-    /^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/maintenances\/(\d+)\/cancel\/?$/
-  );
-  if (method === "POST" && monitorMaintenanceCancelMatch) {
-    await handleMonitorMaintenanceCancel(req, res, monitorMaintenanceCancelMatch[1], monitorMaintenanceCancelMatch[2]);
-    return;
-  }
-
-  const monitorDetailMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/?$/);
-  if (method === "DELETE" && monitorDetailMatch) {
-    await handleDeleteMonitor(req, res, monitorDetailMatch[1]);
-    return;
-  }
-
-  if (method === "GET" && monitorDetailMatch) {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const monitorId = monitorDetailMatch[1];
-    const monitor = await getMonitorByIdForUser(user.id, monitorId);
-    if (!monitor) {
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-
-    sendJson(res, 200, {
-      ok: true,
-      data: serializeMonitorRow(monitor),
-    });
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/metrics") {
-    const user = await requireAuth(req, res);
-    if (!user) return;
-
-    const monitors = await listMonitorsForUser(user.id);
-    if (!monitors.length) {
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-
-    const monitor = await getMonitorByIdForUser(user.id, monitors[0].id);
-    const metrics = await getMetricsForMonitor(monitor);
-    sendJson(res, 200, { ok: true, data: metrics });
+  const monitorApiHandled = await handleMonitorApiRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    url,
+    handlers: {
+      handleCreateMonitor,
+      handleGameMonitorMinecraftStatus,
+      handleMonitorFavicon,
+      handleMonitorHttpAssertionsGet,
+      handleMonitorHttpAssertionsUpdate,
+      handleMonitorIntervalUpdate,
+      handleMonitorMaintenancesList,
+      handleMonitorMaintenanceCreate,
+      handleMonitorMaintenanceCancel,
+      handleDeleteMonitor,
+    },
+    utilities: {
+      requireAuth,
+      listProbesForUser,
+      parseMonitorLocationParam,
+      listMonitorsForUserAtProbe,
+      listMonitorsForUser,
+      hasMonitorCreateRequestHeader,
+      isValidOrigin,
+      getIncidentsForUser,
+      getMonitorByIdForUser,
+      getMetricsForMonitorAtLocation,
+      serializeMonitorRow,
+      getMetricsForMonitor,
+      sendJson,
+    },
+    constants: {
+      MONITOR_CREATE_GET_ENABLED,
+      INCIDENT_LOOKBACK_DAYS,
+    },
+  });
+  if (monitorApiHandled) {
     return;
   }
 
