@@ -931,6 +931,12 @@ function syncOwnerLinks() {
   const isOwner = user?.isOwner === true;
   for (const link of ownerLinks) {
     link.hidden = !isOwner;
+    link.setAttribute("aria-hidden", isOwner ? "false" : "true");
+    if (isOwner) {
+      link.style.removeProperty("display");
+    } else {
+      link.style.setProperty("display", "none", "important");
+    }
   }
 }
 
