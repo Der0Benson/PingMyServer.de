@@ -16,6 +16,9 @@ const { handleAccountRoutes } = require("../modules/account/account.routes");
 const { handleGameAgentRoutes } = require("../modules/game-agent/game-agent.routes");
 const { handleMonitorApiRoutes } = require("../modules/monitors/monitors.routes");
 const { handleOwnerRoutes } = require("../modules/owner/owner.routes");
+const { handleStatusRoutes } = require("../modules/status/status.routes");
+const { handleSystemRoutes } = require("../modules/system/system.routes");
+const { handleWebRoutes } = require("../modules/web/web.routes");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -14847,23 +14850,22 @@ async function handleRequest(req, res) {
   const method = (req.method || "GET").toUpperCase();
   const pathname = url.pathname;
 
-  if (method === "GET" && pathname === "/favicon.ico") {
-    await serveStaticFile(res, "pingmyserverlogo.png");
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/health") {
-    sendJson(res, 200, { ok: true });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/stripe/webhook") {
-    await handleStripeWebhook(req, res);
-    return;
-  }
-
-  if ((method === "GET" || method === "POST") && pathname === "/api/account/notifications/email/unsubscribe") {
-    await handleAccountEmailNotificationUnsubscribe(req, res, url);
+  const systemHandled = await handleSystemRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    url,
+    handlers: {
+      handleStripeWebhook,
+      handleAccountEmailNotificationUnsubscribe,
+    },
+    utilities: {
+      serveStaticFile,
+      sendJson,
+    },
+  });
+  if (systemHandled) {
     return;
   }
 
@@ -15037,193 +15039,47 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (method === "GET" && pathname === "/status/data") {
-    const monitorFilter = String(url.searchParams.get("monitor") || "").trim();
-    let monitor = null;
-    let user = null;
-
-    if (monitorFilter) {
-      monitor = await getPublicMonitorByIdentifier(monitorFilter);
-    } else {
-      user = await requireAuth(req, res, { silent: true });
-      if (user) {
-        monitor = await getLatestMonitorForUser(user.id);
-      }
-      if (!monitor) {
-        monitor = await getDefaultPublicMonitor();
-      }
-      if (!monitor && !user) {
-        monitor = await getLatestPublicMonitor();
-      }
-    }
-
-    if (!monitor) {
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-
-    const metrics = await getMetricsForMonitor(monitor);
-    sendJson(res, 200, { ok: true, data: metrics });
+  const statusHandled = await handleStatusRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    url,
+    utilities: {
+      getPublicMonitorByIdentifier,
+      requireAuth,
+      getLatestMonitorForUser,
+      getDefaultPublicMonitor,
+      getLatestPublicMonitor,
+      getMetricsForMonitor,
+      toPublicMonitorId,
+      isAllowedPublicStatusIdentifier,
+      sendRedirect,
+      serveStaticFile,
+      sendJson,
+    },
+    constants: {
+      PUBLIC_STATUS_ALLOW_NUMERIC_ID,
+    },
+  });
+  if (statusHandled) {
     return;
   }
 
-  if (method === "GET" && pathname === "/") {
-    await serveStaticFile(res, "landing.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/login" || pathname === "/login/")) {
-    await serveStaticFile(res, "login.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/onboarding" || pathname === "/onboarding/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "onboarding.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/app" || pathname === "/app/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "app.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/monitors" || pathname === "/monitors/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "monitors.html");
-    return;
-  }
-
-  if (method === "GET" && /^\/app\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/?$/.test(pathname)) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "app.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/incidents" || pathname === "/incidents/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "incidents.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/connections" || pathname === "/connections/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "connections.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/notifications" || pathname === "/notifications/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "notifications.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/game-monitor" || pathname === "/game-monitor/")) {
-    const user = await requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return;
-    await serveStaticFile(res, "game-monitor.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/owner" || pathname === "/owner/")) {
-    const owner = await requireOwner(req, res, { auth: { redirectToLogin: true }, redirectToApp: true });
-    if (!owner) return;
-    await serveStaticFile(res, "owner.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/status" || pathname === "/status/")) {
-    const user = await requireAuth(req, res, { silent: true });
-    if (user) {
-      const userMonitor = await getLatestMonitorForUser(user.id);
-      if (userMonitor) {
-        const publicId = toPublicMonitorId(userMonitor);
-        if (isAllowedPublicStatusIdentifier(publicId)) {
-          sendRedirect(res, `/status/${encodeURIComponent(publicId)}`);
-          return;
-        }
-      }
-    }
-
-    const defaultMonitor = await getDefaultPublicMonitor();
-    if (defaultMonitor) {
-      const publicId = toPublicMonitorId(defaultMonitor);
-      if (isAllowedPublicStatusIdentifier(publicId)) {
-        sendRedirect(res, `/status/${encodeURIComponent(publicId)}`);
-        return;
-      }
-    }
-
-    await serveStaticFile(res, "status.html");
-    return;
-  }
-
-  const publicStatusRouteRegex = PUBLIC_STATUS_ALLOW_NUMERIC_ID
-    ? /^\/status\/([A-Za-z0-9]{6,64}|\d+)\/?$/
-    : /^\/status\/([A-Za-z0-9]{6,64})\/?$/;
-  const publicStatusRouteMatch = pathname.match(publicStatusRouteRegex);
-  if (method === "GET" && publicStatusRouteMatch) {
-    const monitor = await getPublicMonitorByIdentifier(publicStatusRouteMatch[1]);
-    if (!monitor) {
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-    await serveStaticFile(res, "status.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/nutzungsbedingungen" || pathname === "/nutzungsbedingungen/")) {
-    await serveStaticFile(res, "nutzungsbedingungen.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/datenschutz" || pathname === "/datenschutz/")) {
-    await serveStaticFile(res, "datenschutz.html");
-    return;
-  }
-
-  if (method === "GET" && (pathname === "/impressum" || pathname === "/impressum/")) {
-    await serveStaticFile(res, "impressum.html");
-    return;
-  }
-
-  if (method === "GET" && pathname === "/robots.txt") {
-    await serveStaticFile(res, "robots.txt");
-    return;
-  }
-
-  if (method === "GET" && pathname === "/sitemap.xml") {
-    await serveStaticFile(res, "sitemap.xml");
-    return;
-  }
-
-  if (method === "GET" && pathname === "/site.webmanifest") {
-    await serveStaticFile(res, "site.webmanifest");
-    return;
-  }
-
-  if (method === "GET" && pathname === "/index.html") {
-    sendRedirect(res, "/", 301);
-    return;
-  }
-
-  if (method === "GET" && pathname.startsWith("/assets/")) {
-    let filePath = "";
-    try {
-      filePath = decodeURIComponent(pathname.slice("/assets/".length));
-    } catch (error) {
-      sendJson(res, 400, { ok: false, error: "bad request" });
-      return;
-    }
-    await serveStaticFile(res, filePath);
+  const webHandled = await handleWebRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    utilities: {
+      requireAuth,
+      requireOwner,
+      sendRedirect,
+      serveStaticFile,
+      sendJson,
+    },
+  });
+  if (webHandled) {
     return;
   }
 
