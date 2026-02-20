@@ -419,7 +419,7 @@
     });
 
     navPrimaryCtas.forEach((cta) => {
-      cta.setAttribute("href", isAuthenticated ? "/app" : "/login");
+      cta.setAttribute("href", isAuthenticated ? "/app" : "/login?mode=register");
       cta.textContent = isAuthenticated
         ? t("landing.nav.dashboard", null, "Go to dashboard")
         : t("landing.nav.cta", null, "Start for free");

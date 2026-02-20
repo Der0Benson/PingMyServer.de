@@ -50,6 +50,10 @@ const OAUTH_MESSAGE_KEYS = {
   google_error: "login.oauth.google_error",
 };
 
+const AUTH_MODE_LOGIN = "login";
+const AUTH_MODE_REGISTER = "register";
+const REGISTER_SUCCESS_REDIRECT = "/onboarding?new=1";
+
 function setMessage(text, type = "") {
   if (!messageEl) return;
   messageEl.textContent = text || "";
@@ -57,6 +61,32 @@ function setMessage(text, type = "") {
   if (type) {
     messageEl.classList.add(type);
   }
+}
+
+function normalizeAuthMode(value) {
+  const mode = String(value || "")
+    .trim()
+    .toLowerCase();
+  return mode === AUTH_MODE_REGISTER ? AUTH_MODE_REGISTER : AUTH_MODE_LOGIN;
+}
+
+function readAuthModeFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    return normalizeAuthMode(url.searchParams.get("mode"));
+  } catch (error) {
+    return AUTH_MODE_LOGIN;
+  }
+}
+
+function getPostAuthRedirect(mode, payload) {
+  const normalizedMode = normalizeAuthMode(mode);
+  if (normalizedMode === AUTH_MODE_REGISTER) {
+    return REGISTER_SUCCESS_REDIRECT;
+  }
+
+  const next = String(payload?.next || "").trim();
+  return next || "/app";
 }
 
 function clearResendCooldown() {
@@ -130,7 +160,7 @@ function setSocialButtonsDisabled(disabled) {
   });
 }
 
-function showVerificationStep(payload) {
+function showVerificationStep(payload, sourceMode = AUTH_MODE_LOGIN) {
   const challengeToken = String(payload?.challengeToken || "").trim().toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(challengeToken)) return false;
 
@@ -146,6 +176,7 @@ function showVerificationStep(payload) {
     challengeToken,
     codeLength,
     emailMasked,
+    sourceMode: normalizeAuthMode(sourceMode),
   };
 
   if (loginForm) loginForm.hidden = true;
@@ -177,13 +208,14 @@ function showVerificationStep(payload) {
 }
 
 function setMode(mode) {
-  const isLogin = mode === "login";
+  const normalizedMode = normalizeAuthMode(mode);
+  const isLogin = normalizedMode === AUTH_MODE_LOGIN;
 
   resetVerificationState();
 
   modeButtons.forEach((button) => {
     button.disabled = false;
-    button.classList.toggle("active", button.dataset.mode === mode);
+    button.classList.toggle("active", button.dataset.mode === normalizedMode);
   });
 
   setSocialButtonsDisabled(false);
@@ -330,7 +362,7 @@ async function handleLoginSubmit(event) {
     }
 
     if (payload?.verifyRequired) {
-      const switched = showVerificationStep(payload);
+      const switched = showVerificationStep(payload, AUTH_MODE_LOGIN);
       if (!switched) {
         setMessage(t("login.msg.login_failed", null, "Sign in failed."), "error");
         return;
@@ -343,7 +375,7 @@ async function handleLoginSubmit(event) {
     }
 
     setMessage(t("login.msg.login_success", null, "Signed in. Redirecting..."), "success");
-    window.location.href = payload.next || "/app";
+    window.location.href = getPostAuthRedirect(AUTH_MODE_LOGIN, payload);
   } catch (error) {
     setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
@@ -398,7 +430,7 @@ async function handleRegisterSubmit(event) {
     }
 
     if (payload?.verifyRequired) {
-      const switched = showVerificationStep(payload);
+      const switched = showVerificationStep(payload, AUTH_MODE_REGISTER);
       if (!switched) {
         setMessage(t("login.msg.register_failed", null, "Registration failed."), "error");
         return;
@@ -411,7 +443,7 @@ async function handleRegisterSubmit(event) {
     }
 
     setMessage(t("login.msg.register_success", null, "Account created. Redirecting..."), "success");
-    window.location.href = payload.next || "/app";
+    window.location.href = getPostAuthRedirect(AUTH_MODE_REGISTER, payload);
   } catch (error) {
     setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
@@ -420,6 +452,7 @@ async function handleRegisterSubmit(event) {
 async function handleVerifySubmit(event) {
   event.preventDefault();
   const challengeToken = String(pendingVerification?.challengeToken || "").trim().toLowerCase();
+  const sourceMode = normalizeAuthMode(pendingVerification?.sourceMode);
   const expectedLength = Math.max(4, Math.min(8, Number(pendingVerification?.codeLength || 6)));
   const code = normalizeVerificationCode(verifyCodeInput?.value);
 
@@ -500,7 +533,7 @@ async function handleVerifySubmit(event) {
     }
 
     setMessage(t("login.msg.login_success", null, "Signed in. Redirecting..."), "success");
-    window.location.href = payload.next || "/app";
+    window.location.href = getPostAuthRedirect(sourceMode, payload);
   } catch (error) {
     setMessage(t("common.connection_failed", null, "Connection failed."), "error");
   }
@@ -571,7 +604,7 @@ async function handleVerifyResend() {
       return;
     }
 
-    const switched = showVerificationStep(payload);
+    const switched = showVerificationStep(payload, pendingVerification?.sourceMode || AUTH_MODE_LOGIN);
     if (!switched) {
       setMode("login");
       return;
@@ -671,6 +704,6 @@ if (verifyBackButton) {
   });
 }
 
-setMode("login");
+setMode(readAuthModeFromUrl());
 readOauthMessageFromUrl();
 redirectWhenAlreadyLoggedIn();
