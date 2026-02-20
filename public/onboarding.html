@@ -107,6 +107,22 @@
         </form>
 
         <p id="onboarding-message" class="message"></p>
+
+        <dialog id="warmup-modal" class="warmup-modal">
+          <form method="dialog" class="warmup-modal-card">
+            <h2 id="warmup-modal-title">Monitor wird eingerichtet</h2>
+            <p id="warmup-modal-text">
+              In den ersten 5 Minuten werden nur erste Pings gesammelt. In dieser Zeit werden keine Alerts versendet und
+              keine Ausfälle gespeichert.
+            </p>
+            <p id="warmup-modal-extra">
+              Nach Ablauf gilt der Monitor als offline, wenn auf beiden Servern keine Verbindung besteht.
+            </p>
+            <div class="warmup-modal-actions">
+              <button type="submit" id="warmup-modal-continue">Zum Dashboard</button>
+            </div>
+          </form>
+        </dialog>
       </section>
 
       <footer class="site-footer">
