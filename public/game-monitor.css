@@ -25,7 +25,15 @@
   gap: 10px;
 }
 
+.game-item-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .game-item {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.02);
@@ -59,6 +67,17 @@
 .game-item.active {
   border-color: rgba(76, 201, 240, 0.45);
   background: linear-gradient(145deg, rgba(76, 201, 240, 0.16), rgba(76, 201, 240, 0.06));
+}
+
+.game-item-delete {
+  flex: 0 0 auto;
+  min-width: 98px;
+  border-color: rgba(255, 153, 153, 0.32);
+  color: #ffd1d1;
+}
+
+.game-item-delete:hover {
+  border-color: rgba(255, 153, 153, 0.55);
 }
 
 .game-overview-card {
@@ -605,6 +624,14 @@
 }
 
 @media (max-width: 720px) {
+  .game-item-row {
+    flex-direction: column;
+  }
+
+  .game-item-delete {
+    width: 100%;
+  }
+
   .overview-head {
     flex-direction: column;
     align-items: flex-start;

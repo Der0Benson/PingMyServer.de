@@ -1296,6 +1296,10 @@
           pairing_failed: "Code konnte nicht erstellt werden.",
           session_revoked: "Session getrennt.",
           session_revoke_failed: "Session konnte nicht getrennt werden.",
+          remove_game_confirm: "Spiel \"{game}\" wirklich entfernen?",
+          remove_game_success: "Spiel \"{game}\" entfernt.",
+          remove_game_failed: "Spiel konnte nicht entfernt werden.",
+          remove_game_blocked: "Dieses Spiel kann nicht entfernt werden.",
           direct_probe_unavailable: "Direkte Server-Abfrage ist aktuell nur für Minecraft verfügbar. Nutze für {game} die Agent-Verbindung.",
         },
         error_codes: {
@@ -2645,6 +2649,10 @@
           pairing_failed: "Failed to create code.",
           session_revoked: "Session disconnected.",
           session_revoke_failed: "Failed to disconnect session.",
+          remove_game_confirm: "Remove game \"{game}\"?",
+          remove_game_success: "Game \"{game}\" removed.",
+          remove_game_failed: "Game could not be removed.",
+          remove_game_blocked: "This game cannot be removed.",
           direct_probe_unavailable: "Direct server probing is currently available for Minecraft only. Use the agent link for {game}.",
         },
         error_codes: {
