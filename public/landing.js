@@ -369,7 +369,7 @@
     }
 
     if (!navPrimaryCta) return;
-    navPrimaryCta.setAttribute("href", isAuthenticated ? "/app" : "/login");
+    navPrimaryCta.setAttribute("href", isAuthenticated ? "/app" : "/login?mode=register");
     navPrimaryCta.textContent = isAuthenticated
       ? t("landing.nav.dashboard", null, "Go to dashboard")
       : t("landing.nav.cta", null, "Start for free");
