@@ -13,6 +13,8 @@ const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
 const { handleAuthRoutes } = require("../modules/auth/auth.routes");
 const { handleAccountRoutes } = require("../modules/account/account.routes");
+const { handleGameAgentRoutes } = require("../modules/game-agent/game-agent.routes");
+const { handleOwnerRoutes } = require("../modules/owner/owner.routes");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -14954,64 +14956,41 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (method === "GET" && pathname === "/api/game-agent/pairings") {
-    await handleGameAgentPairingsList(req, res, url);
+  const gameAgentHandled = await handleGameAgentRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    url,
+    handlers: {
+      handleGameAgentPairingsList,
+      handleGameAgentPairingCreate,
+      handleGameAgentSessionsList,
+      handleGameAgentSessionRevoke,
+      handleGameAgentLink,
+      handleGameAgentHeartbeat,
+      handleGameAgentDisconnect,
+    },
+  });
+  if (gameAgentHandled) {
     return;
   }
 
-  if (method === "POST" && pathname === "/api/game-agent/pairings") {
-    await handleGameAgentPairingCreate(req, res);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/game-agent/sessions") {
-    await handleGameAgentSessionsList(req, res, url);
-    return;
-  }
-
-  const gameAgentSessionMatch = pathname.match(/^\/api\/game-agent\/sessions\/([A-Za-z0-9]{10,64})\/?$/);
-  if (method === "DELETE" && gameAgentSessionMatch) {
-    await handleGameAgentSessionRevoke(req, res, gameAgentSessionMatch[1]);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/game-agent/link") {
-    await handleGameAgentLink(req, res);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/game-agent/heartbeat") {
-    await handleGameAgentHeartbeat(req, res);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/game-agent/disconnect") {
-    await handleGameAgentDisconnect(req, res);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/owner/overview") {
-    await handleOwnerOverview(req, res);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/owner/monitors") {
-    await handleOwnerMonitors(req, res, url);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/owner/security") {
-    await handleOwnerSecurity(req, res);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/owner/db-storage") {
-    await handleOwnerDbStorage(req, res, url);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/owner/email-test") {
-    await handleOwnerEmailTest(req, res);
+  const ownerHandled = await handleOwnerRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    url,
+    handlers: {
+      handleOwnerOverview,
+      handleOwnerMonitors,
+      handleOwnerSecurity,
+      handleOwnerDbStorage,
+      handleOwnerEmailTest,
+    },
+  });
+  if (ownerHandled) {
     return;
   }
 
