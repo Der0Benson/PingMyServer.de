@@ -11,18 +11,24 @@ const { performance } = require("perf_hooks");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
+const { createLogger } = require("../core/logger");
+const { startBackgroundJobs } = require("./background-jobs");
+const { createLegacyRequestHandlerFactory } = require("./request-handler");
 const { createAccountRepository } = require("../modules/account/account.repository");
 const { createAuthEmailChallengeRepository } = require("../modules/auth/auth-email-challenge.repository");
+const { createAuthController } = require("../modules/auth/auth.controller");
+const { createAuthEmailChallengeService } = require("../modules/auth/auth-email-challenge.service");
 const { createAuthFailureRepository } = require("../modules/auth/auth-failure.repository");
 const { createOauthRepository } = require("../modules/auth/oauth.repository");
+const { createAuthSessionService } = require("../modules/auth/auth-session.service");
 const { createSessionRepository } = require("../modules/auth/session.repository");
 const { createMonitorsRepository } = require("../modules/monitors/monitors.repository");
-const { handleDispatchedRoutes } = require("../modules/routes/dispatch");
-const { handleSystemRoutes } = require("../modules/system/system.routes");
+const { createMonitorWriteController } = require("../modules/monitors/monitor-write.controller");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 const initialProcessEnvKeys = new Set(Object.keys(process.env));
+const runtimeLogger = createLogger("legacy.runtime");
 
 function loadEnvFile(filePath) {
   let fileContent = "";
@@ -63,7 +69,7 @@ loadEnvFile(path.join(ROOT, ".env"));
 loadEnvFile(path.join(ROOT, ".env.local"));
 
 function failConfig(message) {
-  console.error("env_config_error", message);
+  runtimeLogger.error("env_config_error", message);
   process.exit(1);
 }
 
@@ -979,7 +985,6 @@ const poolInstrumentationMarker = Symbol("instrumented_pool");
 const connectionInstrumentationMarker = Symbol("instrumented_connection");
 const connectionReleaseInstrumentationMarker = Symbol("instrumented_connection_release");
 let cpuSampleState = { usage: process.cpuUsage(), time: process.hrtime.bigint() };
-let monitorSchedulerExpectedAt = Date.now() + CHECK_SCHEDULER_MS;
 const runtimeTelemetry = {
   startedAt: Date.now(),
   scheduler: {
@@ -4330,7 +4335,7 @@ async function getTargetMeta(targetUrl) {
       return data;
     })
     .catch((error) => {
-      console.error("target_meta_failed", key, error?.message || error);
+      runtimeLogger.error("target_meta_failed", key, error?.message || error);
       targetMetaCache.set(key, {
         data: fallbackData,
         expiresAt: Date.now() + 60000,
@@ -4493,7 +4498,7 @@ async function getMonitorFavicon(targetUrl) {
       return icon;
     })
     .catch((error) => {
-      console.error("monitor_favicon_failed", key, error?.message || error);
+      runtimeLogger.error("monitor_favicon_failed", key, error?.message || error);
       monitorFaviconCache.set(key, {
         icon: fallbackIcon,
         missing: !fallbackIcon,
@@ -5539,263 +5544,35 @@ const authEmailChallengeRepository = createAuthEmailChallengeRepository({
   toTimestampMs,
 });
 
-async function cleanupExpiredAuthEmailChallenges() {
-  const retentionMs = Math.max(AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS, 60 * 1000);
-  const cutoff = new Date(Date.now() - retentionMs);
-  await authEmailChallengeRepository.cleanupExpiredAuthEmailChallenges(cutoff);
-}
+const authEmailChallengeService = createAuthEmailChallengeService({
+  authEmailChallengeRepository,
+  crypto,
+  normalizeEmail,
+  isValidEmail,
+  createAuthEmailVerificationCode,
+  hashAuthEmailVerificationCode,
+  buildAuthLoginVerificationEmail,
+  sendOwnerSmtpTestEmail,
+  maskNotificationEmailAddress,
+  authEmailVerificationPurposeLogin: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
+  authEmailVerificationChallengeRetentionMs: AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS,
+  authEmailVerificationCodeTtlSeconds: AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS,
+  authEmailVerificationResendIntervalSeconds: AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS,
+  authEmailVerificationCodeLength: AUTH_EMAIL_VERIFICATION_CODE_LENGTH,
+  authEmailVerificationMaxAttempts: AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS,
+  authEmailVerificationMaxSends: AUTH_EMAIL_VERIFICATION_MAX_SENDS,
+  authEmailVerificationMaxRequestsPerHour: AUTH_EMAIL_VERIFICATION_MAX_REQUESTS_PER_HOUR,
+});
 
-async function findAuthEmailChallengeByToken(token, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
-  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
-    .trim()
-    .toLowerCase();
-  const challengeToken = String(token || "")
-    .trim()
-    .toLowerCase();
-  return authEmailChallengeRepository.findAuthEmailChallengeByToken(challengeToken, normalizedPurpose);
-}
-
-async function countRecentAuthEmailChallengesForUser(userId, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
-  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
-    .trim()
-    .toLowerCase();
-  const lookback = new Date(Date.now() - 60 * 60 * 1000);
-  return authEmailChallengeRepository.countRecentAuthEmailChallengesForUser(userId, normalizedPurpose, lookback);
-}
-
-function buildAuthVerificationChallengeResponse(challenge) {
-  const expiresAtMs = Number(challenge?.expiresAtMs || 0);
-  const now = Date.now();
-  const expiresInSeconds = Number.isFinite(expiresAtMs) ? Math.max(1, Math.ceil((expiresAtMs - now) / 1000)) : AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS;
-  return {
-    verifyRequired: true,
-    challengeToken: challenge?.token || "",
-    emailMasked: maskNotificationEmailAddress(challenge?.email) || challenge?.email || "",
-    expiresAt: Number.isFinite(expiresAtMs) ? expiresAtMs : now + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000,
-    expiresInSeconds,
-    resendAfterSeconds: AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS,
-    codeLength: AUTH_EMAIL_VERIFICATION_CODE_LENGTH,
-  };
-}
-
-async function createAuthEmailChallenge({ userId, email, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN }) {
-  const numericUserId = Number(userId);
-  if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
-    const error = new Error("invalid_user_id");
-    error.code = "invalid_user_id";
-    throw error;
-  }
-
-  const normalizedEmail = normalizeEmail(email);
-  if (!isValidEmail(normalizedEmail)) {
-    const error = new Error("invalid_email");
-    error.code = "invalid_email";
-    throw error;
-  }
-
-  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
-    .trim()
-    .toLowerCase();
-  const recentCount = await countRecentAuthEmailChallengesForUser(numericUserId, normalizedPurpose);
-  if (recentCount >= AUTH_EMAIL_VERIFICATION_MAX_REQUESTS_PER_HOUR) {
-    const error = new Error("too_many_challenges");
-    error.code = "too_many_challenges";
-    throw error;
-  }
-
-  const challengeToken = crypto.randomBytes(32).toString("hex");
-  const code = createAuthEmailVerificationCode();
-  const codeHash = hashAuthEmailVerificationCode(challengeToken, code);
-  const now = new Date();
-  const expiresAt = new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
-
-  await authEmailChallengeRepository.insertAuthEmailChallenge({
-    challengeToken,
-    userId: numericUserId,
-    email: normalizedEmail,
-    purpose: normalizedPurpose,
-    codeHash,
-    codeLast4: code.slice(-4),
-    maxAttempts: AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS,
-    lastSentAt: now,
-    expiresAt,
-  });
-
-  return {
-    token: challengeToken,
-    userId: numericUserId,
-    email: normalizedEmail,
-    purpose: normalizedPurpose,
-    code,
-    expiresAtMs: expiresAt.getTime(),
-  };
-}
-
-async function deleteAuthEmailChallengeByToken(token, purpose = AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN) {
-  const normalizedPurpose = String(purpose || AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN)
-    .trim()
-    .toLowerCase();
-  const challengeToken = String(token || "")
-    .trim()
-    .toLowerCase();
-  await authEmailChallengeRepository.deleteAuthEmailChallengeByToken(challengeToken, normalizedPurpose);
-}
-
-async function resendAuthEmailChallenge(challenge, challengeToken) {
-  const challengeId = Number(challenge?.id || 0);
-  if (!Number.isInteger(challengeId) || challengeId <= 0) {
-    const error = new Error("invalid_challenge");
-    error.code = "invalid_challenge";
-    throw error;
-  }
-
-  const now = Date.now();
-  const expiresAtMs = Number(challenge?.expiresAtMs || 0);
-  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now) {
-    const error = new Error("challenge_expired");
-    error.code = "challenge_expired";
-    throw error;
-  }
-  if (Number(challenge?.consumedAtMs || 0) > 0) {
-    const error = new Error("challenge_consumed");
-    error.code = "challenge_consumed";
-    throw error;
-  }
-  if (Number(challenge?.sendCount || 0) >= AUTH_EMAIL_VERIFICATION_MAX_SENDS) {
-    const error = new Error("challenge_send_limit");
-    error.code = "challenge_send_limit";
-    throw error;
-  }
-
-  const lastSentAtMs = Number(challenge?.lastSentAtMs || 0);
-  const resendDelayMs = AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS * 1000;
-  if (Number.isFinite(lastSentAtMs) && lastSentAtMs > 0 && now - lastSentAtMs < resendDelayMs) {
-    const retryAfter = Math.max(1, Math.ceil((resendDelayMs - (now - lastSentAtMs)) / 1000));
-    const error = new Error("challenge_resend_wait");
-    error.code = "challenge_resend_wait";
-    error.retryAfterSeconds = retryAfter;
-    throw error;
-  }
-
-  const code = createAuthEmailVerificationCode();
-  const codeHash = hashAuthEmailVerificationCode(challengeToken, code);
-  const nextExpiresAt = new Date(Date.now() + AUTH_EMAIL_VERIFICATION_CODE_TTL_SECONDS * 1000);
-  const affectedRows = await authEmailChallengeRepository.updateAuthEmailChallengeForResend({
-    challengeId,
-    codeHash,
-    codeLast4: code.slice(-4),
-    nextExpiresAt,
-    maxSends: AUTH_EMAIL_VERIFICATION_MAX_SENDS,
-  });
-  if (affectedRows !== 1) {
-    const error = new Error("challenge_update_conflict");
-    error.code = "challenge_update_conflict";
-    throw error;
-  }
-
-  return {
-    ...challenge,
-    code,
-    expiresAtMs: nextExpiresAt.getTime(),
-    sendCount: Number(challenge.sendCount || 0) + 1,
-  };
-}
-
-async function sendAuthEmailChallenge(challenge, user) {
-  const emailPayload = buildAuthLoginVerificationEmail({
-    ownerEmail: String(user?.email || challenge?.email || "").trim(),
-    code: challenge?.code,
-    expiresAt: Number.isFinite(Number(challenge?.expiresAtMs)) ? new Date(Number(challenge.expiresAtMs)) : null,
-  });
-
-  await sendOwnerSmtpTestEmail({
-    to: String(challenge?.email || "").trim(),
-    subject: emailPayload.subject,
-    textBody: emailPayload.textBody,
-    htmlBody: emailPayload.htmlBody,
-    extraHeaders: {
-      "X-PMS-Notification-Type": "auth_email_verification",
-    },
-  });
-}
-
-async function getNextPathForUser(userId) {
-  const total = await countMonitorsForUser(userId);
-  return total > 0 ? "/app" : "/onboarding";
-}
-
-async function requireAuth(req, res, options = {}) {
-  const cookies = parseCookies(req.headers.cookie || "");
-  const token = cookies[SESSION_COOKIE_NAME];
-  const rejectUnauthorized = () => {
-    if (options.silent) return;
-    if (options.redirectToLogin) {
-      sendRedirect(res, "/login");
-    } else {
-      sendJson(res, 401, { ok: false, error: "unauthorized" });
-    }
-  };
-
-  if (!isValidSessionToken(token)) {
-    rejectUnauthorized();
-    return null;
-  }
-
-  await cleanupExpiredSessions();
-
-  const sessionId = hashSessionToken(token);
-  const session = await findSessionByHash(sessionId);
-  if (!session) {
-    clearSessionCookie(res);
-    rejectUnauthorized();
-    return null;
-  }
-
-  const expiresAtMs = new Date(session.expires_at).getTime();
-  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
-    await deleteSessionById(sessionId);
-    clearSessionCookie(res);
-    rejectUnauthorized();
-    return null;
-  }
-
-  const user = await findUserById(session.user_id);
-  if (!user) {
-    await deleteSessionById(sessionId);
-    clearSessionCookie(res);
-    rejectUnauthorized();
-    return null;
-  }
-
-  req.user = user;
-  req.userId = Number(user.id);
-  req.sessionId = sessionId;
-  req.sessionCreatedAt = toTimestampMs(session.created_at);
-  return user;
-}
-
-async function requireOwner(req, res, options = {}) {
-  const authOptions = options?.auth || {};
-  const user = await requireAuth(req, res, authOptions);
-  if (!user) return null;
-
-  if (isOwnerUserId(user.id)) {
-    return user;
-  }
-
-  if (options.redirectToApp) {
-    sendRedirect(res, "/app");
-  } else if (!options.silent) {
-    sendJson(res, 403, { ok: false, error: "forbidden" });
-  }
-  return null;
-}
-
-function isSessionFreshEnough(req, maxAgeMs = ACCOUNT_SENSITIVE_ACTION_MAX_SESSION_AGE_MS) {
-  const createdAtMs = Number(req?.sessionCreatedAt || 0);
-  if (!Number.isFinite(createdAtMs) || createdAtMs <= 0) return false;
-  return Date.now() - createdAtMs <= maxAgeMs;
-}
+const {
+  cleanupExpiredAuthEmailChallenges,
+  findAuthEmailChallengeByToken,
+  buildAuthVerificationChallengeResponse,
+  createAuthEmailChallenge,
+  deleteAuthEmailChallengeByToken,
+  resendAuthEmailChallenge,
+  sendAuthEmailChallenge,
+} = authEmailChallengeService;
 
 const monitorsRepository = createMonitorsRepository({
   pool,
@@ -5822,746 +5599,123 @@ const {
   getPublicMonitorByIdentifier,
 } = monitorsRepository;
 
-async function handleAuthGithubStart(req, res) {
-  if (!GITHUB_AUTH_ENABLED) {
-    sendRedirect(res, "/login?oauth=github_disabled");
-    return;
-  }
-
-  const state = createOauthState("github", res);
-  const authUrl = new URL("https://github.com/login/oauth/authorize");
-  authUrl.searchParams.set("client_id", GITHUB_CLIENT_ID);
-  authUrl.searchParams.set("redirect_uri", GITHUB_CALLBACK_URL);
-  authUrl.searchParams.set("scope", GITHUB_SCOPE);
-  authUrl.searchParams.set("state", state);
-  authUrl.searchParams.set("allow_signup", "true");
-
-  sendRedirect(res, authUrl.toString());
-}
-
-async function handleAuthGithubCallback(req, res, url) {
-  if (!GITHUB_AUTH_ENABLED) {
-    sendRedirect(res, "/login?oauth=github_disabled");
-    return;
-  }
-
-  const oauthError = String(url.searchParams.get("error") || "").trim().toLowerCase();
-  if (oauthError) {
-    clearOauthStateCookie(res);
-    sendRedirect(res, "/login?oauth=github_denied");
-    return;
-  }
-
-  const state = String(url.searchParams.get("state") || "").trim();
-  const code = String(url.searchParams.get("code") || "").trim();
-  const githubStateValid = consumeOauthState("github", state, req);
-  clearOauthStateCookie(res);
-  if (!githubStateValid) {
-    runtimeTelemetry.security.oauthStateRejected += 1;
-    sendRedirect(res, "/login?oauth=github_state");
-    return;
-  }
-  if (!code) {
-    sendRedirect(res, "/login?oauth=github_code");
-    return;
-  }
-
-  const tokenResult = await fetchGitHubAccessToken(code);
-  if (!tokenResult?.accessToken) {
-    sendRedirect(res, "/login?oauth=github_token");
-    return;
-  }
-  const accessToken = tokenResult.accessToken;
-
-  const githubUserResult = await fetchGitHubUser(accessToken);
-  const githubUser = githubUserResult?.payload || null;
-  const githubId = String(githubUser?.id || "").trim();
-  const githubLoginRaw = String(githubUser?.login || "").trim();
-  const githubLogin = githubLoginRaw ? githubLoginRaw.slice(0, 255) : null;
-  if (!githubId) {
-    sendRedirect(res, "/login?oauth=github_profile");
-    return;
-  }
-
-  const githubEmailsResult = await fetchGitHubEmails(accessToken);
-  if (Number(githubEmailsResult?.statusCode) === 403) {
-    sendRedirect(res, "/login?oauth=github_email_permission");
-    return;
-  }
-  const githubEmails = Array.isArray(githubEmailsResult?.emails) ? githubEmailsResult.emails : [];
-  const grantedScopes = new Set([
-    ...Array.from(tokenResult.grantedScopes || []),
-    ...Array.from(githubUserResult?.grantedScopes || []),
-    ...Array.from(githubEmailsResult?.grantedScopes || []),
-  ]);
-  const email = getPreferredGitHubEmail(githubUser, githubEmails);
-  if (!email) {
-    if (grantedScopes.size > 0 && !grantedScopes.has("user:email")) {
-      sendRedirect(res, "/login?oauth=github_scope");
-      return;
-    }
-    sendRedirect(res, "/login?oauth=github_email_missing");
-    return;
-  }
-
-  try {
-    let userId = null;
-    const userByGithub = await findUserByGithubId(githubId);
-    if (userByGithub) {
-      userId = Number(userByGithub.id);
-      await linkGithubToUser(userId, githubId, githubLogin);
-    } else {
-      const userByEmail = await findUserByEmail(email);
-      if (userByEmail) {
-        const existingGithubId = String(userByEmail.github_id || "").trim();
-        if (existingGithubId && existingGithubId !== githubId) {
-          sendRedirect(res, "/login?oauth=github_conflict");
-          return;
-        }
-        userId = Number(userByEmail.id);
-        await linkGithubToUser(userId, githubId, githubLogin);
-      } else {
-        userId = await createUserFromGithub(email, githubId, githubLogin);
-      }
-    }
-
-    if (!userId) {
-      sendRedirect(res, "/login?oauth=github_error");
-      return;
-    }
-
-    await clearAuthFailures(email);
-    await cleanupExpiredSessions();
-
-    // Session fixation protection.
-    await deleteSessionsByUserId(userId);
-
-    const sessionToken = await createSession(userId);
-    setSessionCookie(res, sessionToken);
-
-    const next = await getNextPathForUser(userId);
-    sendRedirect(res, next || "/app");
-  } catch (error) {
-    console.error("github_oauth_failed", error);
-    sendRedirect(res, "/login?oauth=github_error");
-  }
-}
-
-async function handleAuthGoogleStart(req, res) {
-  if (!GOOGLE_AUTH_ENABLED) {
-    sendRedirect(res, "/login?oauth=google_disabled");
-    return;
-  }
-
-  const state = createOauthState("google", res);
-  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-  authUrl.searchParams.set("redirect_uri", GOOGLE_CALLBACK_URL);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("scope", GOOGLE_SCOPE);
-  authUrl.searchParams.set("state", state);
-  authUrl.searchParams.set("access_type", "online");
-  authUrl.searchParams.set("include_granted_scopes", "true");
-  authUrl.searchParams.set("prompt", "select_account");
-
-  sendRedirect(res, authUrl.toString());
-}
-
-async function handleAuthGoogleCallback(req, res, url) {
-  if (!GOOGLE_AUTH_ENABLED) {
-    sendRedirect(res, "/login?oauth=google_disabled");
-    return;
-  }
-
-  const oauthError = String(url.searchParams.get("error") || "").trim().toLowerCase();
-  if (oauthError) {
-    clearOauthStateCookie(res);
-    sendRedirect(res, "/login?oauth=google_denied");
-    return;
-  }
-
-  const state = String(url.searchParams.get("state") || "").trim();
-  const code = String(url.searchParams.get("code") || "").trim();
-  const googleStateValid = consumeOauthState("google", state, req);
-  clearOauthStateCookie(res);
-  if (!googleStateValid) {
-    runtimeTelemetry.security.oauthStateRejected += 1;
-    sendRedirect(res, "/login?oauth=google_state");
-    return;
-  }
-  if (!code) {
-    sendRedirect(res, "/login?oauth=google_code");
-    return;
-  }
-
-  const tokenResult = await fetchGoogleAccessToken(code);
-  if (!tokenResult?.accessToken) {
-    sendRedirect(res, "/login?oauth=google_token");
-    return;
-  }
-
-  const googleUser = await fetchGoogleUser(tokenResult.accessToken);
-  const googleSub = String(googleUser?.sub || "").trim();
-  if (!googleSub) {
-    sendRedirect(res, "/login?oauth=google_profile");
-    return;
-  }
-
-  const email = getPreferredGoogleEmail(googleUser);
-  if (!email) {
-    if (tokenResult.grantedScopes.size > 0 && !tokenResult.grantedScopes.has("email")) {
-      sendRedirect(res, "/login?oauth=google_scope");
-      return;
-    }
-    sendRedirect(res, "/login?oauth=google_email_missing");
-    return;
-  }
-
-  try {
-    let userId = null;
-    const userByGoogle = await findUserByGoogleSub(googleSub);
-    if (userByGoogle) {
-      userId = Number(userByGoogle.id);
-      await linkGoogleToUser(userId, googleSub, email);
-    } else {
-      const userByEmail = await findUserByEmail(email);
-      if (userByEmail) {
-        const existingGoogleSub = String(userByEmail.google_sub || "").trim();
-        if (existingGoogleSub && existingGoogleSub !== googleSub) {
-          sendRedirect(res, "/login?oauth=google_conflict");
-          return;
-        }
-        userId = Number(userByEmail.id);
-        await linkGoogleToUser(userId, googleSub, email);
-      } else {
-        userId = await createUserFromGoogle(email, googleSub, email);
-      }
-    }
-
-    if (!userId) {
-      sendRedirect(res, "/login?oauth=google_error");
-      return;
-    }
-
-    await clearAuthFailures(email);
-    await cleanupExpiredSessions();
-
-    // Session fixation protection.
-    await deleteSessionsByUserId(userId);
-
-    const sessionToken = await createSession(userId);
-    setSessionCookie(res, sessionToken);
-
-    const next = await getNextPathForUser(userId);
-    sendRedirect(res, next || "/app");
-  } catch (error) {
-    console.error("google_oauth_failed", error);
-    sendRedirect(res, "/login?oauth=google_error");
-  }
-}
-
-async function handleAuthDiscordStart(req, res) {
-  if (!DISCORD_AUTH_ENABLED) {
-    sendRedirect(res, "/login?oauth=discord_disabled");
-    return;
-  }
-
-  const state = createOauthState("discord", res);
-  const authUrl = new URL("https://discord.com/oauth2/authorize");
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("client_id", DISCORD_CLIENT_ID);
-  authUrl.searchParams.set("redirect_uri", DISCORD_CALLBACK_URL);
-  authUrl.searchParams.set("scope", DISCORD_SCOPE);
-  authUrl.searchParams.set("state", state);
-
-  sendRedirect(res, authUrl.toString());
-}
-
-async function handleAuthDiscordCallback(req, res, url) {
-  if (!DISCORD_AUTH_ENABLED) {
-    sendRedirect(res, "/login?oauth=discord_disabled");
-    return;
-  }
-
-  const oauthError = String(url.searchParams.get("error") || "").trim().toLowerCase();
-  if (oauthError) {
-    clearOauthStateCookie(res);
-    sendRedirect(res, "/login?oauth=discord_denied");
-    return;
-  }
-
-  const state = String(url.searchParams.get("state") || "").trim();
-  const code = String(url.searchParams.get("code") || "").trim();
-  const discordStateValid = consumeOauthState("discord", state, req);
-  clearOauthStateCookie(res);
-  if (!discordStateValid) {
-    runtimeTelemetry.security.oauthStateRejected += 1;
-    sendRedirect(res, "/login?oauth=discord_state");
-    return;
-  }
-  if (!code) {
-    sendRedirect(res, "/login?oauth=discord_code");
-    return;
-  }
-
-  const tokenResult = await fetchDiscordAccessToken(code);
-  if (!tokenResult?.accessToken) {
-    sendRedirect(res, "/login?oauth=discord_token");
-    return;
-  }
-
-  const discordUser = await fetchDiscordUser(tokenResult.accessToken);
-  const discordId = String(discordUser?.id || "").trim();
-  const discordLogin = getPreferredDiscordLogin(discordUser);
-  if (!discordId) {
-    sendRedirect(res, "/login?oauth=discord_profile");
-    return;
-  }
-
-  const email = getPreferredDiscordEmail(discordUser);
-  if (!email) {
-    if (tokenResult.grantedScopes.size > 0 && !tokenResult.grantedScopes.has("email")) {
-      sendRedirect(res, "/login?oauth=discord_scope");
-      return;
-    }
-    sendRedirect(res, "/login?oauth=discord_email_missing");
-    return;
-  }
-
-  try {
-    let userId = null;
-    const userByDiscord = await findUserByDiscordId(discordId);
-    if (userByDiscord) {
-      userId = Number(userByDiscord.id);
-      await linkDiscordToUser(userId, discordId, discordLogin, email);
-    } else {
-      const userByEmail = await findUserByEmail(email);
-      if (userByEmail) {
-        const existingDiscordId = String(userByEmail.discord_id || "").trim();
-        if (existingDiscordId && existingDiscordId !== discordId) {
-          sendRedirect(res, "/login?oauth=discord_conflict");
-          return;
-        }
-        userId = Number(userByEmail.id);
-        await linkDiscordToUser(userId, discordId, discordLogin, email);
-      } else {
-        userId = await createUserFromDiscord(email, discordId, discordLogin, email);
-      }
-    }
-
-    if (!userId) {
-      sendRedirect(res, "/login?oauth=discord_error");
-      return;
-    }
-
-    await clearAuthFailures(email);
-    await cleanupExpiredSessions();
-
-    // Session fixation protection.
-    await deleteSessionsByUserId(userId);
-
-    const sessionToken = await createSession(userId);
-    setSessionCookie(res, sessionToken);
-
-    const next = await getNextPathForUser(userId);
-    sendRedirect(res, next || "/app");
-  } catch (error) {
-    console.error("discord_oauth_failed", error);
-    sendRedirect(res, "/login?oauth=discord_error");
-  }
-}
-
-async function handleAuthRegister(req, res) {
-  let body;
-  try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid credentials" });
-    return;
-  }
-
-  const email = normalizeEmail(body.email);
-  const password = typeof body.password === "string" ? body.password : "";
-
-  if (!isValidEmail(email) || !validatePassword(password)) {
-    sendJson(res, 400, { ok: false, error: "invalid credentials" });
-    return;
-  }
-
-  try {
-    const [existingRows] = await pool.query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-    if (existingRows.length) {
-      sendJson(res, 400, { ok: false, error: "invalid credentials" });
-      return;
-    }
-
-    const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
-    const [result] = await pool.query(
-      "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-      [email, passwordHash]
-    );
-
-    await cleanupExpiredSessions();
-    if (AUTH_EMAIL_VERIFICATION_ENABLED) {
-      if (!isOwnerSmtpConfigured()) {
-        sendJson(res, 503, { ok: false, error: "verification unavailable" });
-        return;
-      }
-
-      await cleanupExpiredAuthEmailChallenges();
-      let challenge = null;
-      try {
-        challenge = await createAuthEmailChallenge({
-          userId: result.insertId,
-          email,
-          purpose: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
-        });
-        await sendAuthEmailChallenge(challenge, { email, id: result.insertId });
-      } catch (error) {
-        if (challenge?.token) {
-          await deleteAuthEmailChallengeByToken(challenge.token, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN).catch(() => {
-            // ignore cleanup errors
-          });
-        }
-
-        if (error?.code === "too_many_challenges") {
-          sendJson(
-            res,
-            429,
-            { ok: false, error: "verification throttled" },
-            { "Retry-After": "3600" }
-          );
-          return;
-        }
-
-        console.error("register_verification_send_failed", Number(result.insertId), error?.code || error?.message || error);
-        sendJson(res, 500, { ok: false, error: "verification send failed" });
-        return;
-      }
-
-      sendJson(res, 201, {
-        ok: true,
-        ...buildAuthVerificationChallengeResponse(challenge),
-      });
-      return;
-    }
-
-    const sessionToken = await createSession(result.insertId);
-    setSessionCookie(res, sessionToken);
-
-    const next = await getNextPathForUser(result.insertId);
-    sendJson(res, 201, { ok: true, next });
-  } catch (error) {
-    console.error("register_failed", error);
-    sendJson(res, 500, { ok: false, error: "invalid credentials" });
-  }
-}
-
-async function handleAuthLogin(req, res) {
-  let body;
-  try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid credentials" });
-    return;
-  }
-
-  const email = normalizeEmail(body.email);
-  const password = typeof body.password === "string" ? body.password : "";
-
-  if (!isValidEmail(email) || !validatePassword(password)) {
-    sendJson(res, 400, { ok: false, error: "invalid credentials" });
-    return;
-  }
-
-  try {
-    const failure = await getAuthFailure(email);
-    const [rows] = await pool.query(
-      "SELECT id, email, password_hash FROM users WHERE email = ? LIMIT 1",
-      [email]
-    );
-
-    const user = rows[0] || null;
-    const hashToCompare = user?.password_hash || DUMMY_PASSWORD_HASH;
-    const passwordMatches = await bcrypt.compare(password, hashToCompare);
-
-    if (isAccountLocked(failure)) {
-      const retryAfterSeconds = Math.max(
-        1,
-        Math.ceil((new Date(failure.locked_until).getTime() - Date.now()) / 1000)
-      );
-      sendJson(
-        res,
-        429,
-        { ok: false, error: "invalid credentials" },
-        { "Retry-After": String(retryAfterSeconds) }
-      );
-      return;
-    }
-
-    if (!user || !passwordMatches) {
-      const nextFailure = await registerAuthFailure(email, failure);
-      if (nextFailure.lockedUntil) {
-        const retryAfterSeconds = Math.max(
-          1,
-          Math.ceil((nextFailure.lockedUntil.getTime() - Date.now()) / 1000)
-        );
-        sendJson(
-          res,
-          429,
-          { ok: false, error: "invalid credentials" },
-          { "Retry-After": String(retryAfterSeconds) }
-        );
-        return;
-      }
-      sendJson(res, 401, { ok: false, error: "invalid credentials" });
-      return;
-    }
-
-    await clearAuthFailures(email);
-    await cleanupExpiredSessions();
-
-    if (AUTH_EMAIL_VERIFICATION_ENABLED) {
-      if (!isOwnerSmtpConfigured()) {
-        sendJson(res, 503, { ok: false, error: "verification unavailable" });
-        return;
-      }
-
-      await cleanupExpiredAuthEmailChallenges();
-      let challenge = null;
-      try {
-        challenge = await createAuthEmailChallenge({
-          userId: user.id,
-          email: user.email,
-          purpose: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
-        });
-        await sendAuthEmailChallenge(challenge, user);
-      } catch (error) {
-        if (challenge?.token) {
-          await deleteAuthEmailChallengeByToken(challenge.token, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN).catch(() => {
-            // ignore cleanup errors
-          });
-        }
-
-        if (error?.code === "too_many_challenges") {
-          sendJson(
-            res,
-            429,
-            { ok: false, error: "verification throttled" },
-            { "Retry-After": "3600" }
-          );
-          return;
-        }
-
-        console.error("auth_email_verification_send_failed", Number(user.id), error?.code || error?.message || error);
-        sendJson(res, 500, { ok: false, error: "verification send failed" });
-        return;
-      }
-
-      sendJson(res, 200, {
-        ok: true,
-        ...buildAuthVerificationChallengeResponse(challenge),
-      });
-      return;
-    }
-
-    // Session fixation protection.
-    await deleteSessionsByUserId(user.id);
-
-    const sessionToken = await createSession(user.id);
-    setSessionCookie(res, sessionToken);
-
-    const next = await getNextPathForUser(user.id);
-    sendJson(res, 200, { ok: true, next });
-  } catch (error) {
-    console.error("login_failed", error);
-    sendJson(res, 500, { ok: false, error: "invalid credentials" });
-  }
-}
-
-async function handleAuthLoginVerify(req, res) {
-  if (!AUTH_EMAIL_VERIFICATION_ENABLED) {
-    sendJson(res, 404, { ok: false, error: "not found" });
-    return;
-  }
-
-  let body;
-  try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
-    return;
-  }
-
-  const challengeToken = String(body?.challengeToken || body?.challenge_token || "").trim().toLowerCase();
-  const code = normalizeAuthEmailVerificationCode(body?.code);
-  if (!/^[a-f0-9]{64}$/.test(challengeToken) || !code) {
-    sendJson(res, 400, { ok: false, error: "invalid input" });
-    return;
-  }
-
-  try {
-    await cleanupExpiredAuthEmailChallenges();
-    const challenge = await findAuthEmailChallengeByToken(challengeToken, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN);
-    if (!challenge) {
-      sendJson(res, 404, { ok: false, error: "invalid challenge" });
-      return;
-    }
-    if (Number(challenge.consumedAtMs || 0) > 0) {
-      sendJson(res, 409, { ok: false, error: "challenge used" });
-      return;
-    }
-    if (!Number.isFinite(Number(challenge.expiresAtMs)) || Number(challenge.expiresAtMs) <= Date.now()) {
-      sendJson(res, 410, { ok: false, error: "challenge expired" });
-      return;
-    }
-
-    const maxAttempts = Math.max(1, Number(challenge.maxAttempts || AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS));
-    const attempts = Math.max(0, Number(challenge.attempts || 0));
-    if (attempts >= maxAttempts) {
-      sendJson(res, 429, { ok: false, error: "challenge attempts exceeded" });
-      return;
-    }
-
-    const expectedCodeHash = String(challenge.codeHash || "").trim();
-    const providedCodeHash = hashAuthEmailVerificationCode(challengeToken, code);
-    if (!timingSafeEqualHex(expectedCodeHash, providedCodeHash)) {
-      const didIncrement = (await authEmailChallengeRepository.incrementAuthEmailChallengeAttempts(challenge.id)) === 1;
-      const nextAttempts = didIncrement ? attempts + 1 : attempts;
-      const remaining = Math.max(0, maxAttempts - nextAttempts);
-      const nextError = remaining > 0 ? "invalid code" : "challenge attempts exceeded";
-      sendJson(res, remaining > 0 ? 401 : 429, {
-        ok: false,
-        error: nextError,
-        remainingAttempts: remaining,
-      });
-      return;
-    }
-
-    if ((await authEmailChallengeRepository.consumeAuthEmailChallenge(challenge.id)) !== 1) {
-      sendJson(res, 409, { ok: false, error: "challenge used" });
-      return;
-    }
-
-    await cleanupExpiredSessions();
-    await deleteSessionsByUserId(challenge.userId);
-
-    const sessionToken = await createSession(challenge.userId);
-    setSessionCookie(res, sessionToken);
-
-    const next = await getNextPathForUser(challenge.userId);
-    sendJson(res, 200, { ok: true, next });
-  } catch (error) {
-    console.error("auth_login_verify_failed", error?.code || error?.message || error);
-    sendJson(res, 500, { ok: false, error: "internal error" });
-  }
-}
-
-async function handleAuthLoginVerifyResend(req, res) {
-  if (!AUTH_EMAIL_VERIFICATION_ENABLED) {
-    sendJson(res, 404, { ok: false, error: "not found" });
-    return;
-  }
-  if (!isOwnerSmtpConfigured()) {
-    sendJson(res, 503, { ok: false, error: "verification unavailable" });
-    return;
-  }
-
-  let body;
-  try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
-    return;
-  }
-
-  const challengeToken = String(body?.challengeToken || body?.challenge_token || "").trim().toLowerCase();
-  if (!/^[a-f0-9]{64}$/.test(challengeToken)) {
-    sendJson(res, 400, { ok: false, error: "invalid input" });
-    return;
-  }
-
-  try {
-    await cleanupExpiredAuthEmailChallenges();
-    const challenge = await findAuthEmailChallengeByToken(challengeToken, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN);
-    if (!challenge) {
-      sendJson(res, 404, { ok: false, error: "invalid challenge" });
-      return;
-    }
-    if (Number(challenge.consumedAtMs || 0) > 0) {
-      sendJson(res, 409, { ok: false, error: "challenge used" });
-      return;
-    }
-    if (!Number.isFinite(Number(challenge.expiresAtMs)) || Number(challenge.expiresAtMs) <= Date.now()) {
-      sendJson(res, 410, { ok: false, error: "challenge expired" });
-      return;
-    }
-
-    let resent;
-    try {
-      resent = await resendAuthEmailChallenge(challenge, challengeToken);
-    } catch (error) {
-      if (error?.code === "challenge_resend_wait") {
-        const retryAfterSeconds = Math.max(1, Number(error.retryAfterSeconds || AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS));
-        sendJson(
-          res,
-          429,
-          { ok: false, error: "resend cooldown", retryAfterSeconds },
-          { "Retry-After": String(retryAfterSeconds) }
-        );
-        return;
-      }
-      if (error?.code === "challenge_send_limit") {
-        sendJson(res, 429, { ok: false, error: "resend limit reached" });
-        return;
-      }
-      throw error;
-    }
-
-    await sendAuthEmailChallenge(resent, { email: resent.email, id: resent.userId });
-
-    sendJson(res, 200, {
-      ok: true,
-      ...buildAuthVerificationChallengeResponse({
-        ...resent,
-        token: challengeToken,
-      }),
-    });
-  } catch (error) {
-    console.error("auth_login_verify_resend_failed", error?.code || error?.message || error);
-    sendJson(res, 500, { ok: false, error: "internal error" });
-  }
-}
-
-async function handleAuthLogout(req, res) {
-  const cookies = parseCookies(req.headers.cookie || "");
-  const token = cookies[SESSION_COOKIE_NAME];
-
-  try {
-    if (isValidSessionToken(token)) {
-      await deleteSessionById(hashSessionToken(token));
-    }
-    clearSessionCookie(res);
-    sendJson(res, 200, { ok: true });
-  } catch (error) {
-    console.error("logout_failed", error);
-    sendJson(res, 500, { ok: false, error: "invalid credentials" });
-  }
-}
-
-async function handleAuthLogoutAll(req, res) {
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
-  try {
-    await deleteSessionsByUserId(user.id);
-    clearSessionCookie(res);
-    sendJson(res, 200, { ok: true });
-  } catch (error) {
-    console.error("logout_all_failed", error);
-    sendJson(res, 500, { ok: false, error: "invalid credentials" });
-  }
-}
+const authSessionService = createAuthSessionService({
+  parseCookies,
+  sessionCookieName: SESSION_COOKIE_NAME,
+  isValidSessionToken,
+  cleanupExpiredSessions,
+  hashSessionToken,
+  findSessionByHash,
+  findUserById,
+  deleteSessionById,
+  clearSessionCookie,
+  sendRedirect,
+  sendJson,
+  toTimestampMs,
+  isOwnerUserId,
+  countMonitorsForUser,
+  accountSensitiveActionMaxSessionAgeMs: ACCOUNT_SENSITIVE_ACTION_MAX_SESSION_AGE_MS,
+});
+
+const { getNextPathForUser, requireAuth, requireOwner, isSessionFreshEnough } = authSessionService;
+
+const authController = createAuthController({
+  GITHUB_AUTH_ENABLED,
+  GITHUB_CLIENT_ID,
+  GITHUB_CALLBACK_URL,
+  GITHUB_SCOPE,
+  GOOGLE_AUTH_ENABLED,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CALLBACK_URL,
+  GOOGLE_SCOPE,
+  DISCORD_AUTH_ENABLED,
+  DISCORD_CLIENT_ID,
+  DISCORD_CALLBACK_URL,
+  DISCORD_SCOPE,
+  sendRedirect,
+  createOauthState,
+  consumeOauthState,
+  clearOauthStateCookie,
+  runtimeTelemetry,
+  fetchGitHubAccessToken,
+  fetchGitHubUser,
+  fetchGitHubEmails,
+  getPreferredGitHubEmail,
+  findUserByGithubId,
+  linkGithubToUser,
+  findUserByEmail,
+  createUserFromGithub,
+  clearAuthFailures,
+  cleanupExpiredSessions,
+  deleteSessionsByUserId,
+  createSession,
+  setSessionCookie,
+  getNextPathForUser,
+  fetchGoogleAccessToken,
+  fetchGoogleUser,
+  getPreferredGoogleEmail,
+  findUserByGoogleSub,
+  linkGoogleToUser,
+  createUserFromGoogle,
+  fetchDiscordAccessToken,
+  fetchDiscordUser,
+  getPreferredDiscordLogin,
+  getPreferredDiscordEmail,
+  findUserByDiscordId,
+  linkDiscordToUser,
+  createUserFromDiscord,
+  readJsonBody,
+  normalizeEmail,
+  isValidEmail,
+  validatePassword,
+  pool,
+  bcrypt,
+  BCRYPT_COST,
+  DUMMY_PASSWORD_HASH,
+  getAuthFailure,
+  isAccountLocked,
+  registerAuthFailure,
+  AUTH_EMAIL_VERIFICATION_ENABLED,
+  isOwnerSmtpConfigured,
+  cleanupExpiredAuthEmailChallenges,
+  createAuthEmailChallenge,
+  sendAuthEmailChallenge,
+  resendAuthEmailChallenge,
+  deleteAuthEmailChallengeByToken,
+  AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
+  buildAuthVerificationChallengeResponse,
+  sendJson,
+  findAuthEmailChallengeByToken,
+  normalizeAuthEmailVerificationCode,
+  hashAuthEmailVerificationCode,
+  timingSafeEqualHex,
+  authEmailChallengeRepository,
+  AUTH_EMAIL_VERIFICATION_MAX_ATTEMPTS,
+  AUTH_EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS,
+  parseCookies,
+  SESSION_COOKIE_NAME,
+  isValidSessionToken,
+  deleteSessionById,
+  hashSessionToken,
+  clearSessionCookie,
+  requireAuth,
+  runtimeLogger,
+});
+
+const {
+  handleAuthGithubStart,
+  handleAuthGithubCallback,
+  handleAuthGoogleStart,
+  handleAuthGoogleCallback,
+  handleAuthDiscordStart,
+  handleAuthDiscordCallback,
+  handleAuthRegister,
+  handleAuthLogin,
+  handleAuthLoginVerify,
+  handleAuthLoginVerifyResend,
+  handleAuthLogout,
+  handleAuthLogoutAll,
+} = authController;
 
 function serializeAccountSessionRow(row, currentSessionId) {
   const sessionId = String(row.id || "");
@@ -6600,7 +5754,7 @@ async function handleAccountSessionsList(req, res) {
     const sessions = await listAccountSessionsForUser(user.id, req.sessionId);
     sendJson(res, 200, { ok: true, data: sessions });
   } catch (error) {
-    console.error("account_sessions_list_failed", error);
+    runtimeLogger.error("account_sessions_list_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -6660,7 +5814,7 @@ async function handleAccountConnectionsList(req, res) {
 
     sendJson(res, 200, { ok: true, data: providers });
   } catch (error) {
-    console.error("account_connections_list_failed", error);
+    runtimeLogger.error("account_connections_list_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -6941,7 +6095,7 @@ async function handleAccountDomainsList(req, res) {
     const domains = await listDomainVerificationsForUser(user.id);
     sendJson(res, 200, { ok: true, data: domains });
   } catch (error) {
-    console.error("account_domains_list_failed", error);
+    runtimeLogger.error("account_domains_list_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -6978,7 +6132,7 @@ async function handleAccountDomainChallengeCreate(req, res) {
       sendJson(res, 409, { ok: false, error: "domain taken" });
       return;
     }
-    console.error("account_domain_challenge_failed", error);
+    runtimeLogger.error("account_domain_challenge_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -7022,7 +6176,7 @@ async function handleAccountDomainVerify(req, res) {
       sendJson(res, 502, { ok: false, error: "dns lookup failed", code: error?.details?.code || "" });
       return;
     }
-    console.error("account_domain_verify_failed", error);
+    runtimeLogger.error("account_domain_verify_failed", error);
     sendJson(res, error.statusCode || 500, { ok: false, error: "internal error" });
   }
 }
@@ -7048,7 +6202,7 @@ async function handleAccountDomainDelete(req, res, id) {
     }
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("account_domain_delete_failed", error);
+    runtimeLogger.error("account_domain_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -7680,7 +6834,7 @@ async function handleStripeWebhook(req, res) {
     await handleStripeWebhookEvent(eventPayload);
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("stripe_webhook_failed", error);
+    runtimeLogger.error("stripe_webhook_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -7697,7 +6851,7 @@ async function handleAccountBillingGet(req, res) {
     }
     sendJson(res, 200, { ok: true, data: toAccountBillingPayload(account) });
   } catch (error) {
-    console.error("account_billing_get_failed", error);
+    runtimeLogger.error("account_billing_get_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -7817,7 +6971,7 @@ async function handleAccountBillingCheckout(req, res) {
 
     sendJson(res, 200, { ok: true, url: checkoutResult.url });
   } catch (error) {
-    console.error("account_billing_checkout_failed", error);
+    runtimeLogger.error("account_billing_checkout_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -7863,7 +7017,7 @@ async function handleAccountBillingPortal(req, res) {
 
     sendJson(res, 200, { ok: true, url: portalResult.url });
   } catch (error) {
-    console.error("account_billing_portal_failed", error);
+    runtimeLogger.error("account_billing_portal_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8415,7 +7569,7 @@ async function sendEmailStatusNotificationForMonitorChange({
     });
     await markMonitorEmailNotificationSent(monitorId, next);
   } catch (error) {
-    console.error("email_monitor_notification_failed", numericUserId, monitorId, error?.code || error?.message || error);
+    runtimeLogger.error("email_monitor_notification_failed", numericUserId, monitorId, error?.code || error?.message || error);
   }
 }
 
@@ -8476,7 +7630,7 @@ async function sendDiscordStatusNotificationForMonitorChange({
 
   const deliveryResult = await postDiscordWebhook(webhookUrl, payload);
   if (!deliveryResult.ok) {
-    console.error("discord_monitor_notification_failed", numericUserId, deliveryResult.statusCode, deliveryResult.error);
+    runtimeLogger.error("discord_monitor_notification_failed", numericUserId, deliveryResult.statusCode, deliveryResult.error);
   }
 }
 
@@ -8542,7 +7696,7 @@ async function sendSlackStatusNotificationForMonitorChange({
 
   const deliveryResult = await postSlackWebhook(webhookUrl, payload);
   if (!deliveryResult.ok) {
-    console.error("slack_monitor_notification_failed", numericUserId, deliveryResult.statusCode, deliveryResult.error);
+    runtimeLogger.error("slack_monitor_notification_failed", numericUserId, deliveryResult.statusCode, deliveryResult.error);
   }
 }
 
@@ -8595,7 +7749,7 @@ async function sendWebhookStatusNotificationForMonitorChange({
     secret,
   });
   if (!deliveryResult.ok) {
-    console.error(
+    runtimeLogger.error(
       "generic_webhook_monitor_notification_failed",
       numericUserId,
       deliveryResult.statusCode,
@@ -8618,7 +7772,7 @@ async function handleAccountNotificationsGet(req, res) {
 
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(account) });
   } catch (error) {
-    console.error("account_notifications_get_failed", error);
+    runtimeLogger.error("account_notifications_get_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8706,7 +7860,7 @@ async function handleAccountEmailNotificationUpsert(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
   } catch (error) {
-    console.error("account_email_notification_upsert_failed", error);
+    runtimeLogger.error("account_email_notification_upsert_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8724,7 +7878,7 @@ async function handleAccountEmailNotificationDelete(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
   } catch (error) {
-    console.error("account_email_notification_delete_failed", error);
+    runtimeLogger.error("account_email_notification_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8771,7 +7925,7 @@ async function handleAccountEmailNotificationTest(req, res) {
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("account_email_notification_test_failed", error?.code || error?.message || error);
+    runtimeLogger.error("account_email_notification_test_failed", error?.code || error?.message || error);
     sendJson(res, 502, { ok: false, error: "delivery failed" });
   }
 }
@@ -8806,7 +7960,7 @@ async function handleAccountEmailNotificationUnsubscribe(req, res, url) {
     });
     res.end(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Erfolgreich abgemeldet</title><body style="font-family:Segoe UI,Roboto,Arial,sans-serif;padding:28px;background:#f4f7fb;color:#18273a;"><h1>Abmeldung erfolgreich</h1><p>E-Mail-Benachrichtigungen wurden deaktiviert.</p></body></html>`);
   } catch (error) {
-    console.error("account_email_notification_unsubscribe_failed", parsed.userId, error);
+    runtimeLogger.error("account_email_notification_unsubscribe_failed", parsed.userId, error);
     if (isPost) {
       sendJson(res, 500, { ok: false, error: "internal error" });
       return;
@@ -8879,7 +8033,7 @@ async function handleAccountDiscordNotificationUpsert(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
   } catch (error) {
-    console.error("account_discord_notification_upsert_failed", error);
+    runtimeLogger.error("account_discord_notification_upsert_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8898,7 +8052,7 @@ async function handleAccountDiscordNotificationDelete(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
   } catch (error) {
-    console.error("account_discord_notification_delete_failed", error);
+    runtimeLogger.error("account_discord_notification_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -8944,7 +8098,7 @@ async function handleAccountDiscordNotificationTest(req, res) {
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("account_discord_notification_test_failed", error);
+    runtimeLogger.error("account_discord_notification_test_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9009,7 +8163,7 @@ async function handleAccountSlackNotificationUpsert(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
   } catch (error) {
-    console.error("account_slack_notification_upsert_failed", error);
+    runtimeLogger.error("account_slack_notification_upsert_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9027,7 +8181,7 @@ async function handleAccountSlackNotificationDelete(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
   } catch (error) {
-    console.error("account_slack_notification_delete_failed", error);
+    runtimeLogger.error("account_slack_notification_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9070,7 +8224,7 @@ async function handleAccountSlackNotificationTest(req, res) {
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("account_slack_notification_test_failed", error);
+    runtimeLogger.error("account_slack_notification_test_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9154,7 +8308,7 @@ async function handleAccountWebhookNotificationUpsert(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || account) });
   } catch (error) {
-    console.error("account_webhook_notification_upsert_failed", error);
+    runtimeLogger.error("account_webhook_notification_upsert_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9173,7 +8327,7 @@ async function handleAccountWebhookNotificationDelete(req, res) {
     const updated = await getUserNotificationSettingsById(user.id);
     sendJson(res, 200, { ok: true, data: toAccountNotificationsPayload(updated || {}) });
   } catch (error) {
-    console.error("account_webhook_notification_delete_failed", error);
+    runtimeLogger.error("account_webhook_notification_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9220,7 +8374,7 @@ async function handleAccountWebhookNotificationTest(req, res) {
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("account_webhook_notification_test_failed", error);
+    runtimeLogger.error("account_webhook_notification_test_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9249,7 +8403,7 @@ async function handleAccountSessionRevoke(req, res, sessionId) {
 
     sendJson(res, 200, { ok: true, currentTerminated });
   } catch (error) {
-    console.error("account_session_revoke_failed", error);
+    runtimeLogger.error("account_session_revoke_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9262,7 +8416,7 @@ async function handleAccountRevokeOtherSessions(req, res) {
     const revoked = await deleteSessionsByUserIdExcept(user.id, req.sessionId);
     sendJson(res, 200, { ok: true, revoked });
   } catch (error) {
-    console.error("account_revoke_other_sessions_failed", error);
+    runtimeLogger.error("account_revoke_other_sessions_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9327,7 +8481,7 @@ async function handleAccountPasswordChange(req, res) {
     const revoked = await deleteSessionsByUserIdExcept(user.id, req.sessionId);
     sendJson(res, 200, { ok: true, revoked });
   } catch (error) {
-    console.error("account_password_change_failed", error);
+    runtimeLogger.error("account_password_change_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9437,7 +8591,7 @@ async function handleAccountDelete(req, res) {
       }
       connection.release();
     }
-    console.error("account_delete_failed", error);
+    runtimeLogger.error("account_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9862,7 +9016,7 @@ async function handleOwnerOverview(req, res) {
       },
     });
   } catch (error) {
-    console.error("owner_overview_failed", error);
+    runtimeLogger.error("owner_overview_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9885,7 +9039,7 @@ async function handleOwnerMonitors(req, res, url) {
       },
     });
   } catch (error) {
-    console.error("owner_monitors_failed", error);
+    runtimeLogger.error("owner_monitors_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -9973,7 +9127,7 @@ async function handleOwnerSecurity(req, res) {
       },
     });
   } catch (error) {
-    console.error("owner_security_failed", error);
+    runtimeLogger.error("owner_security_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -10053,7 +9207,7 @@ async function handleOwnerDbStorage(req, res, url) {
       },
     });
   } catch (error) {
-    console.error("owner_db_storage_failed", error);
+    runtimeLogger.error("owner_db_storage_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -10190,7 +9344,7 @@ async function handleOwnerEmailTest(req, res) {
       },
     });
   } catch (error) {
-    console.error("owner_email_test_failed", error?.code || error?.message || error);
+    runtimeLogger.error("owner_email_test_failed", error?.code || error?.message || error);
     sendJson(res, 500, {
       ok: false,
       error: "email send failed",
@@ -10198,173 +9352,30 @@ async function handleOwnerEmailTest(req, res) {
   }
 }
 
-async function handleCreateMonitor(req, res) {
-  const user = await requireAuth(req, res);
-  if (!user) return;
+const monitorWriteController = createMonitorWriteController({
+  requireAuth,
+  countMonitorsForUser,
+  monitorsPerUserMax: MONITORS_PER_USER_MAX,
+  sendJson,
+  readJsonBody,
+  decodeBase64UrlUtf8,
+  normalizeMonitorUrl,
+  validateMonitorTarget,
+  normalizeTargetValidationReasonForTelemetry,
+  runtimeTelemetry,
+  incrementCounterMap,
+  getDefaultMonitorName,
+  normalizeMonitorIntervalMs,
+  defaultMonitorIntervalMs: DEFAULT_MONITOR_INTERVAL_MS,
+  generateUniqueMonitorPublicId,
+  createMonitorForUser,
+  getMonitorByIdForUser,
+  pool,
+  toPublicMonitorId,
+  logger: runtimeLogger,
+});
 
-  const monitorCount = await countMonitorsForUser(user.id);
-  if (monitorCount >= MONITORS_PER_USER_MAX) {
-    sendJson(res, 429, { ok: false, error: "monitor limit reached" });
-    return;
-  }
-
-  let requestUrl;
-  try {
-    requestUrl = new URL(req.url || "/api/monitors", "http://localhost");
-  } catch (error) {
-    requestUrl = new URL("/api/monitors", "http://localhost");
-  }
-
-  const pathMatch = requestUrl.pathname.match(
-    /^\/(?:api\/)?(?:monitor-create|create-monitor)\/([A-Za-z0-9_-]{1,4096})(?:\/([A-Za-z0-9_-]{1,1024}))?\/?$/
-  );
-  const pathUrlB64 = pathMatch ? String(pathMatch[1] || "").trim() : "";
-  const pathNameB64 = pathMatch ? String(pathMatch[2] || "").trim() : "";
-
-  const queryUrlB64 = String(requestUrl.searchParams.get("u") || requestUrl.searchParams.get("url_b64") || "").trim();
-  const queryUrlRaw = String(requestUrl.searchParams.get("url") || "").trim();
-  const queryNameB64 = String(requestUrl.searchParams.get("n") || requestUrl.searchParams.get("name_b64") || "").trim();
-  const queryNameRaw = String(requestUrl.searchParams.get("name") || "").trim();
-  const queryHasMonitorInput = Boolean(queryUrlB64 || queryUrlRaw || pathUrlB64);
-
-  let body = {};
-  try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    if (!queryHasMonitorInput) {
-      sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
-      return;
-    }
-  }
-
-  const decodedUrl = decodeBase64UrlUtf8(body?.url_b64, 4096);
-  const decodedPathUrl = decodeBase64UrlUtf8(pathUrlB64, 4096);
-  const decodedQueryUrl = decodeBase64UrlUtf8(queryUrlB64, 4096);
-  const bodyRawUrl = typeof body?.url === "string" ? body.url.trim() : "";
-  const rawUrlInput = bodyRawUrl || decodedUrl || queryUrlRaw || decodedQueryUrl || decodedPathUrl;
-  const normalizedUrl = normalizeMonitorUrl(rawUrlInput);
-  if (!normalizedUrl) {
-    sendJson(res, 400, { ok: false, error: "invalid input" });
-    return;
-  }
-
-  const targetValidation = await validateMonitorTarget(normalizedUrl, { useCache: true });
-  if (!targetValidation.allowed) {
-    const normalizedReason = normalizeTargetValidationReasonForTelemetry(targetValidation.reason);
-
-    // DNS-Aussetzer beim Anlegen sollen nicht hart blockieren.
-    // Laufende Checks bleiben trotzdem durch die Policy abgesichert.
-    if (normalizedReason !== "dns_unresolved") {
-      runtimeTelemetry.security.monitorTargetBlocked += 1;
-      incrementCounterMap(runtimeTelemetry.security.monitorTargetBlockReasons, normalizedReason);
-      sendJson(res, 400, { ok: false, error: "target blocked", reason: normalizedReason });
-      return;
-    }
-  }
-
-  const decodedName = decodeBase64UrlUtf8(body?.name_b64, 512);
-  const decodedPathName = decodeBase64UrlUtf8(pathNameB64, 512);
-  const decodedQueryName = decodeBase64UrlUtf8(queryNameB64, 512);
-  const bodyRawName = typeof body?.name === "string" ? body.name.trim() : "";
-  const requestedName = bodyRawName || decodedName || queryNameRaw || decodedQueryName || decodedPathName;
-  const monitorName = (requestedName || getDefaultMonitorName(normalizedUrl)).slice(0, 255);
-  const safeDefaultIntervalMs = normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
-  let intervalMs = safeDefaultIntervalMs;
-
-  if (Object.prototype.hasOwnProperty.call(body, "intervalMs") || Object.prototype.hasOwnProperty.call(body, "interval_ms")) {
-    const rawInterval = Object.prototype.hasOwnProperty.call(body, "intervalMs") ? body.intervalMs : body.interval_ms;
-    const numeric = Number(rawInterval);
-    if (!Number.isFinite(numeric)) {
-      sendJson(res, 400, { ok: false, error: "invalid input" });
-      return;
-    }
-    intervalMs = normalizeMonitorIntervalMs(numeric, safeDefaultIntervalMs);
-  }
-
-  try {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const publicId = await generateUniqueMonitorPublicId();
-
-      try {
-        await createMonitorForUser({
-          publicId,
-          userId: user.id,
-          name: monitorName,
-          url: normalizedUrl,
-          targetUrl: normalizedUrl,
-          intervalMs,
-        });
-
-        sendJson(res, 201, { ok: true, id: publicId });
-        return;
-      } catch (error) {
-        if (error?.code === "ER_DUP_ENTRY") {
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    throw new Error("monitor_public_id_generation_failed");
-  } catch (error) {
-    console.error("create_monitor_failed", error);
-    sendJson(res, 500, { ok: false, error: "internal error" });
-  }
-}
-
-async function handleDeleteMonitor(req, res, monitorId) {
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
-  const monitor = await getMonitorByIdForUser(user.id, monitorId);
-  if (!monitor) {
-    sendJson(res, 404, { ok: false, error: "not found" });
-    return;
-  }
-
-  let connection = null;
-  try {
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-
-    // Explicit cleanup keeps data consistent even when old DB instances miss some FKs.
-    await connection.query("DELETE FROM monitor_daily_error_codes WHERE monitor_id = ?", [monitor.id]);
-    await connection.query("DELETE FROM monitor_daily_stats WHERE monitor_id = ?", [monitor.id]);
-    await connection.query("DELETE FROM monitor_probe_daily_error_codes WHERE monitor_id = ?", [monitor.id]);
-    await connection.query("DELETE FROM monitor_probe_daily_stats WHERE monitor_id = ?", [monitor.id]);
-    await connection.query("DELETE FROM monitor_probe_checks WHERE monitor_id = ?", [monitor.id]);
-    await connection.query("DELETE FROM monitor_probe_state WHERE monitor_id = ?", [monitor.id]);
-    await connection.query("DELETE FROM monitor_checks WHERE monitor_id = ?", [monitor.id]);
-    const [deleteMonitorResult] = await connection.query("DELETE FROM monitors WHERE id = ? AND user_id = ? LIMIT 1", [
-      monitor.id,
-      user.id,
-    ]);
-    if (!Number(deleteMonitorResult?.affectedRows || 0)) {
-      await connection.rollback();
-      connection.release();
-      connection = null;
-      sendJson(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-
-    await connection.commit();
-    connection.release();
-    connection = null;
-
-    sendJson(res, 200, { ok: true, deletedMonitorId: toPublicMonitorId(monitor) });
-  } catch (error) {
-    if (connection) {
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        // ignore rollback errors
-      }
-      connection.release();
-    }
-    console.error("delete_monitor_failed", error);
-    sendJson(res, 500, { ok: false, error: "internal error" });
-  }
-}
+const { handleCreateMonitor, handleDeleteMonitor } = monitorWriteController;
 
 async function handleMonitorHttpAssertionsGet(req, res, monitorId) {
   const user = await requireAuth(req, res);
@@ -10731,7 +9742,7 @@ async function handleMonitorMaintenancesList(req, res, monitorId) {
     const items = await listMaintenancesForMonitorId(monitor.id, { limit: 50 });
     sendJson(res, 200, { ok: true, data: buildMaintenancePayload(items) });
   } catch (error) {
-    console.error("monitor_maintenances_list_failed", error);
+    runtimeLogger.error("monitor_maintenances_list_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -10769,7 +9780,7 @@ async function handleMonitorMaintenanceCreate(req, res, monitorId) {
       sendJson(res, 400, { ok: false, error: "invalid target" });
       return;
     }
-    console.error("maintenance_domain_check_failed", error);
+    runtimeLogger.error("maintenance_domain_check_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
     return;
   }
@@ -10866,7 +9877,7 @@ async function handleMonitorMaintenanceCreate(req, res, monitorId) {
 
     sendJson(res, 201, { ok: true, data: payload });
   } catch (error) {
-    console.error("maintenance_create_failed", error);
+    runtimeLogger.error("maintenance_create_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -10908,7 +9919,7 @@ async function handleMonitorMaintenanceCancel(req, res, monitorId, maintenanceId
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("maintenance_cancel_failed", error);
+    runtimeLogger.error("maintenance_cancel_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11177,7 +10188,7 @@ async function handleGameAgentPairingCreate(req, res) {
       sendJson(res, 400, { ok: false, error: "invalid input" });
       return;
     }
-    console.error("game_agent_pairing_create_failed", error);
+    runtimeLogger.error("game_agent_pairing_create_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11197,7 +10208,7 @@ async function handleGameAgentPairingsList(req, res, url) {
     const pairings = await listGameAgentPairingsForUser(user.id, game);
     sendJson(res, 200, { ok: true, data: pairings });
   } catch (error) {
-    console.error("game_agent_pairing_list_failed", error);
+    runtimeLogger.error("game_agent_pairing_list_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11223,7 +10234,7 @@ async function handleGameAgentSessionsList(req, res, url) {
       },
     });
   } catch (error) {
-    console.error("game_agent_sessions_list_failed", error);
+    runtimeLogger.error("game_agent_sessions_list_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11258,7 +10269,7 @@ async function handleGameAgentSessionRevoke(req, res, publicId) {
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("game_agent_session_revoke_failed", error);
+    runtimeLogger.error("game_agent_session_revoke_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11495,7 +10506,7 @@ async function handleGameAgentLink(req, res) {
       }
       connection.release();
     }
-    console.error("game_agent_link_failed", error);
+    runtimeLogger.error("game_agent_link_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11568,7 +10579,7 @@ async function handleGameAgentHeartbeat(req, res) {
       },
     });
   } catch (error) {
-    console.error("game_agent_heartbeat_failed", error);
+    runtimeLogger.error("game_agent_heartbeat_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11609,7 +10620,7 @@ async function handleGameAgentDisconnect(req, res) {
 
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    console.error("game_agent_disconnect_failed", error);
+    runtimeLogger.error("game_agent_disconnect_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -11786,7 +10797,7 @@ async function compactClosedDays() {
     try {
       await compactMonitorDay(monitorId, dayKey);
     } catch (error) {
-      console.error("daily_compaction_failed", monitorId, dayKey, error);
+      runtimeLogger.error("daily_compaction_failed", monitorId, dayKey, error);
     }
   }
 }
@@ -11965,7 +10976,7 @@ async function compactProbeClosedDays() {
     try {
       await compactProbeMonitorDay(monitorId, probeId, dayKey);
     } catch (error) {
-      console.error("probe_daily_compaction_failed", monitorId, probeId, dayKey, error);
+      runtimeLogger.error("probe_daily_compaction_failed", monitorId, probeId, dayKey, error);
     }
   }
 }
@@ -12900,7 +11911,7 @@ async function runWithConcurrency(items, concurrency, workerFn) {
       try {
         await workerFn(items[current]);
       } catch (error) {
-        console.error("monitor_check_failed", error);
+        runtimeLogger.error("monitor_check_failed", error);
       }
     }
   });
@@ -12946,7 +11957,7 @@ async function evaluateAllMonitorsOfflineFailsafe(options = {}) {
 
   allMonitorsOfflineShutdownTriggered = true;
   const exitCode = 78;
-  console.error("failsafe_all_monitors_offline_shutdown", {
+  runtimeLogger.error("failsafe_all_monitors_offline_shutdown", {
     totalActive,
     totalOffline,
     offlinePercent: roundTo(offlinePercent, 2),
@@ -13032,7 +12043,7 @@ async function refreshClusterLeadership() {
     return nextIsLeader;
   } catch (error) {
     if (clusterIsLeader) {
-      console.error("cluster_leader_refresh_failed", error?.code || error?.message || error);
+      runtimeLogger.error("cluster_leader_refresh_failed", error?.code || error?.message || error);
     }
     clusterIsLeader = false;
     return false;
@@ -13073,7 +12084,7 @@ async function runMonitorChecks() {
     try {
       await evaluateAllMonitorsOfflineFailsafe({ hadDueMonitors: true });
     } catch (error) {
-      console.error("failsafe_all_monitors_offline_check_failed", error);
+      runtimeLogger.error("failsafe_all_monitors_offline_check_failed", error);
     }
   } finally {
     const finishedAt = Date.now();
@@ -14202,177 +13213,116 @@ async function getMetricsForMonitorAtLocation(monitor, location) {
   return getMetricsForMonitor(monitor);
 }
 
-async function handleRequest(req, res) {
-  let url;
-  try {
-    url = new URL(req.url || "/", "http://localhost");
-  } catch (error) {
-    sendJson(res, 400, { ok: false, error: "bad request" });
-    return;
-  }
-  const method = (req.method || "GET").toUpperCase();
-  const pathname = url.pathname;
+const runtimeHandlers = {
+  handleAuthDiscordStart,
+  handleAuthDiscordCallback,
+  handleAuthGithubStart,
+  handleAuthGithubCallback,
+  handleAuthGoogleStart,
+  handleAuthGoogleCallback,
+  handleAuthRegister,
+  handleAuthLogin,
+  handleAuthLoginVerify,
+  handleAuthLoginVerifyResend,
+  handleAuthLogout,
+  handleAuthLogoutAll,
+  handleAccountSessionsList,
+  handleAccountConnectionsList,
+  handleAccountDomainsList,
+  handleAccountDomainChallengeCreate,
+  handleAccountDomainVerify,
+  handleAccountNotificationsGet,
+  handleAccountBillingGet,
+  handleAccountDiscordNotificationUpsert,
+  handleAccountEmailNotificationUpsert,
+  handleAccountSlackNotificationUpsert,
+  handleAccountWebhookNotificationUpsert,
+  handleAccountBillingCheckout,
+  handleAccountBillingPortal,
+  handleAccountDiscordNotificationDelete,
+  handleAccountEmailNotificationDelete,
+  handleAccountSlackNotificationDelete,
+  handleAccountWebhookNotificationDelete,
+  handleAccountDiscordNotificationTest,
+  handleAccountEmailNotificationTest,
+  handleAccountSlackNotificationTest,
+  handleAccountWebhookNotificationTest,
+  handleAccountRevokeOtherSessions,
+  handleAccountSessionRevoke,
+  handleAccountDomainDelete,
+  handleAccountPasswordChange,
+  handleAccountDelete,
+  handleGameAgentPairingsList,
+  handleGameAgentPairingCreate,
+  handleGameAgentSessionsList,
+  handleGameAgentSessionRevoke,
+  handleGameAgentLink,
+  handleGameAgentHeartbeat,
+  handleGameAgentDisconnect,
+  handleOwnerOverview,
+  handleOwnerMonitors,
+  handleOwnerSecurity,
+  handleOwnerDbStorage,
+  handleOwnerEmailTest,
+  handleCreateMonitor,
+  handleGameMonitorMinecraftStatus,
+  handleMonitorFavicon,
+  handleMonitorHttpAssertionsGet,
+  handleMonitorHttpAssertionsUpdate,
+  handleMonitorIntervalUpdate,
+  handleMonitorMaintenancesList,
+  handleMonitorMaintenanceCreate,
+  handleMonitorMaintenanceCancel,
+  handleDeleteMonitor,
+  handleStripeWebhook,
+  handleAccountEmailNotificationUnsubscribe,
+};
 
-  const systemHandled = await handleSystemRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    url,
-    handlers: {
-      handleStripeWebhook,
-      handleAccountEmailNotificationUnsubscribe,
-    },
-    utilities: {
-      serveStaticFile,
-      sendJson,
-    },
-  });
-  if (systemHandled) {
-    return;
-  }
+const runtimeUtilities = {
+  enforceAuthRateLimit,
+  sendJson,
+  requireAuth,
+  getNextPathForUser,
+  userToResponse,
+  listProbesForUser,
+  parseMonitorLocationParam,
+  listMonitorsForUserAtProbe,
+  listMonitorsForUser,
+  hasMonitorCreateRequestHeader,
+  isValidOrigin,
+  getIncidentsForUser,
+  getMonitorByIdForUser,
+  getMetricsForMonitorAtLocation,
+  serializeMonitorRow,
+  getMetricsForMonitor,
+  getPublicMonitorByIdentifier,
+  getLatestMonitorForUser,
+  getDefaultPublicMonitor,
+  getLatestPublicMonitor,
+  toPublicMonitorId,
+  isAllowedPublicStatusIdentifier,
+  sendRedirect,
+  serveStaticFile,
+  requireOwner,
+};
 
-  const isGameAgentIngestPath =
-    pathname === "/api/game-agent/link" ||
-    pathname === "/api/game-agent/heartbeat" ||
-    pathname === "/api/game-agent/disconnect";
-  const isEmailUnsubscribePath = pathname === "/api/account/notifications/email/unsubscribe";
-  const requiresOriginValidation =
-    (pathname.startsWith("/api/") && !isGameAgentIngestPath && !isEmailUnsubscribePath) ||
-    pathname === "/monitor-create" ||
-    pathname === "/create-monitor" ||
-    pathname.startsWith("/monitor-create/") ||
-    pathname.startsWith("/create-monitor/");
-  if (isStateChangingMethod(method) && requiresOriginValidation && !isValidOrigin(req)) {
-    runtimeTelemetry.security.invalidOriginBlocked += 1;
-    sendJson(res, 403, { ok: false, error: "forbidden" });
-    return;
-  }
+const runtimeConstants = {
+  MONITOR_CREATE_GET_ENABLED,
+  INCIDENT_LOOKBACK_DAYS,
+  PUBLIC_STATUS_ALLOW_NUMERIC_ID,
+};
 
-  const routed = await handleDispatchedRoutes({
-    method,
-    pathname,
-    req,
-    res,
-    url,
-    handlers: {
-      handleAuthDiscordStart,
-      handleAuthDiscordCallback,
-      handleAuthGithubStart,
-      handleAuthGithubCallback,
-      handleAuthGoogleStart,
-      handleAuthGoogleCallback,
-      handleAuthRegister,
-      handleAuthLogin,
-      handleAuthLoginVerify,
-      handleAuthLoginVerifyResend,
-      handleAuthLogout,
-      handleAuthLogoutAll,
-      handleAccountSessionsList,
-      handleAccountConnectionsList,
-      handleAccountDomainsList,
-      handleAccountDomainChallengeCreate,
-      handleAccountDomainVerify,
-      handleAccountNotificationsGet,
-      handleAccountBillingGet,
-      handleAccountDiscordNotificationUpsert,
-      handleAccountEmailNotificationUpsert,
-      handleAccountSlackNotificationUpsert,
-      handleAccountWebhookNotificationUpsert,
-      handleAccountBillingCheckout,
-      handleAccountBillingPortal,
-      handleAccountDiscordNotificationDelete,
-      handleAccountEmailNotificationDelete,
-      handleAccountSlackNotificationDelete,
-      handleAccountWebhookNotificationDelete,
-      handleAccountDiscordNotificationTest,
-      handleAccountEmailNotificationTest,
-      handleAccountSlackNotificationTest,
-      handleAccountWebhookNotificationTest,
-      handleAccountRevokeOtherSessions,
-      handleAccountSessionRevoke,
-      handleAccountDomainDelete,
-      handleAccountPasswordChange,
-      handleAccountDelete,
-      handleGameAgentPairingsList,
-      handleGameAgentPairingCreate,
-      handleGameAgentSessionsList,
-      handleGameAgentSessionRevoke,
-      handleGameAgentLink,
-      handleGameAgentHeartbeat,
-      handleGameAgentDisconnect,
-      handleOwnerOverview,
-      handleOwnerMonitors,
-      handleOwnerSecurity,
-      handleOwnerDbStorage,
-      handleOwnerEmailTest,
-      handleCreateMonitor,
-      handleGameMonitorMinecraftStatus,
-      handleMonitorFavicon,
-      handleMonitorHttpAssertionsGet,
-      handleMonitorHttpAssertionsUpdate,
-      handleMonitorIntervalUpdate,
-      handleMonitorMaintenancesList,
-      handleMonitorMaintenanceCreate,
-      handleMonitorMaintenanceCancel,
-      handleDeleteMonitor,
-    },
-    utilities: {
-      enforceAuthRateLimit,
-      sendJson,
-      requireAuth,
-      getNextPathForUser,
-      userToResponse,
-      listProbesForUser,
-      parseMonitorLocationParam,
-      listMonitorsForUserAtProbe,
-      listMonitorsForUser,
-      hasMonitorCreateRequestHeader,
-      isValidOrigin,
-      getIncidentsForUser,
-      getMonitorByIdForUser,
-      getMetricsForMonitorAtLocation,
-      serializeMonitorRow,
-      getMetricsForMonitor,
-      getPublicMonitorByIdentifier,
-      getLatestMonitorForUser,
-      getDefaultPublicMonitor,
-      getLatestPublicMonitor,
-      toPublicMonitorId,
-      isAllowedPublicStatusIdentifier,
-      sendRedirect,
-      serveStaticFile,
-      requireOwner,
-    },
-    constants: {
-      MONITOR_CREATE_GET_ENABLED,
-      INCIDENT_LOOKBACK_DAYS,
-      PUBLIC_STATUS_ALLOW_NUMERIC_ID,
-    },
-  });
-  if (routed) {
-    return;
-  }
-
-  sendJson(res, 404, { ok: false, error: "not found" });
-}
-
-function createLegacyRequestHandler() {
-  return async (req, res) => {
-    applySecurityHeaders(res);
-
-    try {
-      await handleRequest(req, res);
-    } catch (error) {
-      console.error("request_failed", error);
-      if (!res.headersSent) {
-        sendJson(res, 500, { ok: false, error: "internal error" });
-        return;
-      }
-      res.end();
-    }
-  };
-}
+const { createLegacyRequestHandler } = createLegacyRequestHandlerFactory({
+  applySecurityHeaders,
+  sendJson,
+  runtimeTelemetry,
+  isStateChangingMethod,
+  isValidOrigin,
+  handlers: runtimeHandlers,
+  utilities: runtimeUtilities,
+  constants: runtimeConstants,
+  logger: runtimeLogger,
+});
 
 async function startLegacyRuntime(options = {}) {
   const createHttpServer = typeof options.createHttpServer === "function" ? options.createHttpServer : null;
@@ -14384,90 +13334,39 @@ async function startLegacyRuntime(options = {}) {
     : null;
 
   await initDb();
-  await refreshClusterLeadership();
-  if (CLUSTER_ENABLED) {
-    setInterval(() => {
-      refreshClusterLeadership().catch((error) => {
-        console.error("cluster_leader_refresh_failed", error);
-      });
-    }, CLUSTER_LEASE_RENEW_MS);
-  }
-
-  await runProbeChecks();
-  await runMonitorChecks();
-  if (shouldRunLeaderTasks()) {
-    await cleanupExpiredSessions();
-    await cleanupExpiredAuthEmailChallenges();
-    await cleanupGameAgentPairings();
-    await cleanupOldChecks();
-    await compactClosedDays();
-    await compactProbeClosedDays();
-  }
-
-  setInterval(() => {
-    const now = Date.now();
-    const driftMs = Math.max(0, now - monitorSchedulerExpectedAt);
-    pushNumericSample(runtimeTelemetry.scheduler.driftMsSamples, driftMs);
-    monitorSchedulerExpectedAt = now + CHECK_SCHEDULER_MS;
-
-    (async () => {
-      try {
-        await runProbeChecks();
-      } catch (error) {
-        console.error("probe_check_cycle_failed", error);
-      }
-
-      try {
-        await runMonitorChecks();
-      } catch (error) {
-        console.error("monitor_check_cycle_failed", error);
-      }
-    })();
-  }, CHECK_SCHEDULER_MS);
-
-  setInterval(() => {
-    if (!shouldRunLeaderTasks()) return;
-
-    cleanupOldChecks().catch((error) => {
-      console.error("check_cleanup_failed", error);
-    });
-    cleanupExpiredSessions().catch((error) => {
-      console.error("session_cleanup_failed", error);
-    });
-    cleanupGameAgentPairings().catch((error) => {
-      console.error("game_agent_pairing_cleanup_failed", error);
-    });
-  }, MAINTENANCE_INTERVAL_MS);
-
-  setInterval(() => {
-    if (!shouldRunLeaderTasks()) return;
-
-    cleanupExpiredAuthEmailChallenges().catch((error) => {
-      console.error("auth_email_challenge_cleanup_failed", error);
-    });
-  }, AUTH_EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS);
-
-  setInterval(() => {
-    if (!shouldRunLeaderTasks()) return;
-
-    compactClosedDays().catch((error) => {
-      console.error("daily_compaction_cycle_failed", error);
-    });
-    compactProbeClosedDays().catch((error) => {
-      console.error("probe_daily_compaction_cycle_failed", error);
-    });
-  }, DAILY_COMPACTION_INTERVAL_MS);
+  const backgroundJobs = startBackgroundJobs({
+    clusterEnabled: CLUSTER_ENABLED,
+    clusterLeaseRenewMs: CLUSTER_LEASE_RENEW_MS,
+    refreshClusterLeadership,
+    runProbeChecks,
+    runMonitorChecks,
+    shouldRunLeaderTasks,
+    cleanupExpiredSessions,
+    cleanupExpiredAuthEmailChallenges,
+    cleanupGameAgentPairings,
+    cleanupOldChecks,
+    compactClosedDays,
+    compactProbeClosedDays,
+    checkSchedulerMs: CHECK_SCHEDULER_MS,
+    maintenanceIntervalMs: MAINTENANCE_INTERVAL_MS,
+    authEmailVerificationCleanupIntervalMs: AUTH_EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS,
+    dailyCompactionIntervalMs: DAILY_COMPACTION_INTERVAL_MS,
+    runtimeTelemetry,
+    pushNumericSample,
+    logger: runtimeLogger,
+  });
+  await backgroundJobs.initialize();
 
   if (HTTP_ENABLED && server) {
     await new Promise((resolve, reject) => {
       server.once("error", reject);
       server.listen(PORT, () => {
-        console.log(`Server listening on http://localhost:${PORT}`);
+        runtimeLogger.info("http_listen", { url: `http://localhost:${PORT}` });
         resolve();
       });
     });
   } else {
-    console.log("HTTP server disabled (APP_MODE=probe)");
+    runtimeLogger.info("http_disabled_probe_mode");
   }
 
   return { server, requestHandler };
