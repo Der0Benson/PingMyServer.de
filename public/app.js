@@ -49,6 +49,12 @@ const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
 const incidentsCard = document.querySelector(".incidents-side-card");
+const sidebarEl = document.getElementById("dashboard-sidebar");
+const mobileNavToggle = document.getElementById("mobile-nav-toggle");
+const mobileNavBackdrop = document.getElementById("mobile-nav-backdrop");
+const mobileNavQuery = typeof window !== "undefined" && typeof window.matchMedia === "function"
+  ? window.matchMedia("(max-width: 900px)")
+  : null;
 
 const assertionsForm = document.getElementById("assertions-form");
 const assertionsEnabledInput = document.getElementById("assertions-enabled");
@@ -98,6 +104,77 @@ const rtf = () =>
 let assertionsDirty = false;
 let assertionsBoundMonitorId = null;
 let maintenanceBoundMonitorId = null;
+
+function isMobileSidebarViewport() {
+  return !!mobileNavQuery && !!mobileNavQuery.matches;
+}
+
+function setMobileSidebarOpen(open) {
+  const shouldOpen = !!open && isMobileSidebarViewport();
+  document.body.classList.toggle("mobile-sidebar-open", shouldOpen);
+
+  if (mobileNavToggle) {
+    mobileNavToggle.classList.toggle("is-open", shouldOpen);
+    mobileNavToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  }
+
+  if (!mobileNavBackdrop) return;
+  if (shouldOpen) {
+    mobileNavBackdrop.removeAttribute("hidden");
+  } else {
+    mobileNavBackdrop.setAttribute("hidden", "");
+  }
+}
+
+function closeMobileSidebar() {
+  setMobileSidebarOpen(false);
+}
+
+function setupMobileSidebar() {
+  if (!sidebarEl || !mobileNavToggle || !mobileNavBackdrop) return;
+
+  setMobileSidebarOpen(false);
+
+  mobileNavToggle.addEventListener("click", () => {
+    const isOpen = mobileNavToggle.classList.contains("is-open");
+    setMobileSidebarOpen(!isOpen);
+  });
+
+  mobileNavBackdrop.addEventListener("click", () => {
+    closeMobileSidebar();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    closeMobileSidebar();
+  });
+
+  const sideNavLinks = Array.from(sidebarEl.querySelectorAll(".side-nav a"));
+  sideNavLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      closeMobileSidebar();
+    });
+  });
+
+  if (monitorList) {
+    monitorList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!target.closest(".monitor-nav-item")) return;
+      closeMobileSidebar();
+    });
+  }
+
+  if (mobileNavQuery && typeof mobileNavQuery.addEventListener === "function") {
+    mobileNavQuery.addEventListener("change", () => {
+      if (!isMobileSidebarViewport()) closeMobileSidebar();
+    });
+  } else {
+    window.addEventListener("resize", () => {
+      if (!isMobileSidebarViewport()) closeMobileSidebar();
+    });
+  }
+}
 
 function setAssertionsMessage(message, variant = "") {
   if (!assertionsMessageEl) return;
@@ -2076,6 +2153,7 @@ async function init() {
   const authenticated = await ensureAuthenticated();
   if (!authenticated) return;
 
+  setupMobileSidebar();
   activeLocation = readStoredLocation();
   availableProbes = await fetchProbes();
   renderLocationPicker();

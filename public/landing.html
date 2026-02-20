@@ -38,23 +38,23 @@
     <link rel="stylesheet" href="/assets/landing.css" />
     <link rel="stylesheet" href="/assets/i18n.css" />
 </head>
-<body class="gradient-bg text-white">
+<body class="landing-page gradient-bg text-white">
     
     <!-- Navigation -->
-    <nav class="fixed w-full top-0 z-50 glass-effect">
+    <nav class="fixed w-full top-0 z-50 landing-nav-shell">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
+            <div class="landing-nav-main">
                 <a class="landing-brand" href="/" aria-label="PingMyServer Startseite">
                     <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
                     <span class="landing-brand-name">PingMyServer.de</span>
                 </a>
-                <div class="hidden md:flex space-x-8">
+                <div class="landing-nav-links hidden md:flex">
                     <a href="#features" class="hover:text-cyan-400 transition" data-i18n="landing.nav.features">Features</a>
                     <a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
                     <a href="#faq" class="hover:text-cyan-400 transition" data-i18n="landing.nav.faq">FAQ</a>
                     <a href="/status" class="hover:text-cyan-400 transition" data-i18n="landing.nav.status">Statusseite</a>
                 </div>
-                <div class="flex space-x-4 items-center">
+                <div class="landing-nav-actions">
                     <div class="lang-picker">
                         <span class="sr-only" data-i18n="common.language">Sprache</span>
                         <details class="lang-menu">
@@ -81,14 +81,52 @@
                     </div>
                     <a
                         id="landing-nav-login"
+                        data-landing-login
                         href="/login"
-                        class="text-sm hover:text-cyan-400 transition inline-flex items-center"
+                        class="landing-nav-login text-sm hover:text-cyan-400 transition inline-flex items-center"
                         data-i18n="landing.nav.login"
                     >Anmelden</a>
                     <a
                         id="landing-nav-primary-cta"
+                        data-landing-primary-cta
                         href="/login?mode=register"
-                        class="bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center"
+                        class="landing-nav-cta bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center"
+                        data-i18n="landing.nav.cta"
+                    >
+                        Kostenlos starten
+                    </a>
+                    <button
+                        id="landing-mobile-menu-toggle"
+                        class="landing-mobile-toggle"
+                        type="button"
+                        aria-controls="landing-mobile-menu"
+                        aria-expanded="false"
+                        aria-label="Navigation öffnen"
+                    >
+                        <span class="landing-mobile-toggle-line"></span>
+                        <span class="landing-mobile-toggle-line"></span>
+                        <span class="landing-mobile-toggle-line"></span>
+                    </button>
+                </div>
+            </div>
+            <div id="landing-mobile-menu" class="landing-mobile-menu" hidden>
+                <div class="landing-mobile-links">
+                    <a href="#features" data-landing-mobile-link data-i18n="landing.nav.features">Features</a>
+                    <a href="#preise" data-landing-mobile-link data-i18n="landing.nav.pricing">Preise</a>
+                    <a href="#faq" data-landing-mobile-link data-i18n="landing.nav.faq">FAQ</a>
+                    <a href="/status" data-landing-mobile-link data-i18n="landing.nav.status">Statusseite</a>
+                </div>
+                <div class="landing-mobile-actions">
+                    <a
+                        href="/login"
+                        data-landing-login
+                        class="landing-mobile-login"
+                        data-i18n="landing.nav.login"
+                    >Anmelden</a>
+                    <a
+                        href="/login?mode=register"
+                        data-landing-primary-cta
+                        class="landing-mobile-cta"
                         data-i18n="landing.nav.cta"
                     >
                         Kostenlos starten
@@ -99,7 +137,7 @@
     </nav>
 
     <!-- Hero Section -->
-    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+    <section class="landing-hero pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="grid lg:grid-cols-2 gap-12 items-center">
                 <div>
@@ -228,7 +266,7 @@
     </section>
 
     <!-- Social Proof Stats -->
-    <section class="py-16 px-4 sm:px-6 lg:px-8 border-y border-slate-700">
+    <section class="landing-social-proof py-16 px-4 sm:px-6 lg:px-8 border-y border-slate-700">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-8">
                 <h3 class="text-2xl font-bold mb-2" data-i18n="landing.social.h3">Built by developers, for developers</h3>
@@ -256,7 +294,7 @@
     </section>
 
     <!-- Features Section -->
-    <section id="features" class="py-20 px-4 sm:px-6 lg:px-8">
+    <section id="features" class="landing-features py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Alles, was du für professionelles Monitoring brauchst</h2>
@@ -349,7 +387,7 @@
     </section>
 
     <!-- Why We Built This -->
-    <section id="about" class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
+    <section id="about" class="landing-about py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4" data-i18n="landing.about.h2">Warum wir PingMyServer gebaut haben</h2>
@@ -413,7 +451,7 @@
     </section>
 
     <!-- Pricing Section -->
-    <section id="preise" class="py-20 px-4 sm:px-6 lg:px-8">
+    <section id="preise" class="landing-pricing py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4" data-i18n="landing.pricing.h2">Preise</h2>
@@ -581,7 +619,7 @@
     </section>
 
     <!-- FAQ Section -->
-    <section id="faq" class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
+    <section id="faq" class="landing-faq py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
         <div class="max-w-4xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4" data-i18n="landing.faq.h2">Häufige Fragen</h2>
@@ -703,7 +741,7 @@
         </div>
     </section>
 <!-- Final CTA -->
-    <section class="py-20 px-4 sm:px-6 lg:px-8">
+    <section class="landing-final-cta py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-4xl mx-auto text-center">
             <h2 class="text-5xl font-bold mb-6" data-i18n="landing.cta.h2">Bereit, Teil der Community zu werden?</h2>
             <p class="text-xl text-slate-300 mb-8">
@@ -723,7 +761,7 @@
     </section>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-700 py-12 px-4 sm:px-6 lg:px-8">
+    <footer class="landing-footer border-t border-slate-700 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
             <div class="grid md:grid-cols-4 gap-8 mb-8">
                 <div>

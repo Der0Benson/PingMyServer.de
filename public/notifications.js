@@ -6,6 +6,7 @@ const ownerLinks = Array.from(document.querySelectorAll("[data-owner-link]"));
 const emailForm = document.getElementById("email-form");
 const emailRecipientEl = document.getElementById("email-recipient");
 const emailCooldownMinutesEl = document.getElementById("email-cooldown-minutes");
+const emailLanguageEl = document.getElementById("email-language");
 const emailEnabledEl = document.getElementById("email-enabled");
 const emailStateBadgeEl = document.getElementById("email-state-badge");
 const emailRecipientMaskEl = document.getElementById("email-recipient-mask");
@@ -54,6 +55,7 @@ const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 const EMAIL_COOLDOWN_MIN_MINUTES = 1;
 const EMAIL_COOLDOWN_MAX_MINUTES = 1440;
 const EMAIL_COOLDOWN_DEFAULT_MINUTES = 15;
+const EMAIL_LANGUAGE_DEFAULT = "de";
 let user = null;
 let notificationsState = null;
 let billingState = null;
@@ -84,6 +86,20 @@ function normalizeEmailCooldownMinutes(value, fallback = EMAIL_COOLDOWN_DEFAULT_
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return safeFallback;
   return Math.max(EMAIL_COOLDOWN_MIN_MINUTES, Math.min(EMAIL_COOLDOWN_MAX_MINUTES, Math.round(numeric)));
+}
+
+function normalizeEmailLanguage(value, fallback = EMAIL_LANGUAGE_DEFAULT) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "de" || normalized.startsWith("de-")) return "de";
+  if (normalized === "en" || normalized.startsWith("en-")) return "en";
+
+  const normalizedFallback = String(fallback || "")
+    .trim()
+    .toLowerCase();
+  if (normalizedFallback === "en" || normalizedFallback.startsWith("en-")) return "en";
+  return "de";
 }
 
 function syncOwnerLinks() {
@@ -186,6 +202,9 @@ function renderEmailState(emailSettings) {
   const recipientMasked = String(data.recipientMasked || "").trim();
   const usingAccountEmail = !!data.usingAccountEmail;
   const cooldownMinutes = normalizeEmailCooldownMinutes(data.cooldownMinutes, EMAIL_COOLDOWN_DEFAULT_MINUTES);
+  const languageFallback =
+    I18N && typeof I18N.getLang === "function" ? String(I18N.getLang() || EMAIL_LANGUAGE_DEFAULT) : EMAIL_LANGUAGE_DEFAULT;
+  const emailLanguage = normalizeEmailLanguage(data.language, languageFallback);
 
   if (emailStateBadgeEl) {
     emailStateBadgeEl.classList.remove("connected", "disabled");
@@ -239,6 +258,11 @@ function renderEmailState(emailSettings) {
   if (emailCooldownMinutesEl) {
     emailCooldownMinutesEl.disabled = !available;
     emailCooldownMinutesEl.value = String(cooldownMinutes);
+  }
+
+  if (emailLanguageEl) {
+    emailLanguageEl.disabled = !available;
+    emailLanguageEl.value = emailLanguage;
   }
 
   if (testEmailButton) {
@@ -622,6 +646,10 @@ async function saveEmailSettings(event) {
     emailCooldownMinutesEl?.value,
     notificationsState?.email?.cooldownMinutes || EMAIL_COOLDOWN_DEFAULT_MINUTES
   );
+  const language = normalizeEmailLanguage(
+    emailLanguageEl?.value,
+    notificationsState?.email?.language || EMAIL_LANGUAGE_DEFAULT
+  );
 
   if (!available) {
     setPanelMessage(emailMessageEl, t("notifications.email.msg.smtp_missing", null, "SMTP is not configured."), "error");
@@ -643,6 +671,7 @@ async function saveEmailSettings(event) {
     const body = {
       email: recipient,
       cooldownMinutes,
+      language,
     };
     if (configured) {
       body.enabled = enabled;
@@ -668,6 +697,12 @@ async function saveEmailSettings(event) {
         setPanelMessage(
           emailMessageEl,
           t("notifications.email.msg.invalid_recipient", null, "Please enter a valid recipient email."),
+          "error"
+        );
+      } else if (payload?.error === "invalid language") {
+        setPanelMessage(
+          emailMessageEl,
+          t("notifications.email.msg.invalid_language", null, "Please choose a valid email language."),
           "error"
         );
       } else if (payload?.error === "smtp not configured") {

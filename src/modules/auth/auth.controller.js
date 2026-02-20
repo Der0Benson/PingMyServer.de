@@ -476,7 +476,11 @@ function createAuthController(dependencies = {}) {
             email,
             purpose: AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN,
           });
-          await sendAuthEmailChallenge(challenge, { email, id: result.insertId });
+          await sendAuthEmailChallenge(challenge, {
+            email,
+            id: result.insertId,
+            language: String(req?.headers?.["accept-language"] || "").trim(),
+          });
         } catch (error) {
           if (challenge?.token) {
             await deleteAuthEmailChallengeByToken(challenge.token, AUTH_EMAIL_VERIFICATION_PURPOSE_LOGIN).catch(() => {
@@ -537,7 +541,7 @@ function createAuthController(dependencies = {}) {
     try {
       const failure = await getAuthFailure(email);
       const [rows] = await pool.query(
-        "SELECT id, email, password_hash FROM users WHERE email = ? LIMIT 1",
+        "SELECT id, email, password_hash, notify_email_language FROM users WHERE email = ? LIMIT 1",
         [email]
       );
   
@@ -778,7 +782,11 @@ function createAuthController(dependencies = {}) {
         throw error;
       }
   
-      await sendAuthEmailChallenge(resent, { email: resent.email, id: resent.userId });
+      await sendAuthEmailChallenge(resent, {
+        email: resent.email,
+        id: resent.userId,
+        language: String(req?.headers?.["accept-language"] || "").trim(),
+      });
   
       sendJson(res, 200, {
         ok: true,

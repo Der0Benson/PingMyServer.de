@@ -27,8 +27,11 @@
   const monitor2Uptime = document.getElementById("landing-monitor-2-uptime");
   const alertTime = document.getElementById("landing-alert-time");
   const alertText = document.getElementById("landing-alert-text");
-  const navLoginLink = document.getElementById("landing-nav-login");
-  const navPrimaryCta = document.getElementById("landing-nav-primary-cta");
+  const navLoginLinks = Array.from(document.querySelectorAll("[data-landing-login]"));
+  const navPrimaryCtas = Array.from(document.querySelectorAll("[data-landing-primary-cta]"));
+  const mobileMenuToggle = document.getElementById("landing-mobile-menu-toggle");
+  const mobileMenu = document.getElementById("landing-mobile-menu");
+  const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
 
   const stateTextClasses = ["text-green-400", "text-orange-400", "text-slate-400"];
   const liveDotClasses = ["bg-green-400", "bg-yellow-500", "bg-slate-700"];
@@ -45,6 +48,53 @@
       button.setAttribute("aria-expanded", willOpen ? "true" : "false");
     });
   });
+
+  function setMobileMenuOpen(isOpen) {
+    if (!mobileMenu || !mobileMenuToggle) return;
+    mobileMenuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    mobileMenuToggle.classList.toggle("is-open", isOpen);
+    if (isOpen) {
+      mobileMenu.removeAttribute("hidden");
+      return;
+    }
+    mobileMenu.setAttribute("hidden", "");
+  }
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false);
+  }
+
+  if (mobileMenu && mobileMenuToggle) {
+    setMobileMenuOpen(false);
+
+    mobileMenuToggle.addEventListener("click", () => {
+      const isOpen = mobileMenuToggle.getAttribute("aria-expanded") === "true";
+      setMobileMenuOpen(!isOpen);
+    });
+
+    mobileMenuLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        closeMobileMenu();
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      if (mobileMenu.hasAttribute("hidden")) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (mobileMenu.contains(target) || mobileMenuToggle.contains(target)) return;
+      closeMobileMenu();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      closeMobileMenu();
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 768) closeMobileMenu();
+    });
+  }
 
   function asFiniteNumber(value) {
     const numeric = Number(value);
@@ -358,21 +408,24 @@
   }
 
   function renderNavigationAuthState(isAuthenticated) {
-    if (navLoginLink) {
-      navLoginLink.classList.toggle("hidden", isAuthenticated);
-      navLoginLink.setAttribute("aria-hidden", isAuthenticated ? "true" : "false");
+    navLoginLinks.forEach((link) => {
+      link.classList.toggle("hidden", isAuthenticated);
+      link.setAttribute("aria-hidden", isAuthenticated ? "true" : "false");
       if (isAuthenticated) {
-        navLoginLink.setAttribute("hidden", "");
+        link.setAttribute("hidden", "");
       } else {
-        navLoginLink.removeAttribute("hidden");
+        link.removeAttribute("hidden");
       }
-    }
+    });
 
-    if (!navPrimaryCta) return;
-    navPrimaryCta.setAttribute("href", isAuthenticated ? "/app" : "/login?mode=register");
-    navPrimaryCta.textContent = isAuthenticated
-      ? t("landing.nav.dashboard", null, "Go to dashboard")
-      : t("landing.nav.cta", null, "Start for free");
+    navPrimaryCtas.forEach((cta) => {
+      cta.setAttribute("href", isAuthenticated ? "/app" : "/login?mode=register");
+      cta.textContent = isAuthenticated
+        ? t("landing.nav.dashboard", null, "Go to dashboard")
+        : t("landing.nav.cta", null, "Start for free");
+    });
+
+    if (isAuthenticated) closeMobileMenu();
   }
 
   function uniqueMetrics(metricsList) {

@@ -10,6 +10,7 @@ function createAccountRepository(dependencies = {}) {
           notify_email_enabled,
           notify_email_address,
           notify_email_cooldown_minutes,
+          notify_email_language,
           notify_discord_enabled,
           notify_discord_webhook_url,
           notify_slack_enabled,

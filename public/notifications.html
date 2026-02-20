@@ -124,6 +124,13 @@
                   <span data-i18n="notifications.email.label_cooldown">Cooldown pro Monitor (Minuten)</span>
                   <input id="email-cooldown-minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" />
                 </label>
+                <label for="email-language">
+                  <span data-i18n="notifications.email.label_language">E-Mail Sprache</span>
+                  <select id="email-language">
+                    <option value="de" data-i18n="notifications.email.lang_de">Deutsch</option>
+                    <option value="en" data-i18n="notifications.email.lang_en">Englisch</option>
+                  </select>
+                </label>
                 <label class="check-row" for="email-enabled">
                   <input id="email-enabled" type="checkbox" />
                   <span data-i18n="notifications.email.enable">Benachrichtigungen aktivieren</span>
