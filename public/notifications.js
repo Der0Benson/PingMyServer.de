@@ -87,7 +87,7 @@ function normalizeEmailCooldownMinutes(value, fallback = EMAIL_COOLDOWN_DEFAULT_
 }
 
 function syncOwnerLinks() {
-  const isOwner = !!user?.isOwner;
+  const isOwner = user?.isOwner === true;
   for (const link of ownerLinks) {
     link.hidden = !isOwner;
   }
