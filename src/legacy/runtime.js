@@ -3061,6 +3061,79 @@ function isStatusUp(statusCode) {
   return UP_HTTP_CODES.includes(statusCode);
 }
 
+function parseHttpStatusCodeForIncident(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  const rounded = Math.round(numeric);
+  if (rounded < 100 || rounded > 599) return null;
+  return rounded;
+}
+
+function normalizeIncidentErrorCode(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw === "0") return "NO_RESPONSE";
+
+  if (/^\d+$/.test(raw)) {
+    const statusCode = parseHttpStatusCodeForIncident(raw);
+    return statusCode === null ? "NO_RESPONSE" : String(statusCode);
+  }
+
+  const compact = raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
+  return compact || "NO_RESPONSE";
+}
+
+function deriveIncidentErrorCode(statusCode, errorMessage) {
+  const parsedStatusCode = parseHttpStatusCodeForIncident(statusCode);
+  if (parsedStatusCode !== null) return String(parsedStatusCode);
+
+  const rawMessage = String(errorMessage || "").trim();
+  if (!rawMessage) return "NO_RESPONSE";
+
+  const normalized = rawMessage.toLowerCase();
+  const unexpectedStatusMatch = normalized.match(/unexpected_status:(\d{3})/);
+  if (unexpectedStatusMatch) {
+    const unexpectedStatusCode = parseHttpStatusCodeForIncident(Number(unexpectedStatusMatch[1]));
+    return unexpectedStatusCode === null ? "UNEXPECTED_STATUS" : String(unexpectedStatusCode);
+  }
+
+  if (normalized.includes("target blocked by security policy") || normalized.includes("target_blocked")) {
+    return "TARGET_BLOCKED";
+  }
+  if (normalized.includes("dns_unresolved") || normalized.includes("enotfound") || normalized.includes("eai_again")) {
+    return "DNS_UNRESOLVED";
+  }
+  if (normalized.includes("request_timeout") || normalized.includes("etimedout") || normalized.includes("timeout")) {
+    return "TIMEOUT";
+  }
+  if (normalized.includes("econnrefused")) return "CONNECTION_REFUSED";
+  if (normalized.includes("econnreset") || normalized.includes("socket hang up")) return "CONNECTION_RESET";
+  if (normalized.includes("ehostunreach") || normalized.includes("enetunreach") || normalized.includes("unreachable")) {
+    return "UNREACHABLE";
+  }
+  if (normalized.includes("certificate") || normalized.includes("cert_") || normalized.includes("tls")) return "TLS_ERROR";
+  if (normalized.includes("redirect_loop")) return "REDIRECT_LOOP";
+  if (normalized.includes("content_type_mismatch")) return "CONTENT_TYPE_MISMATCH";
+  if (normalized.includes("body_mismatch")) return "BODY_MISMATCH";
+  if (normalized.includes("invalid_url")) return "INVALID_URL";
+  if (normalized.includes("response_error")) return "RESPONSE_ERROR";
+  if (normalized.includes("request failed")) return "REQUEST_FAILED";
+
+  return normalizeIncidentErrorCode(rawMessage);
+}
+
+function serializeIncidentErrorCodeCounts(errorCodeCounts) {
+  return Array.from(errorCodeCounts.entries())
+    .map(([code, hits]) => ({
+      code: normalizeIncidentErrorCode(code),
+      hits: Math.max(0, Number(hits || 0)),
+    }))
+    .sort((a, b) => Number(b.hits || 0) - Number(a.hits || 0) || String(a.code).localeCompare(String(b.code)));
+}
+
 function ratioToStatus(ratio) {
   if (ratio >= 0.999) return "ok";
   if (ratio >= 0.97) return "warn";
@@ -9054,7 +9127,7 @@ async function compactMonitorDay(monitorId, dayKey) {
   const dayEnd = new Date(dayEndMs);
   const [rows] = await pool.query(
     `
-      SELECT checked_at, ok, response_ms, status_code
+      SELECT checked_at, ok, response_ms, status_code, error_message
       FROM monitor_checks
       WHERE monitor_id = ?
         AND checked_at >= ?
@@ -9078,8 +9151,7 @@ async function compactMonitorDay(monitorId, dayKey) {
     if (row.ok) checksOk += 1;
     else {
       checksError += 1;
-      const codeNumber = Number(row.status_code);
-      const codeKey = Number.isFinite(codeNumber) ? String(codeNumber) : "NO_RESPONSE";
+      const codeKey = deriveIncidentErrorCode(row.status_code, row.error_message);
       errorCodeCounts.set(codeKey, (errorCodeCounts.get(codeKey) || 0) + 1);
     }
 
@@ -9228,7 +9300,7 @@ async function compactProbeMonitorDay(monitorId, probeId, dayKey) {
   const dayEnd = new Date(dayEndMs);
   const [rows] = await pool.query(
     `
-      SELECT checked_at, ok, response_ms, status_code
+      SELECT checked_at, ok, response_ms, status_code, error_message
       FROM monitor_probe_checks
       WHERE monitor_id = ?
         AND probe_id = ?
@@ -9253,8 +9325,7 @@ async function compactProbeMonitorDay(monitorId, probeId, dayKey) {
     if (row.ok) checksOk += 1;
     else {
       checksError += 1;
-      const codeNumber = Number(row.status_code);
-      const codeKey = Number.isFinite(codeNumber) ? String(codeNumber) : "NO_RESPONSE";
+      const codeKey = deriveIncidentErrorCode(row.status_code, row.error_message);
       errorCodeCounts.set(codeKey, (errorCodeCounts.get(codeKey) || 0) + 1);
     }
 
@@ -10855,7 +10926,7 @@ async function getIncidents(monitorId, options = {}) {
   const cutoffMs = Date.now() - lookbackDays * DAY_MS;
   const cutoff = new Date(cutoffMs);
   const [rows] = await pool.query(
-    "SELECT checked_at, ok, status_code FROM monitor_checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at ASC",
+    "SELECT checked_at, ok, status_code, error_message FROM monitor_checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at ASC",
     [monitorId, cutoff]
   );
 
@@ -10865,7 +10936,8 @@ async function getIncidents(monitorId, options = {}) {
   for (const row of rows) {
     const ts = row.checked_at.getTime();
     const ok = !!row.ok;
-    const statusCode = Number.isFinite(row.status_code) ? row.status_code : null;
+    const statusCode = parseHttpStatusCodeForIncident(row.status_code);
+    const errorMessage = String(row.error_message || "").trim();
 
     if (!ok) {
       if (!current) {
@@ -10874,15 +10946,22 @@ async function getIncidents(monitorId, options = {}) {
           endTs: null,
           durationMs: null,
           statusCodes: new Set(),
+          errorCodeCounts: new Map(),
           lastStatusCode: statusCode,
+          lastErrorMessage: errorMessage || null,
           samples: 0,
           ongoing: false,
         };
       }
       current.samples += 1;
+      const errorCode = deriveIncidentErrorCode(statusCode, errorMessage);
+      current.errorCodeCounts.set(errorCode, (current.errorCodeCounts.get(errorCode) || 0) + 1);
       if (statusCode !== null) {
         current.statusCodes.add(statusCode);
         current.lastStatusCode = statusCode;
+      }
+      if (errorMessage) {
+        current.lastErrorMessage = errorMessage;
       }
       continue;
     }
@@ -10906,8 +10985,10 @@ async function getIncidents(monitorId, options = {}) {
       startTs: incident.startTs,
       endTs: incident.endTs,
       durationMs: incident.durationMs,
-      statusCodes: Array.from(incident.statusCodes),
+      statusCodes: Array.from(incident.statusCodes).sort((a, b) => a - b),
+      errorCodes: serializeIncidentErrorCodeCounts(incident.errorCodeCounts || new Map()),
       lastStatusCode: incident.lastStatusCode,
+      lastErrorMessage: incident.lastErrorMessage || null,
       samples: incident.samples,
       ongoing: incident.ongoing,
     }))
@@ -10959,7 +11040,7 @@ async function getIncidents(monitorId, options = {}) {
         errorCodesByDay.set(dayKey, []);
       }
       errorCodesByDay.get(dayKey).push({
-        code: String(row.error_code || "NO_RESPONSE"),
+        code: normalizeIncidentErrorCode(row.error_code),
         hits: Math.max(0, Number(row.hits || 0)),
       });
     }
@@ -10971,9 +11052,9 @@ async function getIncidents(monitorId, options = {}) {
       const dayStartMs = Date.parse(`${row.day_key}T00:00:00.000Z`);
       const durationMs = Math.max(0, Number(row.down_minutes || 0) * 60000);
       const errorCodes = errorCodesByDay.get(String(row.day_key)) || [];
-      const statusCodes = errorCodes
-        .map((item) => Number(item.code))
-        .filter((code) => Number.isFinite(code));
+      const statusCodes = Array.from(
+        new Set(errorCodes.map((item) => parseHttpStatusCodeForIncident(item.code)).filter((code) => code !== null))
+      ).sort((a, b) => a - b);
       return {
         dateKey: String(row.day_key),
         startTs: dayStartMs,
@@ -10982,6 +11063,7 @@ async function getIncidents(monitorId, options = {}) {
         statusCodes,
         errorCodes,
         lastStatusCode: null,
+        lastErrorMessage: null,
         samples: Number(row.checks_error || 0),
         ongoing: false,
         aggregated: true,
@@ -11014,7 +11096,7 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
   const cutoff = new Date(cutoffMs);
   const [rows] = await pool.query(
     `
-      SELECT checked_at, ok, status_code
+      SELECT checked_at, ok, status_code, error_message
       FROM monitor_probe_checks
       WHERE monitor_id = ?
         AND probe_id = ?
@@ -11030,7 +11112,8 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
   for (const row of rows) {
     const ts = row.checked_at.getTime();
     const ok = !!row.ok;
-    const statusCode = Number.isFinite(row.status_code) ? row.status_code : null;
+    const statusCode = parseHttpStatusCodeForIncident(row.status_code);
+    const errorMessage = String(row.error_message || "").trim();
 
     if (!ok) {
       if (!current) {
@@ -11039,15 +11122,22 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
           endTs: null,
           durationMs: null,
           statusCodes: new Set(),
+          errorCodeCounts: new Map(),
           lastStatusCode: statusCode,
+          lastErrorMessage: errorMessage || null,
           samples: 0,
           ongoing: false,
         };
       }
       current.samples += 1;
+      const errorCode = deriveIncidentErrorCode(statusCode, errorMessage);
+      current.errorCodeCounts.set(errorCode, (current.errorCodeCounts.get(errorCode) || 0) + 1);
       if (statusCode !== null) {
         current.statusCodes.add(statusCode);
         current.lastStatusCode = statusCode;
+      }
+      if (errorMessage) {
+        current.lastErrorMessage = errorMessage;
       }
       continue;
     }
@@ -11071,8 +11161,10 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
       startTs: incident.startTs,
       endTs: incident.endTs,
       durationMs: incident.durationMs,
-      statusCodes: Array.from(incident.statusCodes),
+      statusCodes: Array.from(incident.statusCodes).sort((a, b) => a - b),
+      errorCodes: serializeIncidentErrorCodeCounts(incident.errorCodeCounts || new Map()),
       lastStatusCode: incident.lastStatusCode,
+      lastErrorMessage: incident.lastErrorMessage || null,
       samples: incident.samples,
       ongoing: incident.ongoing,
     }))
@@ -11126,7 +11218,7 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
         errorCodesByDay.set(dayKey, []);
       }
       errorCodesByDay.get(dayKey).push({
-        code: String(row.error_code || "NO_RESPONSE"),
+        code: normalizeIncidentErrorCode(row.error_code),
         hits: Math.max(0, Number(row.hits || 0)),
       });
     }
@@ -11138,9 +11230,9 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
       const dayStartMs = Date.parse(`${row.day_key}T00:00:00.000Z`);
       const durationMs = Math.max(0, Number(row.down_minutes || 0) * 60000);
       const errorCodes = errorCodesByDay.get(String(row.day_key)) || [];
-      const statusCodes = errorCodes
-        .map((item) => Number(item.code))
-        .filter((code) => Number.isFinite(code));
+      const statusCodes = Array.from(
+        new Set(errorCodes.map((item) => parseHttpStatusCodeForIncident(item.code)).filter((code) => code !== null))
+      ).sort((a, b) => a - b);
       return {
         dateKey: String(row.day_key),
         startTs: dayStartMs,
@@ -11149,6 +11241,7 @@ async function getIncidentsForProbe(monitorId, probeId, options = {}) {
         statusCodes,
         errorCodes,
         lastStatusCode: null,
+        lastErrorMessage: null,
         samples: Number(row.checks_error || 0),
         ongoing: false,
         aggregated: true,

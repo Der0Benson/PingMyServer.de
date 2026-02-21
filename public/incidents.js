@@ -174,13 +174,22 @@ function formatDuration(ms) {
   return `${seconds} ${shortUnit("second")}`;
 }
 
+function formatErrorCodeLabel(value) {
+  const code = String(value || "NO_RESPONSE").trim().toUpperCase();
+  if (!code || code === "NO_RESPONSE") {
+    return t("app.errors.no_response_label", null, "no response");
+  }
+  if (/^\d{3}$/.test(code)) return code;
+  return code.replaceAll("_", " ").toLowerCase();
+}
+
 function buildCodePills(errorCodes = [], statusCodes = []) {
   const items = [];
   if (Array.isArray(errorCodes) && errorCodes.length) {
     for (const item of errorCodes.slice(0, 8)) {
       const code = String(item.code || "NO_RESPONSE");
       const hits = Number(item.hits || 0);
-      const label = code === "NO_RESPONSE" ? t("app.errors.no_response_label", null, "no response") : code;
+      const label = formatErrorCodeLabel(code);
       items.push(`${label}${hits > 0 ? ` (${hits}x)` : ""}`);
     }
     return items;
@@ -233,6 +242,7 @@ function renderIncidents(payload) {
           incident.endTs ? formatDateTime(incident.endTs) : t("app.incidents.open", null, "open")
         }`;
     const codePills = buildCodePills(incident.errorCodes, incident.statusCodes);
+    const lastErrorMessage = String(incident.lastErrorMessage || "").trim();
 
     card.innerHTML = `
       <div class="incident-history-head">
@@ -274,6 +284,10 @@ function renderIncidents(payload) {
           <div class="detail-value code-list">${codePills
             .map((entry) => `<span class="code-pill">${escapeHtml(entry)}</span>`)
             .join("")}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-key">${escapeHtml(t("incidents.detail.last_error", null, "Last error"))}</div>
+          <div class="detail-value">${escapeHtml(lastErrorMessage || t("common.not_available", null, "n/a"))}</div>
         </div>
       </div>
     `;
