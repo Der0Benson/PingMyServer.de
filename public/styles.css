@@ -670,6 +670,14 @@ a[data-owner-link][hidden] {
   margin-left: auto;
 }
 
+.response-card {
+  overflow: visible;
+}
+
+.response-card .card-header {
+  z-index: 5;
+}
+
 .response-help-btn {
   width: 26px;
   height: 26px;
