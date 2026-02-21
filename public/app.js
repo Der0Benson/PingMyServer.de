@@ -14,6 +14,16 @@ const statP50 = document.getElementById("stat-p50");
 const statP95 = document.getElementById("stat-p95");
 const uptimeIncidents = document.getElementById("uptime-incidents");
 const uptimePercent = document.getElementById("uptime-percent");
+const sloTargetDisplay = document.getElementById("slo-target-display");
+const sloWindowUptime = document.getElementById("slo-window-uptime");
+const sloWindowMeta = document.getElementById("slo-window-meta");
+const sloBudgetRemaining = document.getElementById("slo-budget-remaining");
+const sloBudgetRemainingTime = document.getElementById("slo-budget-remaining-time");
+const sloBudgetConsumed = document.getElementById("slo-budget-consumed");
+const sloBudgetConsumedTime = document.getElementById("slo-budget-consumed-time");
+const sloBurn1h = document.getElementById("slo-burn-1h");
+const sloBurn6h = document.getElementById("slo-burn-6h");
+const sloBurn24h = document.getElementById("slo-burn-24h");
 
 const mapEl = document.querySelector(".map");
 const mapLocation = document.getElementById("map-location");
@@ -79,6 +89,9 @@ const maintenanceFormMessageEl = document.getElementById("maintenance-form-messa
 const maintenanceListEl = document.getElementById("maintenance-list");
 const maintenanceCreateButton = document.getElementById("maintenance-create");
 const maintenanceVerifyLinkEl = document.getElementById("maintenance-verify-link");
+const sloForm = document.getElementById("slo-form");
+const sloTargetInput = document.getElementById("slo-target-input");
+const sloMessageEl = document.getElementById("slo-message");
 
 let user = null;
 let monitors = [];
@@ -108,6 +121,7 @@ const rtf = () =>
 let assertionsDirty = false;
 let assertionsBoundMonitorId = null;
 let maintenanceBoundMonitorId = null;
+let sloDirty = false;
 
 function isMobileSidebarViewport() {
   return !!mobileNavQuery && !!mobileNavQuery.matches;
@@ -315,6 +329,58 @@ function setMaintenanceMessage(message, variant = "") {
   maintenanceFormMessageEl.textContent = String(message || "");
   maintenanceFormMessageEl.classList.toggle("success", variant === "success");
   maintenanceFormMessageEl.classList.toggle("error", variant === "error");
+}
+
+function setSloMessage(message, variant = "") {
+  if (!sloMessageEl) return;
+  sloMessageEl.textContent = String(message || "");
+  sloMessageEl.classList.toggle("success", variant === "success");
+  sloMessageEl.classList.toggle("error", variant === "error");
+}
+
+function markSloDirty() {
+  sloDirty = true;
+  setSloMessage("");
+}
+
+function syncSloSettingsBounds(slo) {
+  if (!sloTargetInput || !slo || typeof slo !== "object") return;
+  if (Number.isFinite(Number(slo.minTargetPercent))) {
+    sloTargetInput.min = String(Number(slo.minTargetPercent));
+  }
+  if (Number.isFinite(Number(slo.maxTargetPercent))) {
+    sloTargetInput.max = String(Number(slo.maxTargetPercent));
+  }
+}
+
+function syncSloPanel(slo, options = {}) {
+  const { force = false } = options;
+  if (!sloForm || !sloTargetInput) return;
+  if (!force && sloDirty) return;
+
+  const normalized = slo && typeof slo === "object" ? slo : null;
+  if (!normalized) {
+    sloTargetInput.value = "";
+    return;
+  }
+
+  syncSloSettingsBounds(normalized);
+
+  const targetPercent = Number(normalized.targetPercent);
+  if (Number.isFinite(targetPercent)) {
+    sloTargetInput.value = targetPercent.toFixed(3);
+  } else if (sloTargetInput.value === "") {
+    const fallbackTarget = Number(normalized.defaultTargetPercent);
+    if (Number.isFinite(fallbackTarget)) {
+      sloTargetInput.value = fallbackTarget.toFixed(3);
+    }
+  }
+}
+
+function readSloPayload() {
+  return {
+    targetPercent: Number(sloTargetInput?.value),
+  };
 }
 
 function hideMaintenanceVerifyLink() {
@@ -1494,6 +1560,8 @@ async function setActiveMonitor(monitorId, options = {}) {
   assertionsDirty = false;
   assertionsBoundMonitorId = null;
   setAssertionsMessage("");
+  sloDirty = false;
+  setSloMessage("");
   intervalPickerValue = null;
   if (intervalSelect) {
     intervalSelect.disabled = true;
@@ -1607,10 +1675,12 @@ async function loadMetrics() {
     renderChart(chart, data.series || []);
     renderHeatmap(data.heatmap);
     updateRangeSummaries(data.ranges);
+    updateSloCard(data.slo);
     updateMap(data.location, data.network);
     updateDomainSslCard(data.domainSsl);
     updateIncidents(data.incidents);
     syncIntervalPicker(data.intervalMs);
+    syncSloPanel(data.slo);
     syncAssertionsPanel(data.assertions);
     syncMaintenancePanel(data.maintenances);
   } catch (error) {
@@ -1750,6 +1820,127 @@ function updateRangeSummaries(ranges) {
       `Last ${ranges.range30.days} days`
     );
   }
+}
+
+function formatPercent(value, digits = 2) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "--.--%";
+  return `${numeric.toFixed(digits)}%`;
+}
+
+function formatDowntimeCompact(ms) {
+  const numeric = Number(ms);
+  if (!Number.isFinite(numeric) || numeric < 0) return "--";
+
+  const totalMinutes = Math.round(numeric / 60000);
+  if (totalMinutes < 60) return `${totalMinutes} ${shortUnit("minute")}`;
+
+  const totalHours = Math.round(totalMinutes / 60);
+  if (totalHours < 24) return `${totalHours} ${shortUnit("hour")}`;
+
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (hours === 0) return `${days} ${shortUnit("day")}`;
+  return `${days} ${shortUnit("day")} ${hours} ${shortUnit("hour")}`;
+}
+
+function updateSloBurnPill(element, burnSummary) {
+  if (!element) return;
+
+  element.classList.remove("is-healthy", "is-warn", "is-high", "is-critical");
+
+  const state = String(burnSummary?.state || "unknown").toLowerCase();
+  if (state === "healthy" || state === "warn" || state === "high" || state === "critical") {
+    element.classList.add(`is-${state}`);
+  }
+
+  const burnRate = Number(burnSummary?.burnRate);
+  if (!Number.isFinite(burnRate)) {
+    element.textContent = t("app.slo.no_data_short", null, "--");
+    element.title = t("common.no_data", null, "No data");
+    return;
+  }
+
+  const stateLabel = t(`app.slo.state.${state}`, null, state || "unknown");
+  element.textContent = `${burnRate.toFixed(2)}x`;
+  element.title = t(
+    "app.slo.burn_title",
+    { rate: burnRate.toFixed(2), state: stateLabel },
+    `Burn rate: ${burnRate.toFixed(2)}x (${stateLabel})`
+  );
+}
+
+function updateSloCard(slo) {
+  if (!slo) {
+    if (sloTargetDisplay) sloTargetDisplay.textContent = "--.--%";
+    if (sloWindowUptime) sloWindowUptime.textContent = "--.--%";
+    if (sloWindowMeta) sloWindowMeta.textContent = t("common.no_data", null, "No data");
+    if (sloBudgetRemaining) sloBudgetRemaining.textContent = "--.--%";
+    if (sloBudgetRemainingTime) sloBudgetRemainingTime.textContent = t("common.no_data", null, "No data");
+    if (sloBudgetConsumed) sloBudgetConsumed.textContent = "--.--%";
+    if (sloBudgetConsumedTime) sloBudgetConsumedTime.textContent = t("common.no_data", null, "No data");
+    updateSloBurnPill(sloBurn1h, null);
+    updateSloBurnPill(sloBurn6h, null);
+    updateSloBurnPill(sloBurn24h, null);
+    return;
+  }
+
+  const summary = slo.summary && typeof slo.summary === "object" ? slo.summary : {};
+  const objectiveDays = Number.isFinite(Number(slo.objectiveDays)) ? Number(slo.objectiveDays) : 30;
+  const checks = Number.isFinite(Number(summary.checks)) ? Number(summary.checks) : 0;
+  const incidents = Number.isFinite(Number(summary.incidents)) ? Number(summary.incidents) : 0;
+
+  if (sloTargetDisplay) {
+    sloTargetDisplay.textContent = formatPercent(slo.targetPercent, 3);
+  }
+
+  if (sloWindowUptime) {
+    sloWindowUptime.textContent = formatPercent(summary.uptimePercent, 2);
+  }
+
+  if (sloWindowMeta) {
+    if (Number.isFinite(Number(summary.uptimePercent))) {
+      sloWindowMeta.textContent = t(
+        "app.slo.window_meta",
+        { days: objectiveDays, incidents, checks },
+        `Window ${objectiveDays} days: ${incidents} incidents, ${checks} checks`
+      );
+    } else {
+      sloWindowMeta.textContent = t("common.no_data", null, "No data");
+    }
+  }
+
+  if (sloBudgetRemaining) {
+    sloBudgetRemaining.textContent = formatPercent(summary.remainingBudgetPercent, 2);
+  }
+
+  if (sloBudgetRemainingTime) {
+    sloBudgetRemainingTime.textContent = Number.isFinite(Number(summary.remainingDowntimeMs))
+      ? t(
+          "app.slo.budget_remaining_time",
+          { time: formatDowntimeCompact(summary.remainingDowntimeMs) },
+          `${formatDowntimeCompact(summary.remainingDowntimeMs)} remaining`
+        )
+      : t("common.no_data", null, "No data");
+  }
+
+  if (sloBudgetConsumed) {
+    sloBudgetConsumed.textContent = formatPercent(summary.consumedBudgetPercent, 2);
+  }
+
+  if (sloBudgetConsumedTime) {
+    sloBudgetConsumedTime.textContent = Number.isFinite(Number(summary.consumedDowntimeMs))
+      ? t(
+          "app.slo.budget_consumed_time",
+          { time: formatDowntimeCompact(summary.consumedDowntimeMs) },
+          `${formatDowntimeCompact(summary.consumedDowntimeMs)} consumed`
+        )
+      : t("common.no_data", null, "No data");
+  }
+
+  updateSloBurnPill(sloBurn1h, slo?.burnRate?.oneHour);
+  updateSloBurnPill(sloBurn6h, slo?.burnRate?.sixHours);
+  updateSloBurnPill(sloBurn24h, slo?.burnRate?.oneDay);
 }
 
 function updateRangeCell(summary, uptimeEl, metaEl) {
@@ -2510,6 +2701,50 @@ async function init() {
   activeLocation = readStoredLocation();
   availableProbes = await fetchProbes();
   renderLocationPicker();
+
+  if (sloTargetInput) {
+    sloTargetInput.addEventListener("input", () => {
+      markSloDirty();
+    });
+  }
+
+  if (sloForm) {
+    sloForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!activeMonitorId) return;
+
+      setSloMessage(t("app.slo.msg_saving", null, "Speichern ..."));
+      try {
+        const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/slo`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(readSloPayload()),
+        });
+
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.ok) {
+          if (response.status === 400) {
+            setSloMessage(t("app.slo.msg_invalid", null, "Bitte einen gültigen SLO-Wert eingeben."), "error");
+          } else {
+            setSloMessage(t("app.slo.msg_failed", null, "Speichern fehlgeschlagen."), "error");
+          }
+          return;
+        }
+
+        sloDirty = false;
+        setSloMessage(t("app.slo.msg_saved", null, "Gespeichert."), "success");
+        syncSloPanel(payload.data, { force: true });
+        await loadMetrics();
+      } catch (error) {
+        setSloMessage(t("app.slo.msg_failed", null, "Speichern fehlgeschlagen."), "error");
+      }
+    });
+  }
 
   if (assertionsEnabledInput) {
     assertionsEnabledInput.addEventListener("change", () => {

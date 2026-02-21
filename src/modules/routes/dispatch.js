@@ -125,6 +125,8 @@ async function handleDispatchedRoutes(context) {
       handleMonitorHttpAssertionsGet: handlers.handleMonitorHttpAssertionsGet,
       handleMonitorHttpAssertionsUpdate: handlers.handleMonitorHttpAssertionsUpdate,
       handleMonitorIntervalUpdate: handlers.handleMonitorIntervalUpdate,
+      handleMonitorSloGet: handlers.handleMonitorSloGet,
+      handleMonitorSloUpdate: handlers.handleMonitorSloUpdate,
       handleMonitorMaintenancesList: handlers.handleMonitorMaintenancesList,
       handleMonitorMaintenanceCreate: handlers.handleMonitorMaintenanceCreate,
       handleMonitorMaintenanceCancel: handlers.handleMonitorMaintenanceCancel,

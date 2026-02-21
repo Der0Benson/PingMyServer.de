@@ -213,6 +213,138 @@
   box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
 }
 
+.slo-card .card-header {
+  align-items: flex-end;
+}
+
+.slo-target-block {
+  text-align: right;
+}
+
+.slo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.slo-cell {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.slo-cell .metric {
+  margin-bottom: 0;
+}
+
+.slo-burn-row {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.slo-burn-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.slo-burn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.slo-burn-pill.is-healthy {
+  border-color: rgba(185, 242, 124, 0.45);
+  background: rgba(185, 242, 124, 0.16);
+  color: var(--accent-2);
+}
+
+.slo-burn-pill.is-warn {
+  border-color: rgba(244, 180, 90, 0.5);
+  background: rgba(244, 180, 90, 0.18);
+  color: #f4b45a;
+}
+
+.slo-burn-pill.is-high,
+.slo-burn-pill.is-critical {
+  border-color: rgba(242, 107, 107, 0.55);
+  background: rgba(242, 107, 107, 0.18);
+  color: #f6a9a9;
+}
+
+.slo-form {
+  display: grid;
+  gap: 10px;
+}
+
+.slo-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.slo-form label span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.slo-form input[type="number"] {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 24, 0.9);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.slo-form input[type="number"]:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.slo-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.slo-message {
+  min-height: 20px;
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.slo-message.success {
+  color: var(--accent-2);
+}
+
+.slo-message.error {
+  color: #f26b6b;
+}
+
 .dashboard > .advanced-settings {
   grid-column: 1 / -1;
 }
@@ -564,6 +696,15 @@
   .assertions-row {
     grid-template-columns: 1fr;
     align-items: start;
+  }
+
+  .slo-grid,
+  .slo-burn-row {
+    grid-template-columns: 1fr;
+  }
+
+  .slo-target-block {
+    text-align: left;
   }
 
   .maintenance-row {

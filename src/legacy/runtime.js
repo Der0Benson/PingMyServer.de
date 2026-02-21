@@ -382,6 +382,23 @@ const MONITOR_INTERVAL_MAX_MS = readEnvNumber("MONITOR_INTERVAL_MAX_MS", 3600000
   integer: true,
   min: MONITOR_INTERVAL_MIN_MS,
 });
+const MONITOR_SLO_TARGET_MIN_PERCENT = readEnvNumber("MONITOR_SLO_TARGET_MIN_PERCENT", 90, {
+  min: 1,
+  max: 99.999,
+});
+const MONITOR_SLO_TARGET_MAX_PERCENT = readEnvNumber("MONITOR_SLO_TARGET_MAX_PERCENT", 99.999, {
+  min: MONITOR_SLO_TARGET_MIN_PERCENT,
+  max: 99.999,
+});
+const MONITOR_SLO_TARGET_DEFAULT_PERCENT = readEnvNumber("MONITOR_SLO_TARGET_DEFAULT_PERCENT", 99.9, {
+  min: MONITOR_SLO_TARGET_MIN_PERCENT,
+  max: MONITOR_SLO_TARGET_MAX_PERCENT,
+});
+const SLO_OBJECTIVE_WINDOW_DAYS = readEnvNumber("SLO_OBJECTIVE_WINDOW_DAYS", 30, {
+  integer: true,
+  min: 7,
+  max: 90,
+});
 const CHECK_TIMEOUT_MS = requireEnvNumber("TIMEOUT_MS", { integer: true, min: 100, max: 120000 });
 const CHECK_CONCURRENCY = requireEnvNumber("CHECK_CONCURRENCY", { integer: true, min: 1, max: 1000 });
 const CHECK_SCHEDULER_MS = requireEnvNumber("CHECK_SCHEDULER_MS", { integer: true, min: 100 });
@@ -3178,6 +3195,23 @@ function normalizeMonitorIntervalMs(value, fallback = DEFAULT_MONITOR_INTERVAL_M
   return rounded;
 }
 
+function normalizeMonitorSloTargetPercent(value, fallback = MONITOR_SLO_TARGET_DEFAULT_PERCENT) {
+  const fallbackValue = Number(fallback);
+  let fallbackPercent = Number.isFinite(fallbackValue) ? fallbackValue : MONITOR_SLO_TARGET_DEFAULT_PERCENT;
+  fallbackPercent = Math.max(MONITOR_SLO_TARGET_MIN_PERCENT, Math.min(MONITOR_SLO_TARGET_MAX_PERCENT, fallbackPercent));
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return roundTo(fallbackPercent, 3);
+  const clamped = Math.max(MONITOR_SLO_TARGET_MIN_PERCENT, Math.min(MONITOR_SLO_TARGET_MAX_PERCENT, numeric));
+  return roundTo(clamped, 3);
+}
+
+function getMonitorSloTargetPercent(monitor) {
+  const value = Number(monitor?.slo_target_percent);
+  if (!Number.isFinite(value)) return normalizeMonitorSloTargetPercent(MONITOR_SLO_TARGET_DEFAULT_PERCENT);
+  return normalizeMonitorSloTargetPercent(value, MONITOR_SLO_TARGET_DEFAULT_PERCENT);
+}
+
 function getMonitorIntervalMs(monitor) {
   const value = Number(monitor.interval_ms);
   if (!Number.isFinite(value) || value <= 0) return normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
@@ -5117,6 +5151,11 @@ async function ensureSchemaCompatibility() {
       "ALTER TABLE monitors ADD COLUMN interval_ms INT NOT NULL DEFAULT 60000 AFTER target_url"
     );
   }
+  if (!(await hasColumn("monitors", "slo_target_percent"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN slo_target_percent DECIMAL(6,3) NOT NULL DEFAULT 99.900 AFTER interval_ms"
+    );
+  }
   if (!(await hasColumn("monitors", "http_assertions_enabled"))) {
     await pool.query(
       "ALTER TABLE monitors ADD COLUMN http_assertions_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER interval_ms"
@@ -5217,6 +5256,10 @@ async function ensureSchemaCompatibility() {
     MONITOR_INTERVAL_MAX_MS,
     MONITOR_INTERVAL_MAX_MS,
   ]);
+  await pool.query(
+    "UPDATE monitors SET slo_target_percent = ? WHERE slo_target_percent IS NULL OR slo_target_percent < ? OR slo_target_percent > ?",
+    [MONITOR_SLO_TARGET_DEFAULT_PERCENT, MONITOR_SLO_TARGET_MIN_PERCENT, MONITOR_SLO_TARGET_MAX_PERCENT]
+  );
   await pool.query("UPDATE monitors SET is_paused = 0 WHERE is_paused IS NULL");
   await pool.query(
     "UPDATE monitors SET notify_email_last_sent_status = NULL WHERE notify_email_last_sent_status IS NOT NULL AND notify_email_last_sent_status NOT IN ('online', 'offline')"
@@ -5580,6 +5623,7 @@ async function initDb() {
       url VARCHAR(2048) NOT NULL,
       target_url VARCHAR(2048) NULL,
       interval_ms INT NOT NULL DEFAULT 60000,
+      slo_target_percent DECIMAL(6,3) NOT NULL DEFAULT 99.900,
       http_assertions_enabled TINYINT(1) NOT NULL DEFAULT 0,
       http_expected_status_codes VARCHAR(128) NULL,
       http_content_type_contains VARCHAR(128) NULL,
@@ -9040,6 +9084,10 @@ const monitorSettingsController = createMonitorSettingsController({
   pool,
   normalizeMonitorIntervalMs,
   defaultMonitorIntervalMs: DEFAULT_MONITOR_INTERVAL_MS,
+  normalizeMonitorSloTargetPercent,
+  monitorSloTargetDefaultPercent: MONITOR_SLO_TARGET_DEFAULT_PERCENT,
+  monitorSloTargetMinPercent: MONITOR_SLO_TARGET_MIN_PERCENT,
+  monitorSloTargetMaxPercent: MONITOR_SLO_TARGET_MAX_PERCENT,
   dayMs: DAY_MS,
   toTimestampMs,
   getMonitorUrl,
@@ -9051,6 +9099,8 @@ const {
   handleMonitorHttpAssertionsGet,
   handleMonitorHttpAssertionsUpdate,
   handleMonitorIntervalUpdate,
+  handleMonitorSloGet,
+  handleMonitorSloUpdate,
   listMaintenancesForMonitorId,
   buildMaintenancePayload,
   handleMonitorMaintenancesList,
@@ -11412,7 +11462,7 @@ async function getRangeSummary(monitorId, days) {
   const uptime = totalChecks > 0 && windowMs > 0 ? ((windowMs - totalDownMs) / windowMs) * 100 : null;
   const downMinutes = Math.round(totalDownMs / 60000);
 
-  return { days, uptime, incidents: totalIncidents, downMinutes, total: totalChecks };
+  return { days, uptime, incidents: totalIncidents, downMinutes, downMs: totalDownMs, windowMs, total: totalChecks };
 }
 
 async function getRangeSummaryForProbe(monitorId, probeId, days) {
@@ -11470,7 +11520,183 @@ async function getRangeSummaryForProbe(monitorId, probeId, days) {
   const uptime = totalChecks > 0 && windowMs > 0 ? ((windowMs - totalDownMs) / windowMs) * 100 : null;
   const downMinutes = Math.round(totalDownMs / 60000);
 
-  return { days, uptime, incidents: totalIncidents, downMinutes, total: totalChecks };
+  return { days, uptime, incidents: totalIncidents, downMinutes, downMs: totalDownMs, windowMs, total: totalChecks };
+}
+
+function classifySloBurnRate(burnRate) {
+  const value = Number(burnRate);
+  if (!Number.isFinite(value) || value < 0) return "unknown";
+  if (value >= 4) return "critical";
+  if (value >= 2) return "high";
+  if (value >= 1) return "warn";
+  return "healthy";
+}
+
+function buildSloBudgetSummary(rangeSummary, targetPercent, objectiveDays) {
+  const summary = rangeSummary && typeof rangeSummary === "object" ? rangeSummary : null;
+  const fallbackWindowMs = Math.max(1, Number(objectiveDays || SLO_OBJECTIVE_WINDOW_DAYS)) * DAY_MS;
+  const windowMsRaw = Number(summary?.windowMs);
+  const windowMs = Number.isFinite(windowMsRaw) && windowMsRaw > 0 ? windowMsRaw : fallbackWindowMs;
+  const uptimePercent = Number(summary?.uptime);
+  const hasUptime = Number.isFinite(uptimePercent);
+
+  const downMsRaw = Number(summary?.downMs);
+  const downMs = Number.isFinite(downMsRaw)
+    ? Math.max(0, downMsRaw)
+    : hasUptime
+    ? Math.max(0, ((100 - uptimePercent) / 100) * windowMs)
+    : null;
+
+  const errorBudgetRatio = Math.max(0, 1 - targetPercent / 100);
+  const allowedDowntimeMs = errorBudgetRatio * windowMs;
+
+  const consumedBudgetRatio =
+    Number.isFinite(downMs) && allowedDowntimeMs > 0 ? Math.max(0, downMs / allowedDowntimeMs) : null;
+  const consumedBudgetPercent = Number.isFinite(consumedBudgetRatio) ? consumedBudgetRatio * 100 : null;
+  const remainingDowntimeMs = Number.isFinite(downMs) ? Math.max(0, allowedDowntimeMs - downMs) : null;
+  const remainingBudgetPercent = Number.isFinite(consumedBudgetPercent)
+    ? Math.max(0, 100 - consumedBudgetPercent)
+    : null;
+
+  return {
+    windowMs,
+    checks: Number.isFinite(Number(summary?.total)) ? Number(summary.total) : 0,
+    incidents: Number.isFinite(Number(summary?.incidents)) ? Number(summary.incidents) : 0,
+    uptimePercent: hasUptime ? uptimePercent : null,
+    downMs,
+    downMinutes: Number.isFinite(downMs) ? Math.round(downMs / 60000) : null,
+    allowedDowntimeMs,
+    consumedDowntimeMs: Number.isFinite(downMs) ? downMs : null,
+    consumedBudgetPercent: Number.isFinite(consumedBudgetPercent) ? consumedBudgetPercent : null,
+    remainingDowntimeMs,
+    remainingBudgetPercent: Number.isFinite(remainingBudgetPercent) ? remainingBudgetPercent : null,
+    breached: Number.isFinite(downMs) && downMs > allowedDowntimeMs,
+  };
+}
+
+function buildSloBurnRateSummary(windowSummary, targetPercent) {
+  const summary = windowSummary && typeof windowSummary === "object" ? windowSummary : null;
+  const uptimePercent = Number(summary?.uptimePercent);
+  const hasUptime = Number.isFinite(uptimePercent);
+  const errorRatio = hasUptime ? Math.max(0, 1 - uptimePercent / 100) : null;
+  const errorBudgetRatio = Math.max(0, 1 - targetPercent / 100);
+  const burnRate = Number.isFinite(errorRatio) && errorBudgetRatio > 0 ? errorRatio / errorBudgetRatio : null;
+
+  return {
+    windowMs: Number.isFinite(Number(summary?.windowMs)) ? Number(summary.windowMs) : null,
+    checks: Number.isFinite(Number(summary?.checks)) ? Number(summary.checks) : 0,
+    incidents: Number.isFinite(Number(summary?.incidents)) ? Number(summary.incidents) : 0,
+    uptimePercent: hasUptime ? uptimePercent : null,
+    downMs: Number.isFinite(Number(summary?.downMs)) ? Number(summary.downMs) : null,
+    errorRatePercent: Number.isFinite(errorRatio) ? errorRatio * 100 : null,
+    burnRate: Number.isFinite(burnRate) ? burnRate : null,
+    state: classifySloBurnRate(burnRate),
+  };
+}
+
+async function getRecentAvailabilityWindow(monitorId, windowMs) {
+  const normalizedWindowMs = Math.max(60000, Math.round(Number(windowMs) || 0));
+  const nowMs = Date.now();
+  const startMs = nowMs - normalizedWindowMs;
+
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok
+      FROM monitor_checks
+      WHERE monitor_id = ?
+        AND checked_at >= ?
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, new Date(startMs)]
+  );
+
+  const lastBefore = await getLastCheckBefore(monitorId, startMs);
+  const hasBaseline = typeof lastBefore?.ok === "boolean";
+  const { incidents, downMs } = computeDowntime(rows, startMs, nowMs, lastBefore?.ok ?? null);
+  const hasData = rows.length > 0 || hasBaseline;
+  const uptimePercent = hasData ? ((normalizedWindowMs - downMs) / normalizedWindowMs) * 100 : null;
+
+  return {
+    windowMs: normalizedWindowMs,
+    checks: rows.length,
+    incidents,
+    downMs,
+    uptimePercent,
+  };
+}
+
+async function getRecentAvailabilityWindowForProbe(monitorId, probeId, windowMs) {
+  const probe = parseProbeIdParam(probeId);
+  const normalizedWindowMs = Math.max(60000, Math.round(Number(windowMs) || 0));
+  if (!probe) {
+    return {
+      windowMs: normalizedWindowMs,
+      checks: 0,
+      incidents: 0,
+      downMs: null,
+      uptimePercent: null,
+    };
+  }
+
+  const nowMs = Date.now();
+  const startMs = nowMs - normalizedWindowMs;
+
+  const [rows] = await pool.query(
+    `
+      SELECT checked_at, ok
+      FROM monitor_probe_checks
+      WHERE monitor_id = ?
+        AND probe_id = ?
+        AND checked_at >= ?
+      ORDER BY checked_at ASC
+    `,
+    [monitorId, probe, new Date(startMs)]
+  );
+
+  const lastBefore = await getLastProbeCheckBefore(monitorId, probe, startMs);
+  const hasBaseline = typeof lastBefore?.ok === "boolean";
+  const { incidents, downMs } = computeDowntime(rows, startMs, nowMs, lastBefore?.ok ?? null);
+  const hasData = rows.length > 0 || hasBaseline;
+  const uptimePercent = hasData ? ((normalizedWindowMs - downMs) / normalizedWindowMs) * 100 : null;
+
+  return {
+    windowMs: normalizedWindowMs,
+    checks: rows.length,
+    incidents,
+    downMs,
+    uptimePercent,
+  };
+}
+
+async function buildSloSnapshotForMonitor(monitor, options = {}) {
+  const monitorId = Number(monitor?.id);
+  if (!Number.isFinite(monitorId) || monitorId <= 0) return null;
+
+  const targetPercent = getMonitorSloTargetPercent(monitor);
+  const objectiveDays = SLO_OBJECTIVE_WINDOW_DAYS;
+  const probe = parseProbeIdParam(options?.probeId);
+  const fetchWindow = probe
+    ? (windowMs) => getRecentAvailabilityWindowForProbe(monitorId, probe, windowMs)
+    : (windowMs) => getRecentAvailabilityWindow(monitorId, windowMs);
+
+  const [window1h, window6h, window24h] = await Promise.all([
+    fetchWindow(60 * 60 * 1000),
+    fetchWindow(6 * 60 * 60 * 1000),
+    fetchWindow(24 * 60 * 60 * 1000),
+  ]);
+
+  return {
+    targetPercent,
+    minTargetPercent: MONITOR_SLO_TARGET_MIN_PERCENT,
+    maxTargetPercent: MONITOR_SLO_TARGET_MAX_PERCENT,
+    objectiveDays,
+    summary: buildSloBudgetSummary(options?.objectiveSummary, targetPercent, objectiveDays),
+    burnRate: {
+      oneHour: buildSloBurnRateSummary(window1h, targetPercent),
+      sixHours: buildSloBurnRateSummary(window6h, targetPercent),
+      oneDay: buildSloBurnRateSummary(window24h, targetPercent),
+    },
+  };
 }
 
 async function getHeatmap(monitorId, year) {
@@ -11660,6 +11886,7 @@ async function getMetricsForMonitor(monitor) {
     getRangeSummary(monitorId, 30),
     getRangeSummary(monitorId, 365),
   ]);
+  const slo = await buildSloSnapshotForMonitor(monitor, { objectiveSummary: range30 });
 
   const [lastRows] = await pool.query(
     "SELECT status_code FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1",
@@ -11686,6 +11913,7 @@ async function getMetricsForMonitor(monitor) {
     series,
     last24h: await getLast24h(monitorId),
     ranges: { range7, range30, range365 },
+    slo,
     incidents: await getIncidents(monitorId),
     heatmap: await getHeatmap(monitorId, new Date().getFullYear()),
     location: targetMeta.location,
@@ -11733,6 +11961,7 @@ async function getMetricsForMonitorProbe(monitor, probeId) {
     getRangeSummaryForProbe(monitorId, probe, 30),
     getRangeSummaryForProbe(monitorId, probe, 365),
   ]);
+  const slo = await buildSloSnapshotForMonitor(monitor, { probeId: probe, objectiveSummary: range30 });
 
   const statusSince = toMs(state?.status_since) || Date.now();
   const lastCheckAt = toMs(state?.last_checked_at);
@@ -11757,6 +11986,7 @@ async function getMetricsForMonitorProbe(monitor, probeId) {
     series,
     last24h: await getLast24hForProbe(monitorId, probe),
     ranges: { range7, range30, range365 },
+    slo,
     incidents: await getIncidentsForProbe(monitorId, probe),
     heatmap: await getHeatmapForProbe(monitorId, probe, new Date().getFullYear()),
     location: targetMeta.location,
@@ -11829,6 +12059,8 @@ const runtimeHandlers = {
   handleMonitorHttpAssertionsGet,
   handleMonitorHttpAssertionsUpdate,
   handleMonitorIntervalUpdate,
+  handleMonitorSloGet,
+  handleMonitorSloUpdate,
   handleMonitorMaintenancesList,
   handleMonitorMaintenanceCreate,
   handleMonitorMaintenanceCancel,
