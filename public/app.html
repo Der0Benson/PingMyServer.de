@@ -340,164 +340,58 @@
                 <span class="advanced-settings-meta" data-i18n="app.advanced.meta">SLO · HTTP-Assertions · Wartungen</span>
               </summary>
               <div class="advanced-settings-body">
-                <section class="advanced-settings-section slo-settings-card">
-                  <div class="card-title" data-i18n="app.slo.settings_title">SLO-Ziel.</div>
-                  <p class="muted card-copy" data-i18n="app.slo.settings_desc">
-                    Definiere dein Uptime-Ziel pro Monitor. Das Error-Budget und die Burn-Rate werden daran ausgerichtet.
-                  </p>
-                  <div class="slo-explainer">
-                    <div class="slo-explainer-title" data-i18n="app.slo.explain_title">Was sind SLO-Ziele?</div>
-                    <p class="muted" data-i18n="app.slo.explain_body">
-                      Ein SLO-Ziel ist dein Verfügbarkeitsversprechen, z.B. 99,9% in 30 Tagen. Daraus ergibt sich dein Error-Budget.
+                <div class="settings-launch-grid">
+                  <article class="settings-launch-card">
+                    <div class="card-title" data-i18n="app.advanced.card.slo_title">SLO-Ziel.</div>
+                    <p class="muted card-copy" data-i18n="app.advanced.card.slo_desc">
+                      Uptime-Ziel, Error-Budget und Burn-Rate getrennt und fokussiert bearbeiten.
                     </p>
-                    <p class="muted" data-i18n="app.slo.explain_example">
-                      Beispiel: Bei 99,9% stehen dir in 30 Tagen etwa 43 Minuten Ausfallzeit als Budget zur Verfügung.
-                    </p>
-                  </div>
-                  <div class="slo-activation-row">
-                    <div class="slo-activation-copy">
-                      <span class="slo-state-badge is-off" id="slo-state-badge" data-i18n="app.slo.state_inactive">Nicht aktiviert</span>
-                      <span class="muted" id="slo-activation-hint" data-i18n="app.slo.settings_activation_hint_off">
-                        Aktiviere SLO zuerst, damit Error-Budget und Burn-Rate berechnet werden.
-                      </span>
-                    </div>
-                    <button class="btn feature-activate-btn" id="slo-activate-btn" type="button" data-i18n="app.slo.activate_button">
-                      SLO aktivieren
+                    <button
+                      class="btn ghost settings-launch-btn"
+                      id="open-slo-settings-modal"
+                      type="button"
+                      aria-controls="slo-settings-modal"
+                      aria-haspopup="dialog"
+                      data-i18n="app.advanced.card.open_slo"
+                    >
+                      SLO öffnen
                     </button>
-                  </div>
-                  <form class="slo-form is-disabled" id="slo-form" autocomplete="off">
-                    <label>
-                      <span data-i18n="app.slo.settings_target_label">SLO-Ziel (%)</span>
-                      <input id="slo-target-input" type="number" min="90" max="99.999" step="0.001" disabled />
-                    </label>
-                    <div class="slo-settings-actions">
-                      <button class="btn primary" id="slo-save" type="submit" data-i18n="common.save" disabled>Speichern</button>
-                      <span class="slo-message" id="slo-message"></span>
-                    </div>
-                  </form>
-                </section>
+                  </article>
 
-                <section class="advanced-settings-section assertions-card">
-                  <div class="card-title" data-i18n="app.assertions.title">HTTP-Assertions.</div>
-                  <p class="muted card-copy" data-i18n="app.assertions.desc">
-                    Optional: prüfe Statuscode, Redirects, Content-Type oder Wörter im Body.
-                  </p>
-                  <form class="assertions-form" id="assertions-form" autocomplete="off">
-                    <label class="check-row">
-                      <input id="assertions-enabled" type="checkbox" />
-                      <span data-i18n="app.assertions.enable">Aktivieren</span>
-                    </label>
+                  <article class="settings-launch-card">
+                    <div class="card-title" data-i18n="app.advanced.card.assertions_title">HTTP-Assertions.</div>
+                    <p class="muted card-copy" data-i18n="app.advanced.card.assertions_desc">
+                      Statuscodes, Redirects und Inhaltsprüfungen separat konfigurieren.
+                    </p>
+                    <button
+                      class="btn ghost settings-launch-btn"
+                      id="open-assertions-settings-modal"
+                      type="button"
+                      aria-controls="assertions-settings-modal"
+                      aria-haspopup="dialog"
+                      data-i18n="app.advanced.card.open_assertions"
+                    >
+                      Assertions öffnen
+                    </button>
+                  </article>
 
-                    <label>
-                      <span data-i18n="app.assertions.expected_codes">Erwartete Statuscodes</span>
-                      <input
-                        id="assertions-status-codes"
-                        type="text"
-                        data-i18n-placeholder="app.assertions.placeholder.codes"
-                        placeholder="z.B. 200-299,304"
-                      />
-                    </label>
-
-                    <div class="assertions-row">
-                      <label class="check-row">
-                        <input id="assertions-follow-redirects" type="checkbox" />
-                        <span data-i18n="app.assertions.follow_redirects">Redirects folgen</span>
-                      </label>
-
-                      <label>
-                        <span data-i18n="app.assertions.max_redirects">Max Redirects</span>
-                        <input id="assertions-max-redirects" type="number" min="0" max="10" step="1" />
-                      </label>
-                    </div>
-
-                    <label>
-                      <span data-i18n="app.assertions.content_type_contains">Content-Type enthält</span>
-                      <input
-                        id="assertions-content-type"
-                        type="text"
-                        data-i18n-placeholder="app.assertions.placeholder.content_type"
-                        placeholder="z.B. text/html"
-                      />
-                    </label>
-
-                    <label>
-                      <span data-i18n="app.assertions.body_contains">Body enthält</span>
-                      <input id="assertions-body" type="text" data-i18n-placeholder="app.assertions.placeholder.body" placeholder="z.B. Willkommen" />
-                    </label>
-
-                    <label>
-                      <span data-i18n="app.assertions.timeout_ms">Timeout (ms)</span>
-                      <input id="assertions-timeout" type="number" min="0" max="120000" step="100" />
-                    </label>
-
-                    <div class="assertions-actions">
-                      <button class="btn primary" id="assertions-save" type="submit" data-i18n="common.save">Speichern</button>
-                      <span class="assertions-message" id="assertions-message"></span>
-                    </div>
-                  </form>
-                </section>
-
-                <section class="advanced-settings-section maintenance-card">
-                  <div class="card-title" data-i18n="app.maintenance.title">Wartungen.</div>
-                  <p class="muted card-copy" data-i18n="app.maintenance.desc">
-                    Plane Wartungen, um Kunden auf der Statusseite vorab zu warnen. Erfordert eine verifizierte Domain.
-                  </p>
-
-                  <form class="maintenance-form" id="maintenance-form" autocomplete="off" novalidate>
-                    <label>
-                      <span data-i18n="app.maintenance.label.title">Titel</span>
-                      <input
-                        id="maintenance-title"
-                        type="text"
-                        maxlength="120"
-                        data-i18n-placeholder="app.maintenance.placeholder.title"
-                        placeholder="z.B. Datenbank-Update"
-                      />
-                    </label>
-
-                    <div class="maintenance-row">
-                      <label>
-                        <span data-i18n="app.maintenance.label.start">Start</span>
-                        <input id="maintenance-start" type="datetime-local" required />
-                      </label>
-
-                      <label>
-                        <span data-i18n="app.maintenance.label.end">Ende</span>
-                        <input id="maintenance-end" type="datetime-local" required />
-                      </label>
-                    </div>
-
-                    <label>
-                      <span data-i18n="app.maintenance.label.note_optional">Hinweis (optional)</span>
-                      <textarea
-                        id="maintenance-note"
-                        rows="3"
-                        maxlength="500"
-                        data-i18n-placeholder="app.maintenance.placeholder.note"
-                        placeholder="Kurze Info für Kunden..."
-                      ></textarea>
-                    </label>
-
-                    <div class="maintenance-actions">
-                      <button class="btn primary" id="maintenance-create" type="submit" data-i18n="app.maintenance.button.schedule">Wartung planen</button>
-                      <span class="maintenance-message" id="maintenance-form-message"></span>
-                      <a
-                        class="btn ghost"
-                        id="maintenance-verify-link"
-                        href="/connections#domain-verification"
-                        hidden
-                        data-i18n="app.maintenance.button.verify_domain"
-                      >Domain verifizieren</a>
-                    </div>
-                  </form>
-
-                  <div class="maintenance-list" id="maintenance-list">
-                    <div class="empty-state">
-                      <div class="title" data-i18n="app.maintenance.empty_title">Keine Wartungen.</div>
-                      <div class="muted" data-i18n="app.maintenance.empty_body">Sobald du eine Wartung planst, erscheint sie hier.</div>
-                    </div>
-                  </div>
-                </section>
+                  <article class="settings-launch-card">
+                    <div class="card-title" data-i18n="app.advanced.card.maintenance_title">Wartungen.</div>
+                    <p class="muted card-copy" data-i18n="app.advanced.card.maintenance_desc">
+                      Wartungen planen und verwalten, ohne die anderen Einstellungen zu überladen.
+                    </p>
+                    <button
+                      class="btn ghost settings-launch-btn"
+                      id="open-maintenance-settings-modal"
+                      type="button"
+                      aria-controls="maintenance-settings-modal"
+                      aria-haspopup="dialog"
+                      data-i18n="app.advanced.card.open_maintenance"
+                    >
+                      Wartungen öffnen
+                    </button>
+                  </article>
+                </div>
               </div>
             </details>
 
@@ -537,6 +431,197 @@
             Mit der Maus &uuml;ber die Linie fahren f&uuml;r Zeitstempel, Statuscode und Fehler je Messpunkt.
           </li>
         </ul>
+      </div>
+    </dialog>
+
+    <dialog id="slo-settings-modal" class="settings-modal" aria-labelledby="slo-settings-modal-title">
+      <div class="settings-modal-card">
+        <div class="settings-modal-head">
+          <h3 id="slo-settings-modal-title" class="response-help-title" data-i18n="app.advanced.modal.slo_title">SLO-Einstellungen</h3>
+          <button id="slo-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
+            Schließen
+          </button>
+        </div>
+        <section class="settings-modal-section slo-settings-card">
+          <div class="card-title" data-i18n="app.slo.settings_title">SLO-Ziel.</div>
+          <p class="muted card-copy" data-i18n="app.slo.settings_desc">
+            Definiere dein Uptime-Ziel pro Monitor. Das Error-Budget und die Burn-Rate werden daran ausgerichtet.
+          </p>
+          <div class="slo-explainer">
+            <div class="slo-explainer-title" data-i18n="app.slo.explain_title">Was sind SLO-Ziele?</div>
+            <p class="muted" data-i18n="app.slo.explain_body">
+              Ein SLO-Ziel ist dein Verfügbarkeitsversprechen, z.B. 99,9% in 30 Tagen. Daraus ergibt sich dein Error-Budget.
+            </p>
+            <p class="muted" data-i18n="app.slo.explain_example">
+              Beispiel: Bei 99,9% stehen dir in 30 Tagen etwa 43 Minuten Ausfallzeit als Budget zur Verfügung.
+            </p>
+          </div>
+          <div class="slo-activation-row">
+            <div class="slo-activation-copy">
+              <span class="slo-state-badge is-off" id="slo-state-badge" data-i18n="app.slo.state_inactive">Nicht aktiviert</span>
+              <span class="muted" id="slo-activation-hint" data-i18n="app.slo.settings_activation_hint_off">
+                Aktiviere SLO zuerst, damit Error-Budget und Burn-Rate berechnet werden.
+              </span>
+            </div>
+            <button class="btn feature-activate-btn" id="slo-activate-btn" type="button" data-i18n="app.slo.activate_button">
+              SLO aktivieren
+            </button>
+          </div>
+          <form class="slo-form is-disabled" id="slo-form" autocomplete="off">
+            <label>
+              <span data-i18n="app.slo.settings_target_label">SLO-Ziel (%)</span>
+              <input id="slo-target-input" type="number" min="90" max="99.999" step="0.001" disabled />
+            </label>
+            <div class="slo-settings-actions">
+              <button class="btn primary" id="slo-save" type="submit" data-i18n="common.save" disabled>Speichern</button>
+              <span class="slo-message" id="slo-message"></span>
+            </div>
+          </form>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="assertions-settings-modal" class="settings-modal" aria-labelledby="assertions-settings-modal-title">
+      <div class="settings-modal-card">
+        <div class="settings-modal-head">
+          <h3 id="assertions-settings-modal-title" class="response-help-title" data-i18n="app.advanced.modal.assertions_title">
+            HTTP-Assertions
+          </h3>
+          <button id="assertions-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
+            Schließen
+          </button>
+        </div>
+        <section class="settings-modal-section assertions-card">
+          <div class="card-title" data-i18n="app.assertions.title">HTTP-Assertions.</div>
+          <p class="muted card-copy" data-i18n="app.assertions.desc">
+            Optional: prüfe Statuscode, Redirects, Content-Type oder Wörter im Body.
+          </p>
+          <form class="assertions-form" id="assertions-form" autocomplete="off">
+            <label class="check-row">
+              <input id="assertions-enabled" type="checkbox" />
+              <span data-i18n="app.assertions.enable">Aktivieren</span>
+            </label>
+
+            <label>
+              <span data-i18n="app.assertions.expected_codes">Erwartete Statuscodes</span>
+              <input
+                id="assertions-status-codes"
+                type="text"
+                data-i18n-placeholder="app.assertions.placeholder.codes"
+                placeholder="z.B. 200-299,304"
+              />
+            </label>
+
+            <div class="assertions-row">
+              <label class="check-row">
+                <input id="assertions-follow-redirects" type="checkbox" />
+                <span data-i18n="app.assertions.follow_redirects">Redirects folgen</span>
+              </label>
+
+              <label>
+                <span data-i18n="app.assertions.max_redirects">Max Redirects</span>
+                <input id="assertions-max-redirects" type="number" min="0" max="10" step="1" />
+              </label>
+            </div>
+
+            <label>
+              <span data-i18n="app.assertions.content_type_contains">Content-Type enthält</span>
+              <input
+                id="assertions-content-type"
+                type="text"
+                data-i18n-placeholder="app.assertions.placeholder.content_type"
+                placeholder="z.B. text/html"
+              />
+            </label>
+
+            <label>
+              <span data-i18n="app.assertions.body_contains">Body enthält</span>
+              <input id="assertions-body" type="text" data-i18n-placeholder="app.assertions.placeholder.body" placeholder="z.B. Willkommen" />
+            </label>
+
+            <label>
+              <span data-i18n="app.assertions.timeout_ms">Timeout (ms)</span>
+              <input id="assertions-timeout" type="number" min="0" max="120000" step="100" />
+            </label>
+
+            <div class="assertions-actions">
+              <button class="btn primary" id="assertions-save" type="submit" data-i18n="common.save">Speichern</button>
+              <span class="assertions-message" id="assertions-message"></span>
+            </div>
+          </form>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="maintenance-settings-modal" class="settings-modal" aria-labelledby="maintenance-settings-modal-title">
+      <div class="settings-modal-card">
+        <div class="settings-modal-head">
+          <h3 id="maintenance-settings-modal-title" class="response-help-title" data-i18n="app.advanced.modal.maintenance_title">Wartungen</h3>
+          <button id="maintenance-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
+            Schließen
+          </button>
+        </div>
+        <section class="settings-modal-section maintenance-card">
+          <div class="card-title" data-i18n="app.maintenance.title">Wartungen.</div>
+          <p class="muted card-copy" data-i18n="app.maintenance.desc">
+            Plane Wartungen, um Kunden auf der Statusseite vorab zu warnen. Erfordert eine verifizierte Domain.
+          </p>
+
+          <form class="maintenance-form" id="maintenance-form" autocomplete="off" novalidate>
+            <label>
+              <span data-i18n="app.maintenance.label.title">Titel</span>
+              <input
+                id="maintenance-title"
+                type="text"
+                maxlength="120"
+                data-i18n-placeholder="app.maintenance.placeholder.title"
+                placeholder="z.B. Datenbank-Update"
+              />
+            </label>
+
+            <div class="maintenance-row">
+              <label>
+                <span data-i18n="app.maintenance.label.start">Start</span>
+                <input id="maintenance-start" type="datetime-local" required />
+              </label>
+
+              <label>
+                <span data-i18n="app.maintenance.label.end">Ende</span>
+                <input id="maintenance-end" type="datetime-local" required />
+              </label>
+            </div>
+
+            <label>
+              <span data-i18n="app.maintenance.label.note_optional">Hinweis (optional)</span>
+              <textarea
+                id="maintenance-note"
+                rows="3"
+                maxlength="500"
+                data-i18n-placeholder="app.maintenance.placeholder.note"
+                placeholder="Kurze Info für Kunden..."
+              ></textarea>
+            </label>
+
+            <div class="maintenance-actions">
+              <button class="btn primary" id="maintenance-create" type="submit" data-i18n="app.maintenance.button.schedule">Wartung planen</button>
+              <span class="maintenance-message" id="maintenance-form-message"></span>
+              <a
+                class="btn ghost"
+                id="maintenance-verify-link"
+                href="/connections#domain-verification"
+                hidden
+                data-i18n="app.maintenance.button.verify_domain"
+              >Domain verifizieren</a>
+            </div>
+          </form>
+
+          <div class="maintenance-list" id="maintenance-list">
+            <div class="empty-state">
+              <div class="title" data-i18n="app.maintenance.empty_title">Keine Wartungen.</div>
+              <div class="muted" data-i18n="app.maintenance.empty_body">Sobald du eine Wartung planst, erscheint sie hier.</div>
+            </div>
+          </div>
+        </section>
       </div>
     </dialog>
 

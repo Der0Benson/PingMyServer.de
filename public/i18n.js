@@ -640,6 +640,22 @@
         advanced: {
           title: "Mehr Einstellungen",
           meta: "SLO · HTTP-Assertions · Wartungen",
+          card: {
+            slo_title: "SLO-Ziel.",
+            slo_desc: "Uptime-Ziel, Error-Budget und Burn-Rate getrennt und fokussiert bearbeiten.",
+            open_slo: "SLO öffnen",
+            assertions_title: "HTTP-Assertions.",
+            assertions_desc: "Statuscodes, Redirects und Inhaltsprüfungen separat konfigurieren.",
+            open_assertions: "Assertions öffnen",
+            maintenance_title: "Wartungen.",
+            maintenance_desc: "Wartungen planen und verwalten, ohne die anderen Einstellungen zu überladen.",
+            open_maintenance: "Wartungen öffnen",
+          },
+          modal: {
+            slo_title: "SLO-Einstellungen",
+            assertions_title: "HTTP-Assertions",
+            maintenance_title: "Wartungen",
+          },
         },
         assertions: {
           title: "HTTP-Assertions.",
@@ -2056,6 +2072,22 @@
         advanced: {
           title: "More settings",
           meta: "SLO · HTTP assertions · Maintenance",
+          card: {
+            slo_title: "SLO target.",
+            slo_desc: "Edit uptime target, error budget and burn rate in one focused place.",
+            open_slo: "Open SLO",
+            assertions_title: "HTTP assertions.",
+            assertions_desc: "Configure status codes, redirects and content checks separately.",
+            open_assertions: "Open assertions",
+            maintenance_title: "Maintenance.",
+            maintenance_desc: "Plan and manage maintenance without overloading other settings.",
+            open_maintenance: "Open maintenance",
+          },
+          modal: {
+            slo_title: "SLO settings",
+            assertions_title: "HTTP assertions",
+            maintenance_title: "Maintenance",
+          },
         },
         assertions: {
           title: "HTTP assertions.",

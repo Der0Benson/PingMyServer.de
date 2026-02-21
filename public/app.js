@@ -99,6 +99,15 @@ const sloActivateButton = document.getElementById("slo-activate-btn");
 const sloStateBadge = document.getElementById("slo-state-badge");
 const sloActivationHint = document.getElementById("slo-activation-hint");
 const sloMessageEl = document.getElementById("slo-message");
+const openSloSettingsModalButton = document.getElementById("open-slo-settings-modal");
+const openAssertionsSettingsModalButton = document.getElementById("open-assertions-settings-modal");
+const openMaintenanceSettingsModalButton = document.getElementById("open-maintenance-settings-modal");
+const sloSettingsModal = document.getElementById("slo-settings-modal");
+const assertionsSettingsModal = document.getElementById("assertions-settings-modal");
+const maintenanceSettingsModal = document.getElementById("maintenance-settings-modal");
+const sloSettingsModalCloseButton = document.getElementById("slo-settings-modal-close");
+const assertionsSettingsModalCloseButton = document.getElementById("assertions-settings-modal-close");
+const maintenanceSettingsModalCloseButton = document.getElementById("maintenance-settings-modal-close");
 
 let user = null;
 let monitors = [];
@@ -323,6 +332,67 @@ function ensureResponseHelpModal() {
   responseHelpButton.setAttribute("aria-haspopup", "dialog");
 
   return responseHelpModal;
+}
+
+function showDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.showModal === "function") {
+    if (!dialog.open) dialog.showModal();
+    return;
+  }
+  dialog.setAttribute("open", "");
+}
+
+function hideDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.close === "function") {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  dialog.removeAttribute("open");
+}
+
+function bindSettingsModal(openButton, modal, closeButton) {
+  if (!openButton || !modal) return;
+  openButton.setAttribute("aria-expanded", "false");
+
+  openButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    openButton.setAttribute("aria-expanded", "true");
+    openButton.classList.add("is-open");
+    showDialog(modal);
+  });
+
+  if (closeButton) {
+    closeButton.addEventListener("click", () => {
+      hideDialog(modal);
+    });
+  }
+
+  modal.addEventListener("click", (event) => {
+    if (event.target !== modal) return;
+    hideDialog(modal);
+  });
+
+  modal.addEventListener("close", () => {
+    openButton.setAttribute("aria-expanded", "false");
+    openButton.classList.remove("is-open");
+    openButton.focus();
+  });
+}
+
+function setupSettingsModals() {
+  bindSettingsModal(openSloSettingsModalButton, sloSettingsModal, sloSettingsModalCloseButton);
+  bindSettingsModal(
+    openAssertionsSettingsModalButton,
+    assertionsSettingsModal,
+    assertionsSettingsModalCloseButton
+  );
+  bindSettingsModal(
+    openMaintenanceSettingsModalButton,
+    maintenanceSettingsModal,
+    maintenanceSettingsModalCloseButton
+  );
 }
 
 function setAssertionsMessage(message, variant = "") {
@@ -2833,6 +2903,7 @@ async function init() {
 
   setupMobileSidebar();
   setupResponseHelp();
+  setupSettingsModals();
   activeLocation = readStoredLocation();
   availableProbes = await fetchProbes();
   renderLocationPicker();

@@ -568,6 +568,78 @@
   padding: 14px 16px 16px;
 }
 
+.settings-launch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-launch-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.settings-launch-card .card-title {
+  margin: 0;
+}
+
+.settings-launch-card .card-copy {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.settings-launch-btn {
+  justify-self: start;
+}
+
+.settings-modal {
+  width: min(860px, calc(100vw - 26px));
+  max-height: calc(100vh - 26px);
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.settings-modal::backdrop {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(76, 201, 240, 0.13), transparent 44%),
+    radial-gradient(circle at 82% 84%, rgba(185, 242, 124, 0.1), transparent 44%),
+    rgba(4, 8, 14, 0.76);
+  backdrop-filter: blur(8px);
+}
+
+.settings-modal-card {
+  border-radius: 14px;
+  border: 1px solid rgba(185, 242, 124, 0.24);
+  background: #091428;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.56);
+  color: #eff6ff;
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+}
+
+.settings-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-modal-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 12px;
+}
+
 .advanced-settings-section + .advanced-settings-section {
   margin-top: 18px;
   padding-top: 18px;
@@ -868,6 +940,10 @@
 }
 
 @media (max-width: 1100px) {
+  .settings-launch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .monitor-nav-section {
     width: 100%;
     order: 3;
@@ -914,6 +990,10 @@
 }
 
 @media (max-width: 720px) {
+  .settings-launch-grid {
+    grid-template-columns: 1fr;
+  }
+
   .monitor-nav-list {
     grid-template-columns: 1fr;
     max-height: 180px;
@@ -986,6 +1066,17 @@
   .advanced-settings-summary {
     padding: 12px;
     font-size: 0.9rem;
+  }
+
+  .settings-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .settings-modal-card {
+    padding: 12px;
+    border-radius: 12px;
+    max-height: calc(100vh - 20px);
   }
 
   .advanced-settings-meta {
