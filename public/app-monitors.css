@@ -422,6 +422,17 @@
   box-shadow: 0 12px 26px rgba(27, 84, 104, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
+.feature-activate-btn.is-deactivate {
+  border-color: rgba(242, 107, 107, 0.52) !important;
+  background: linear-gradient(135deg, rgba(242, 107, 107, 0.25), rgba(244, 180, 90, 0.22)) !important;
+  box-shadow: 0 10px 24px rgba(116, 48, 48, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.feature-activate-btn.is-deactivate:hover {
+  border-color: rgba(242, 107, 107, 0.72) !important;
+  box-shadow: 0 12px 26px rgba(116, 48, 48, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
 .feature-activate-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.22), 0 10px 24px rgba(27, 84, 104, 0.32);

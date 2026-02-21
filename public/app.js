@@ -97,6 +97,7 @@ const sloTargetInput = document.getElementById("slo-target-input");
 const sloSaveButton = document.getElementById("slo-save");
 const sloActivateButton = document.getElementById("slo-activate-btn");
 const sloStateBadge = document.getElementById("slo-state-badge");
+const sloActivationHint = document.getElementById("slo-activation-hint");
 const sloMessageEl = document.getElementById("slo-message");
 
 let user = null;
@@ -364,6 +365,10 @@ function applySloEnabledState(enabled) {
   const active = !!enabled;
   sloEnabled = active;
 
+  if (sloCardEl) {
+    sloCardEl.hidden = !active;
+  }
+
   if (sloForm) {
     sloForm.classList.toggle("is-disabled", !active);
   }
@@ -374,8 +379,17 @@ function applySloEnabledState(enabled) {
     sloSaveButton.disabled = !active;
   }
   if (sloActivateButton) {
-    sloActivateButton.hidden = active;
-    sloActivateButton.disabled = active;
+    sloActivateButton.hidden = false;
+    sloActivateButton.disabled = false;
+    sloActivateButton.classList.toggle("is-deactivate", active);
+    sloActivateButton.textContent = active
+      ? t("app.slo.deactivate_button", null, "SLO deaktivieren")
+      : t("app.slo.activate_button", null, "SLO aktivieren");
+  }
+  if (sloActivationHint) {
+    sloActivationHint.textContent = active
+      ? t("app.slo.settings_activation_hint_on", null, "Du kannst SLO jederzeit wieder deaktivieren.")
+      : t("app.slo.settings_activation_hint_off", null, "Aktiviere SLO zuerst, damit Error-Budget und Burn-Rate berechnet werden.");
   }
 
   setSloStateBadge(sloStateBadge, active);
@@ -425,17 +439,22 @@ function readSloPayload() {
   };
 }
 
-async function activateSloForActiveMonitor() {
-  if (!activeMonitorId || !sloActivateButton || sloEnabled) return;
+async function toggleSloForActiveMonitor() {
+  if (!activeMonitorId || !sloActivateButton) return;
+  const nextEnabled = !sloEnabled;
 
   sloActivateButton.disabled = true;
-  setSloMessage(t("app.slo.msg_activating", null, "SLO wird aktiviert ..."));
+  setSloMessage(
+    nextEnabled
+      ? t("app.slo.msg_activating", null, "SLO wird aktiviert ...")
+      : t("app.slo.msg_deactivating", null, "SLO wird deaktiviert ...")
+  );
 
   try {
     const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/slo`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: true }),
+      body: JSON.stringify({ enabled: nextEnabled }),
     });
 
     if (response.status === 401) {
@@ -446,16 +465,21 @@ async function activateSloForActiveMonitor() {
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) {
       setSloMessage(t("app.slo.msg_failed", null, "Speichern fehlgeschlagen."), "error");
-      sloActivateButton.disabled = false;
       return;
     }
 
     sloDirty = false;
-    setSloMessage(t("app.slo.msg_activated", null, "SLO aktiviert."), "success");
+    setSloMessage(
+      nextEnabled
+        ? t("app.slo.msg_activated", null, "SLO aktiviert.")
+        : t("app.slo.msg_deactivated", null, "SLO deaktiviert."),
+      "success"
+    );
     syncSloPanel(payload.data, { force: true });
     await loadMetrics();
   } catch (error) {
     setSloMessage(t("app.slo.msg_failed", null, "Speichern fehlgeschlagen."), "error");
+  } finally {
     sloActivateButton.disabled = false;
   }
 }
@@ -1952,6 +1976,7 @@ function updateSloBurnPill(element, burnSummary) {
 function updateSloCard(slo) {
   if (!slo) {
     if (sloCardEl) sloCardEl.classList.remove("is-disabled");
+    if (sloCardEl) sloCardEl.hidden = false;
     setSloStateBadge(sloCardStateBadge, false);
     if (sloCardNote) sloCardNote.textContent = t("common.no_data", null, "No data");
     if (sloTargetDisplay) sloTargetDisplay.textContent = "--.--%";
@@ -1974,6 +1999,7 @@ function updateSloCard(slo) {
   const incidents = Number.isFinite(Number(summary.incidents)) ? Number(summary.incidents) : 0;
 
   if (sloCardEl) sloCardEl.classList.toggle("is-disabled", !enabled);
+  if (sloCardEl) sloCardEl.hidden = !enabled;
   setSloStateBadge(sloCardStateBadge, enabled);
 
   if (sloTargetDisplay) {
@@ -2820,7 +2846,7 @@ async function init() {
 
   if (sloActivateButton) {
     sloActivateButton.addEventListener("click", () => {
-      activateSloForActiveMonitor().catch(() => {
+      toggleSloForActiveMonitor().catch(() => {
         // ignore
       });
     });
