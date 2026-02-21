@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PingMyServer | Game Server Monitoring Demo</title>
+    <title>PingMyServer | Game Server Monitoring</title>
         <link rel="stylesheet" href="/assets/game-server-demo-dashboard.css" />
   </head>
   <body>
@@ -13,7 +13,7 @@
           <div class="brand-icon" aria-hidden="true"></div>
           <div>
             <h1>PingMyServer</h1>
-            <p>Game Server Demo</p>
+            <p>Game Server Monitoring</p>
           </div>
         </div>
         <nav class="nav" aria-label="Dashboard navigation">
@@ -30,7 +30,7 @@
           <div class="server">
             <span class="server-dot" aria-hidden="true"></span>
             <div>
-              <h2 id="serverName">mc-survival-01.eu.pingmyserver.demo</h2>
+              <h2 id="serverName">mc-survival-01.eu.pingmyserver.cloud</h2>
               <p>Live gameplay node | Minecraft 1.21.1</p>
             </div>
           </div>
@@ -46,7 +46,7 @@
 
           <!-- Charts section -->
           <div class="two">
-            <article class="card box">
+            <article class="card box surface-strong">
               <div class="head">
                 <h3>TPS Over Time</h3>
                 <span class="sub">Last 60 minutes</span>
@@ -64,7 +64,7 @@
               </div>
             </article>
 
-            <article class="card box">
+            <article class="card box surface-soft">
               <div class="head">
                 <h3>Player Count Over Time</h3>
                 <span class="sub">Last 60 minutes</span>
@@ -83,8 +83,28 @@
             </article>
           </div>
 
+          <!-- // AI Insight -->
+          <article class="card box ai-insight">
+            <div class="ai-head">
+              <span class="ai-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" aria-label="AI icon">
+                  <path
+                    d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 1 1 0 6h-1v1a4 4 0 1 1-8 0v-1H7a3 3 0 1 1 0-6h1V6a4 4 0 0 1 4-4zm-2 5h4V6a2 2 0 1 0-4 0zm4 6h-4v1a2 2 0 1 0 4 0zm3-2a1 1 0 1 0 0-2h-1v2zM7 9a1 1 0 1 0 0 2h1V9zm3 1a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm3 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0z"
+                  ></path>
+                </svg>
+              </span>
+              <div>
+                <h3 class="ai-title">AI Insight</h3>
+                <span class="sub">Behavior summary</span>
+              </div>
+            </div>
+            <p id="aiInsightLine1" class="ai-copy"></p>
+            <p id="aiInsightLine2" class="ai-copy ai-copy-second"></p>
+            <p class="ai-note">No live AI call connected yet.</p>
+          </article>
+
           <div class="cols">
-            <article class="card box">
+            <article class="card box surface-soft">
               <div class="head">
                 <h3>Live Server Metrics</h3>
                 <span class="sub">Realtime snapshot</span>
@@ -92,18 +112,18 @@
               <ul id="liveMetrics" class="list"></ul>
             </article>
 
-            <article class="card box">
+            <article class="card box surface-strong">
               <div class="head">
                 <h3>Events / Incidents</h3>
                 <span class="sub">Crash and restart detection</span>
               </div>
-              <!-- Events list -->
+              <!-- // Improved Events -->
               <ul id="events" class="timeline"></ul>
             </article>
           </div>
 
           <div class="cols">
-            <article class="card box">
+            <article class="card box surface-soft">
               <div class="head">
                 <h3>Mods & Plugins</h3>
                 <span class="sub">Health checks and versions</span>
@@ -122,7 +142,7 @@
             </article>
 
             <div class="grid">
-              <article class="card box">
+              <article class="card box surface-soft">
                 <div class="head">
                   <h3>Latency by Region</h3>
                   <span class="sub">Synthetic ping checks</span>
@@ -130,23 +150,34 @@
                 <div id="regions" class="regions"></div>
               </article>
 
-              <article class="card box">
+              <article class="card box surface-strong">
                 <div class="head">
-                  <h3>Discord Integration</h3>
+                  <div class="discord-title">
+                    <svg class="discord-icon" viewBox="0 0 127.14 96.36" role="img" aria-label="Discord icon">
+                      <path
+                        d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83 72.37 72.37 0 0 0 45.64 0 105.89 105.89 0 0 0 19.39 8.09C2.79 32.65-1.7 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.27 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.79-1.34 2.64-2.04 20.9 9.82 43.65 9.82 64.32 0 .85.7 1.73 1.38 2.64 2.04a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.26A105.25 105.25 0 0 0 126.6 80.2c2.63-27.38-4.49-51.11-18.9-72.13ZM42.45 65.69C36.18 65.69 31 59.96 31 52.91s5-12.78 11.43-12.78c6.48 0 11.57 5.78 11.46 12.78 0 7.05-5.04 12.78-11.44 12.78Zm42.24 0c-6.27 0-11.43-5.73-11.43-12.78s5-12.78 11.43-12.78c6.48 0 11.57 5.78 11.46 12.78 0 7.05-5.03 12.78-11.46 12.78Z"
+                      ></path>
+                    </svg>
+                    <h3>Discord Integration</h3>
+                  </div>
                   <span class="sub">Notification channel widget</span>
                 </div>
                 <div class="dlist">
-                  <div class="drow"><span class="dkey">Status</span><span id="discordStatus" class="dval">Connected</span></div>
+                  <!-- // Discord Improvements -->
+                  <div class="drow">
+                    <span class="dkey">Status</span>
+                    <span id="discordStatus" class="status-pill connected">Connected</span>
+                  </div>
                   <div class="drow"><span class="dkey">Channel</span><span id="discordChannel" class="dval">#server-status</span></div>
                   <div class="drow"><span class="dkey">Last notification</span><span id="discordLast" class="dval">--</span></div>
-                  <button id="testAlert" class="btn" type="button">Send test alert</button>
-                  <p id="testHint" class="hint">No backend wired. This action is demo-only.</p>
+                  <button id="testAlert" class="btn btn-primary" type="button">Send test alert</button>
+                  <p id="testHint" class="hint">No backend wired. Action is simulated.</p>
                 </div>
               </article>
             </div>
           </div>
 
-          <p class="note">Static frontend demo only. No API calls.</p>
+          <p class="note">Preview data only. No API calls.</p>
         </section>
       </main>
     </div>
