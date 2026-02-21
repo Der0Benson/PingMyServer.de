@@ -49,8 +49,9 @@ const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
 const responseHelpButton = document.getElementById("response-help-btn");
-const responseHelpModal = document.getElementById("response-help-modal");
-const responseHelpModalCloseButton = document.getElementById("response-help-modal-close");
+const responseHelpPopover = document.getElementById("response-help-popover");
+let responseHelpModal = document.getElementById("response-help-modal");
+let responseHelpModalCloseButton = document.getElementById("response-help-modal-close");
 const incidentsCard = document.querySelector(".incidents-side-card");
 const sidebarEl = document.getElementById("dashboard-sidebar");
 const mobileNavToggle = document.getElementById("mobile-nav-toggle");
@@ -180,19 +181,24 @@ function setupMobileSidebar() {
 }
 
 function setResponseHelpOpen(open) {
-  if (!responseHelpButton || !responseHelpModal) return;
+  if (!responseHelpButton) return;
   const shouldOpen = !!open;
+  const modalEl = ensureResponseHelpModal();
 
-  if (shouldOpen) {
-    if (typeof responseHelpModal.showModal === "function") {
-      if (!responseHelpModal.open) responseHelpModal.showModal();
+  if (modalEl) {
+    if (shouldOpen) {
+      if (typeof modalEl.showModal === "function") {
+        if (!modalEl.open) modalEl.showModal();
+      } else {
+        modalEl.setAttribute("open", "");
+      }
+    } else if (typeof modalEl.close === "function") {
+      if (modalEl.open) modalEl.close();
     } else {
-      responseHelpModal.setAttribute("open", "");
+      modalEl.removeAttribute("open");
     }
-  } else if (typeof responseHelpModal.close === "function") {
-    if (responseHelpModal.open) responseHelpModal.close();
-  } else {
-    responseHelpModal.removeAttribute("open");
+  } else if (responseHelpPopover) {
+    responseHelpPopover.hidden = !shouldOpen;
   }
 
   responseHelpButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
@@ -200,7 +206,7 @@ function setResponseHelpOpen(open) {
 }
 
 function setupResponseHelp() {
-  if (!responseHelpButton || !responseHelpModal) return;
+  if (!responseHelpButton) return;
 
   setResponseHelpOpen(false);
 
@@ -210,22 +216,91 @@ function setupResponseHelp() {
     setResponseHelpOpen(!isOpen);
   });
 
-  if (responseHelpModalCloseButton) {
-    responseHelpModalCloseButton.addEventListener("click", () => {
+  const modalEl = ensureResponseHelpModal();
+  if (modalEl) {
+    if (responseHelpModalCloseButton) {
+      responseHelpModalCloseButton.addEventListener("click", () => {
+        setResponseHelpOpen(false);
+      });
+    }
+
+    modalEl.addEventListener("click", (event) => {
+      if (event.target !== modalEl) return;
       setResponseHelpOpen(false);
     });
+
+    modalEl.addEventListener("close", () => {
+      responseHelpButton.setAttribute("aria-expanded", "false");
+      responseHelpButton.classList.remove("is-open");
+      responseHelpButton.focus();
+    });
+    return;
   }
 
-  responseHelpModal.addEventListener("click", (event) => {
-    if (event.target !== responseHelpModal) return;
+  if (!responseHelpPopover) return;
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (responseHelpButton.contains(target) || responseHelpPopover.contains(target)) return;
     setResponseHelpOpen(false);
   });
 
-  responseHelpModal.addEventListener("close", () => {
-    responseHelpButton.setAttribute("aria-expanded", "false");
-    responseHelpButton.classList.remove("is-open");
-    responseHelpButton.focus();
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    setResponseHelpOpen(false);
   });
+}
+
+function ensureResponseHelpModal() {
+  if (responseHelpModal) return responseHelpModal;
+  if (!responseHelpPopover || !responseHelpButton) return null;
+
+  const titleSource = responseHelpPopover.querySelector(".response-help-title");
+  const listSource = responseHelpPopover.querySelector(".response-help-list");
+  const titleText =
+    String(titleSource?.textContent || "").trim() ||
+    t("app.response.help_title", null, i18nLang() === "de" ? "So liest du den Chart" : "How to read this chart");
+  const closeText = t("app.response.help_close", null, i18nLang() === "de" ? "Schließen" : "Close");
+  const fallbackList = `
+      <ul class="response-help-list">
+        <li>${escapeHtml(t("app.response.help_p50", null, "P50 (Median): 50% aller Checks sind schneller als dieser Wert."))}</li>
+        <li>${escapeHtml(
+          t("app.response.help_p95", null, "P95: 95% aller Checks sind schneller. Das zeigt Lastspitzen besser als der Durchschnitt.")
+        )}</li>
+        <li>${escapeHtml(
+          t("app.response.help_chart", null, "Linie = Antwortzeit pro Check. Farbbereiche: grün < 100 ms, gelb 100-250 ms, rot > 250 ms.")
+        )}</li>
+        <li>${escapeHtml(
+          t("app.response.help_tooltip", null, "Mit der Maus über die Linie fahren für Zeitstempel, Statuscode und Fehler je Messpunkt.")
+        )}</li>
+      </ul>
+  `;
+  const listMarkup = listSource?.outerHTML || fallbackList;
+
+  responseHelpModal = document.createElement("dialog");
+  responseHelpModal.id = "response-help-modal";
+  responseHelpModal.className = "response-help-modal";
+  responseHelpModal.setAttribute("aria-labelledby", "response-help-modal-title");
+  responseHelpModal.innerHTML = `
+    <div class="response-help-modal-card">
+      <div class="response-help-modal-head">
+        <h3 id="response-help-modal-title" class="response-help-title">${escapeHtml(titleText)}</h3>
+        <button id="response-help-modal-close" class="btn ghost response-help-modal-close" type="button">${escapeHtml(closeText)}</button>
+      </div>
+      ${listMarkup}
+    </div>
+  `;
+
+  document.body.appendChild(responseHelpModal);
+  responseHelpModalCloseButton = responseHelpModal.querySelector("#response-help-modal-close");
+
+  responseHelpPopover.hidden = true;
+  responseHelpPopover.setAttribute("aria-hidden", "true");
+  responseHelpButton.setAttribute("aria-controls", "response-help-modal");
+  responseHelpButton.setAttribute("aria-haspopup", "dialog");
+
+  return responseHelpModal;
 }
 
 function setAssertionsMessage(message, variant = "") {
