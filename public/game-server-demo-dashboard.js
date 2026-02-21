@@ -1,252 +1,362 @@
 const data = {
   serverName: "mc-survival-01.eu.pingmyserver.cloud",
   status: "degraded",
-  updated: "2026-02-21 20:14 UTC",
-
-  // Health Score
+  lastUpdate: "21.02.2026 21:42",
   health: {
     score: 92,
     max: 100,
-    label: "Overall Health",
-    description: "Calculated from TPS, crashes, latency, memory usage",
+    description: "Berechnet aus TPS, Crashes, Latenz und Speicherauslastung",
   },
-
   kpis: [
-    { title: "Current TPS", value: "19.87", trend: "+1.9% vs last 24h", cls: "up", featured: true },
-    { title: "Online Players", value: "87 / 150", trend: "+12 players vs avg", cls: "up" },
-    { title: "Average Ping", value: "46 ms", trend: "-4 ms vs last 24h", cls: "up" },
-    { title: "CPU Usage", value: "68%", trend: "+7% peak in raid hour", cls: "downtrend" },
-    { title: "Memory Usage", value: "11.2 / 16 GB", trend: "+0.8 GB vs baseline", cls: "neutral" },
-    { title: "Uptime (24h)", value: "99.93%", trend: "One short restart window", cls: "neutral" },
+    { title: "Current TPS", value: "19.87", trend: "+1.9% vs 24h", trendType: "up" },
+    { title: "Online Players", value: "87 / 150", trend: "+12 vs Tagesmittel", trendType: "up" },
+    { title: "Average Ping", value: "46 ms", trend: "-4 ms vs 24h", trendType: "up" },
+    { title: "CPU Usage", value: "68%", trend: "+7% in Peak-Phase", trendType: "down" },
+    { title: "Memory Usage", value: "11.2 / 16 GB", trend: "+0.8 GB vs Basis", trendType: "neutral" },
+    { title: "Uptime (24h)", value: "99.93%", trend: "1 kurzer Restart", trendType: "neutral" },
   ],
-
   charts: {
     tps: [19.9, 19.8, 19.7, 19.6, 19.9, 20.0, 19.8, 19.4, 18.8, 19.2, 19.7, 19.9, 19.87],
     players: [42, 45, 52, 58, 61, 65, 72, 88, 97, 92, 86, 84, 87],
   },
-
-  // AI Insight
-  aiInsight: [
-    "Server load is stable despite a brief TPS dip around 18:05; the node recovered without manual action.",
-    "Memory trend is rising slowly, so consider a scheduled restart window before peak evening traffic.",
+  liveMetrics: [
+    { label: "TPS", value: "19.87", extra: "Min/Max 1h: 18.72 / 20.00" },
+    { label: "Tick Lag", value: "8.6 ms", extra: "P95: 12.1 ms" },
+    { label: "CPU Usage", value: "68%", extra: "Node Avg: 54%" },
+    { label: "Memory Usage", value: "11.2 / 16 GB", extra: "JVM Heap: 9.1 GB" },
+    { label: "World Chunks Loaded", value: "3,482", extra: "3 aktive Dimensionen" },
+    { label: "Average Ping", value: "46 ms", extra: "P95: 102 ms" },
+    { label: "Packet Loss", value: "0.4%", extra: "Spike 19:06 - resolved" },
   ],
-
-  metrics: [
-    { name: "TPS", value: "19.87", extra: "min/max last 1h: 18.72 / 20.00" },
-    { name: "Tick Lag", value: "8.6 ms", extra: "95th percentile: 12.1 ms" },
-    { name: "CPU Usage", value: "68%", extra: "node avg: 54%" },
-    { name: "Memory Usage", value: "11.2 / 16 GB", extra: "JVM heap: 9.1 GB used" },
-    { name: "World Chunks Loaded", value: "3,482", extra: "active dimensions: 3" },
-    { name: "Average Ping", value: "46 ms", extra: "95th percentile: 102 ms" },
-    { name: "Packet Loss", value: "0.4%", extra: "spike at 19:06 resolved" },
-  ],
-
   events: [
-    { ts: "03:14", type: "Crash", text: "Crash detected, auto-restart successful after 38s." },
-    { ts: "12:37", type: "Restart", text: "Manual restart for plugin deployment." },
-    { ts: "18:05", type: "Warning", text: "High TPS drop to 18.1 during world-save burst." },
-    { ts: "19:46", type: "Warning", text: "Plugin error detected in economy module (self-recovered)." },
+    { time: "03:14", type: "Crash", description: "Crash erkannt, Auto-Restart nach 38 Sekunden erfolgreich." },
+    { time: "12:37", type: "Restart", description: "Manueller Restart für Plugin-Deployment." },
+    { time: "18:05", type: "Warning", description: "TPS-Drop auf 18.1 während World-Save-Burst." },
+    { time: "19:46", type: "Warning", description: "Plugin-Fehler im Economy-Modul (selbst recovered)." },
   ],
-
   plugins: [
-    { name: "EssentialsX", version: "2.20.1", status: "OK", check: "20:12" },
-    { name: "LuckPerms", version: "5.4.104", status: "OK", check: "20:12" },
-    { name: "Dynmap", version: "3.7-beta-4", status: "Outdated", check: "20:11" },
-    { name: "CoreProtect", version: "22.5", status: "OK", check: "20:11" },
-    { name: "CustomTeleport", version: "1.8.0", status: "Error", check: "20:10" },
+    { name: "EssentialsX", version: "2.20.1", status: "OK", lastCheck: "21:40" },
+    { name: "LuckPerms", version: "5.4.104", status: "OK", lastCheck: "21:40" },
+    { name: "Dynmap", version: "3.7-beta-4", status: "Outdated", lastCheck: "21:39" },
+    { name: "CoreProtect", version: "22.5", status: "OK", lastCheck: "21:39" },
+    { name: "CustomTeleport", version: "1.8.0", status: "Error", lastCheck: "21:38" },
   ],
-
-  regions: [
-    { name: "EU Central", ping: 32 },
-    { name: "US East", ping: 85 },
-    { name: "US West", ping: 120 },
-    { name: "Asia", ping: 210 },
+  latency: [
+    { region: "EU Central", ping: 32 },
+    { region: "US East", ping: 85 },
+    { region: "US West", ping: 120 },
+    { region: "Asia", ping: 210 },
   ],
-
   discord: {
     connected: true,
-    channel: "#server-status",
-    last: "2026-02-21 20:10 UTC",
+    lastNotification: "21.02.2026 21:39",
   },
+  insights: [
+    "Die Instanz bleibt trotz kurzer Lastspitzen stabil, die Recovery-Zeit nach Events ist niedrig.",
+    "Speicher steigt kontinuierlich, ein geplanter Restart vor der Prime-Time reduziert Risiko.",
+  ],
 };
 
-function renderTopbar() {
-  document.getElementById("serverName").textContent = data.serverName;
-  document.getElementById("updatedAt").textContent = `Last update: ${data.updated}`;
-  const badge = document.getElementById("statusBadge");
-  badge.textContent = data.status;
-  badge.classList.remove("online", "degraded", "down");
-  badge.classList.add(String(data.status).toLowerCase());
+const serverNameEl = document.getElementById("server-name");
+const topStatusBadgeEl = document.getElementById("top-status-badge");
+const topLastUpdateEl = document.getElementById("top-last-update");
+const summaryGridEl = document.getElementById("summary-grid");
+
+const tpsChartEl = document.getElementById("tps-chart");
+const playersChartEl = document.getElementById("players-chart");
+const tpsMinEl = document.getElementById("tps-min");
+const tpsMaxEl = document.getElementById("tps-max");
+const tpsCurrentEl = document.getElementById("tps-current");
+const playersPeakEl = document.getElementById("players-peak");
+const playersAvgEl = document.getElementById("players-avg");
+const playersCurrentEl = document.getElementById("players-current");
+
+const metricsBodyEl = document.getElementById("metrics-body");
+const eventsListEl = document.getElementById("events-list");
+const pluginBodyEl = document.getElementById("plugin-body");
+const latencyListEl = document.getElementById("latency-list");
+const discordStatusEl = document.getElementById("discord-status");
+const discordLastEl = document.getElementById("discord-last");
+const discordTestEl = document.getElementById("discord-test");
+const discordNoteEl = document.getElementById("discord-note");
+const insightLine1El = document.getElementById("insight-line-1");
+const insightLine2El = document.getElementById("insight-line-2");
+
+function getTrendClass(type) {
+  if (type === "up") return "up";
+  if (type === "down") return "down";
+  return "neutral";
 }
 
-// Health Score
-function renderHealthScore(container) {
-  const health = data.health;
-  const card = document.createElement("article");
-  card.className = "card kpi health-score";
-  card.innerHTML = `
-    <p class="health-label">${health.label}</p>
-    <p class="health-value">${health.score} <span>/ ${health.max}</span></p>
-    <p class="health-desc">${health.description}</p>
+function getStatusClass(status) {
+  const value = String(status || "").toLowerCase();
+  if (value === "online") return "online";
+  if (value === "down") return "offline";
+  if (value === "degraded") return "loading";
+  return "loading";
+}
+
+function setTopbar() {
+  if (serverNameEl) serverNameEl.textContent = data.serverName;
+  if (topLastUpdateEl) topLastUpdateEl.textContent = `Letztes Update: ${data.lastUpdate}`;
+  if (topStatusBadgeEl) {
+    topStatusBadgeEl.textContent = data.status;
+    topStatusBadgeEl.classList.remove("online", "offline", "loading");
+    topStatusBadgeEl.classList.add(getStatusClass(data.status));
+  }
+}
+
+function renderSummary() {
+  if (!summaryGridEl) return;
+
+  const healthMarkup = `
+    <article class="summary-card health">
+      <div class="card-title">Overall Health</div>
+      <div class="summary-health-value">${data.health.score} <small>/ ${data.health.max}</small></div>
+      <div class="muted">${data.health.description}</div>
+    </article>
   `;
-  container.appendChild(card);
-}
 
-function renderKpis() {
-  const el = document.getElementById("kpis");
-  el.innerHTML = "";
-
-  renderHealthScore(el);
-
-  data.kpis.forEach((kpi) => {
-    const node = document.createElement("article");
-    node.className = `card kpi${kpi.featured ? " kpi-primary" : ""}`;
-    node.innerHTML = `<h3>${kpi.title}</h3><p class="v">${kpi.value}</p><div class="t ${kpi.cls}">${kpi.trend}</div>`;
-    el.appendChild(node);
-  });
-}
-
-function drawChart(svgId, points, cfg) {
-  const svg = document.getElementById(svgId);
-  if (!svg || !points.length) return;
-
-  const w = 600;
-  const h = 250;
-  const p = { t: 20, r: 20, b: 26, l: 36 };
-  const iw = w - p.l - p.r;
-  const ih = h - p.t - p.b;
-
-  const min = typeof cfg.min === "number" ? cfg.min : Math.min(...points);
-  const max = typeof cfg.max === "number" ? cfg.max : Math.max(...points);
-  const range = Math.max(max - min, 0.0001);
-
-  const xStep = iw / Math.max(points.length - 1, 1);
-  const x = (i) => p.l + i * xStep;
-  const y = (v) => p.t + (max - v) * (ih / range);
-
-  const coords = points.map((v, i) => `${x(i).toFixed(2)},${y(v).toFixed(2)}`);
-  const poly = coords.join(" ");
-  const area = [`M ${x(0)} ${h - p.b}`, ...coords.map((c) => `L ${c}`), `L ${x(points.length - 1)} ${h - p.b}`, "Z"].join(
-    " "
-  );
-
-  const grid = Array.from({ length: 5 })
-    .map((_, i) => {
-      const gy = p.t + (ih / 4) * i;
-      return `<line x1="${p.l}" y1="${gy}" x2="${w - p.r}" y2="${gy}" stroke="rgba(155,181,240,0.18)" stroke-width="1" />`;
-    })
+  const kpisMarkup = data.kpis
+    .map(
+      (kpi) => `
+        <article class="summary-card">
+          <div class="card-title">${kpi.title}</div>
+          <div class="metric">${kpi.value}</div>
+          <div class="muted summary-trend ${getTrendClass(kpi.trendType)}">${kpi.trend}</div>
+        </article>
+      `
+    )
     .join("");
 
-  const target =
-    typeof cfg.target === "number"
-      ? `<line x1="${p.l}" y1="${y(cfg.target)}" x2="${w - p.r}" y2="${y(cfg.target)}" stroke="rgba(90,241,195,0.65)" stroke-width="1.2" stroke-dasharray="5 5" />`
-      : "";
+  summaryGridEl.innerHTML = healthMarkup + kpisMarkup;
+}
 
-  const lx = x(points.length - 1);
-  const ly = y(points[points.length - 1]);
+function buildLinePath(points, width, height, padding, min, max) {
+  const xSpan = width - padding.left - padding.right;
+  const ySpan = height - padding.top - padding.bottom;
+  const stepX = xSpan / Math.max(points.length - 1, 1);
+  const range = Math.max(max - min, 0.0001);
 
-  svg.innerHTML = `
+  return points
+    .map((value, index) => {
+      const x = padding.left + stepX * index;
+      const y = padding.top + ((max - value) / range) * ySpan;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function renderChart(svgEl, points, options) {
+  if (!svgEl || !Array.isArray(points) || points.length < 2) return;
+  const width = 960;
+  const height = 240;
+  const padding = { top: 18, right: 16, bottom: 18, left: 14 };
+  const min = Number.isFinite(options.min) ? options.min : Math.min(...points);
+  const max = Number.isFinite(options.max) ? options.max : Math.max(...points);
+  const path = buildLinePath(points, width, height, padding, min, max);
+
+  const yTarget =
+    Number.isFinite(options.target) && max !== min
+      ? padding.top + ((max - options.target) / (max - min)) * (height - padding.top - padding.bottom)
+      : null;
+
+  svgEl.innerHTML = `
     <defs>
-      <linearGradient id="${svgId}Fill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${cfg.color}" stop-opacity="0.35"></stop>
-        <stop offset="100%" stop-color="${cfg.color}" stop-opacity="0.02"></stop>
+      <linearGradient id="${options.id}-stroke" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="${options.colorA}" />
+        <stop offset="100%" stop-color="${options.colorB}" />
+      </linearGradient>
+      <linearGradient id="${options.id}-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${options.colorA}" stop-opacity="0.35" />
+        <stop offset="100%" stop-color="${options.colorA}" stop-opacity="0.02" />
       </linearGradient>
     </defs>
-    ${grid}
-    ${target}
-    <path d="${area}" fill="url(#${svgId}Fill)"></path>
-    <polyline points="${poly}" fill="none" stroke="${cfg.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
-    <circle cx="${lx}" cy="${ly}" r="4.5" fill="${cfg.color}" />
-    <text x="${w - 12}" y="16" fill="rgba(196,214,255,0.78)" font-size="11" text-anchor="end">${cfg.label}</text>
+    ${
+      Number.isFinite(yTarget)
+        ? `<line x1="${padding.left}" y1="${yTarget}" x2="${width - padding.right}" y2="${yTarget}" stroke="rgba(185,242,124,0.55)" stroke-dasharray="7 6" />`
+        : ""
+    }
+    <path d="${path} L ${width - padding.right} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z" fill="url(#${
+      options.id
+    }-fill)" />
+    <path d="${path}" fill="none" stroke="url(#${options.id}-stroke)" stroke-width="4" stroke-linecap="round" />
   `;
 }
 
-// AI Insight
-function renderAiInsight() {
-  document.getElementById("aiInsightLine1").textContent = data.aiInsight[0] || "";
-  document.getElementById("aiInsightLine2").textContent = data.aiInsight[1] || "";
+function setChartStats() {
+  const tpsValues = data.charts.tps;
+  const playerValues = data.charts.players;
+
+  if (tpsMinEl) tpsMinEl.textContent = `${Math.min(...tpsValues).toFixed(2)} TPS`;
+  if (tpsMaxEl) tpsMaxEl.textContent = `${Math.max(...tpsValues).toFixed(2)} TPS`;
+  if (tpsCurrentEl) tpsCurrentEl.textContent = `${tpsValues[tpsValues.length - 1].toFixed(2)} TPS`;
+
+  const peakPlayers = Math.max(...playerValues);
+  const avgPlayers = playerValues.reduce((sum, value) => sum + value, 0) / playerValues.length;
+  const currentPlayers = playerValues[playerValues.length - 1];
+
+  if (playersPeakEl) playersPeakEl.textContent = `${peakPlayers}`;
+  if (playersAvgEl) playersAvgEl.textContent = `${Math.round(avgPlayers)}`;
+  if (playersCurrentEl) playersCurrentEl.textContent = `${currentPlayers}`;
 }
 
 function renderMetrics() {
-  const el = document.getElementById("liveMetrics");
-  el.innerHTML = "";
-  data.metrics.forEach((m) => {
-    const row = document.createElement("li");
-    row.innerHTML = `<span class="mname">${m.name}</span><span class="mval">${m.value}</span><span class="mextra">${m.extra}</span>`;
-    el.appendChild(row);
-  });
+  if (!metricsBodyEl) return;
+  metricsBodyEl.innerHTML = data.liveMetrics
+    .map(
+      (item) => `
+      <tr>
+        <td>${item.label}</td>
+        <td>${item.value}</td>
+        <td>${item.extra}</td>
+      </tr>
+    `
+    )
+    .join("");
 }
 
-// Improved Events
+function getEventClass(type) {
+  const value = String(type || "").toLowerCase();
+  if (value === "crash") return "crash";
+  if (value === "restart") return "restart";
+  return "warning";
+}
+
 function renderEvents() {
-  const el = document.getElementById("events");
-  el.innerHTML = "";
-  data.events.forEach((e) => {
-    const cls = e.type === "Crash" ? "crash" : e.type === "Restart" ? "restart" : "warn";
-    const item = document.createElement("li");
-    item.innerHTML = `
-      <div class="event-card">
-        <div class="time">${e.ts}</div>
-        <div class="ev"><span class="tag ${cls}">${e.type}</span><span>${e.text}</span></div>
-      </div>
-    `;
-    el.appendChild(item);
-  });
+  if (!eventsListEl) return;
+  eventsListEl.innerHTML = data.events
+    .map(
+      (event) => `
+      <article class="event-item">
+        <div class="event-meta">
+          <span class="event-time">${event.time}</span>
+          <span class="event-type ${getEventClass(event.type)}">${event.type}</span>
+        </div>
+        <div class="event-desc">${event.description}</div>
+      </article>
+    `
+    )
+    .join("");
+}
+
+function getPluginStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (value === "ok") return { dot: "ok", label: "OK" };
+  if (value === "outdated") return { dot: "warn", label: "Outdated" };
+  return { dot: "error", label: "Error" };
 }
 
 function renderPlugins() {
-  const el = document.getElementById("plugins");
-  el.innerHTML = "";
-  data.plugins.forEach((p) => {
-    const dot = p.status === "OK" ? "ok" : p.status === "Outdated" ? "outdated" : "error";
-    const row = document.createElement("tr");
-    row.innerHTML = `<td>${p.name}</td><td>${p.version}</td><td><span class="pill"><span class="dot ${dot}"></span><span>${p.status}</span></span></td><td>${p.check}</td>`;
-    el.appendChild(row);
-  });
+  if (!pluginBodyEl) return;
+  pluginBodyEl.innerHTML = data.plugins
+    .map((plugin) => {
+      const status = getPluginStatus(plugin.status);
+      return `
+        <tr>
+          <td>${plugin.name}</td>
+          <td>${plugin.version}</td>
+          <td>
+            <span class="plugin-status">
+              <span class="plugin-dot ${status.dot}"></span>
+              <span>${status.label}</span>
+            </span>
+          </td>
+          <td>${plugin.lastCheck}</td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
-function renderRegions() {
-  const el = document.getElementById("regions");
-  el.innerHTML = "";
-  const max = Math.max(...data.regions.map((r) => r.ping), 1);
-  data.regions.forEach((r) => {
-    const width = Math.max(6, Math.round((r.ping / max) * 100));
-    const row = document.createElement("div");
-    row.className = "rrow";
-    row.innerHTML = `<span class="rname">${r.name}</span><div class="rbg"><div class="rfill" style="width:${width}%"></div></div><span class="rms">${r.ping} ms</span>`;
-    el.appendChild(row);
-  });
+function getLatencyWidthClass(ping) {
+  if (ping <= 45) return "w20";
+  if (ping <= 85) return "w35";
+  if (ping <= 120) return "w50";
+  if (ping <= 160) return "w65";
+  if (ping <= 200) return "w80";
+  return "w100";
 }
 
-// Discord Improvements
+function renderLatency() {
+  if (!latencyListEl) return;
+  latencyListEl.innerHTML = data.latency
+    .map(
+      (entry) => `
+      <div class="latency-row">
+        <span class="latency-label">${entry.region}</span>
+        <div class="latency-track">
+          <div class="latency-bar ${getLatencyWidthClass(entry.ping)}"></div>
+        </div>
+        <span class="latency-value">${entry.ping} ms</span>
+      </div>
+    `
+    )
+    .join("");
+}
+
 function renderDiscord() {
-  const statusEl = document.getElementById("discordStatus");
-  statusEl.textContent = data.discord.connected ? "Connected" : "Not connected";
-  statusEl.classList.remove("connected", "disconnected");
-  statusEl.classList.add(data.discord.connected ? "connected" : "disconnected");
+  if (!discordStatusEl || !discordLastEl || !discordNoteEl || !discordTestEl) return;
 
-  document.getElementById("discordChannel").textContent = data.discord.channel;
-  document.getElementById("discordLast").textContent = data.discord.last;
+  discordStatusEl.textContent = data.discord.connected ? "Connected" : "Not connected";
+  discordStatusEl.classList.remove("online", "offline", "loading");
+  discordStatusEl.classList.add(data.discord.connected ? "online" : "offline");
+  discordLastEl.textContent = data.discord.lastNotification;
 
-  const btn = document.getElementById("testAlert");
-  const hint = document.getElementById("testHint");
-  btn.addEventListener("click", () => {
-    hint.textContent = "Test alert simulated: payload queued to #server-status.";
-    document.getElementById("discordLast").textContent = "2026-02-21 20:14 UTC (simulated)";
+  discordTestEl.addEventListener("click", () => {
+    discordNoteEl.textContent = "Test Alert wurde simuliert und in #server-status vorgemerkt.";
+    discordLastEl.textContent = "21.02.2026 21:42 (simuliert)";
   });
+}
+
+function renderInsights() {
+  if (insightLine1El) insightLine1El.textContent = data.insights[0] || "";
+  if (insightLine2El) insightLine2El.textContent = data.insights[1] || "";
+}
+
+function setupActions() {
+  const refreshButton = document.getElementById("refresh-btn");
+  if (refreshButton) {
+    refreshButton.addEventListener("click", () => {
+      topLastUpdateEl.textContent = `Letztes Update: ${data.lastUpdate} · aktualisiert`;
+    });
+  }
+
+  const logoutButton = document.getElementById("logout-btn");
+  if (logoutButton) {
+    logoutButton.addEventListener("click", () => {
+      window.location.href = "/login";
+    });
+  }
 }
 
 function init() {
-  renderTopbar();
-  renderKpis();
-  renderAiInsight();
-  drawChart("tpsChart", data.charts.tps, { label: "TPS", color: "#43d1ff", min: 18, max: 20.2, target: 20 });
-  drawChart("playersChart", data.charts.players, { label: "Players", color: "#5df4c3", min: 0, max: 150, target: 100 });
+  setTopbar();
+  renderSummary();
+  renderChart(tpsChartEl, data.charts.tps, {
+    id: "tps",
+    min: 18,
+    max: 20.2,
+    target: 20,
+    colorA: "rgba(76, 201, 240, 1)",
+    colorB: "rgba(185, 242, 124, 1)",
+  });
+  renderChart(playersChartEl, data.charts.players, {
+    id: "players",
+    min: 0,
+    max: 150,
+    target: 100,
+    colorA: "rgba(185, 242, 124, 1)",
+    colorB: "rgba(76, 201, 240, 1)",
+  });
+  setChartStats();
   renderMetrics();
   renderEvents();
   renderPlugins();
-  renderRegions();
+  renderLatency();
   renderDiscord();
+  renderInsights();
+  setupActions();
 }
 
 init();
