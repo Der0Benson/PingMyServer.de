@@ -1714,7 +1714,7 @@ function createOauthState(provider, res) {
   oauthStateStore.set(state, {
     provider: String(provider || ""),
     expiresAt: now + GITHUB_OAUTH_STATE_TTL_SECONDS * 1000,
-    bindingHash: hashSessionToken(binding),
+    bindingToken: binding,
   });
   setOauthStateCookie(res, binding);
   return state;
@@ -1728,11 +1728,10 @@ function consumeOauthState(provider, state, req) {
   oauthStateStore.delete(key);
   if (!record || record.provider !== provider) return false;
   if (!Number.isFinite(record.expiresAt) || record.expiresAt <= now) return false;
-  if (typeof record.bindingHash !== "string" || !record.bindingHash) return false;
+  if (typeof record.bindingToken !== "string" || !record.bindingToken) return false;
   const binding = readOauthStateBindingFromRequest(req);
   if (!binding) return false;
-  const bindingHash = hashSessionToken(binding);
-  return timingSafeEqualHex(record.bindingHash, bindingHash);
+  return timingSafeEqualHex(record.bindingToken, binding);
 }
 
 function parseGithubScopes(rawValue) {
