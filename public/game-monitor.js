@@ -412,6 +412,44 @@ function setActiveGameInUrl(gameKey) {
   }
 }
 
+async function removeGame(gameKey) {
+  const normalizedKey = normalizeGameKey(gameKey, "");
+  if (!normalizedKey) return;
+
+  const game = getGameByKey(normalizedKey);
+  if (!game) return;
+
+  if (game.system || normalizedKey === GAME_AGENT_DEFAULT_GAME) {
+    setModMessage(
+      t("game_monitor.messages.remove_game_blocked", null, "Dieses Spiel kann nicht entfernt werden."),
+      "error"
+    );
+    return;
+  }
+
+  const gameLabel = game.name || toReadableGameName(normalizedKey) || normalizedKey;
+  const confirmed = window.confirm(
+    t("game_monitor.messages.remove_game_confirm", { game: gameLabel }, `Spiel "${gameLabel}" wirklich entfernen?`)
+  );
+  if (!confirmed) return;
+
+  games = games.filter((entry) => entry.key !== normalizedKey);
+  persistGames();
+  modStateByGame.delete(normalizedKey);
+
+  if (activeGame === normalizedKey) {
+    await setActiveGame(GAME_AGENT_DEFAULT_GAME, { refresh: false });
+    await refreshAllData();
+  } else {
+    renderGameList();
+  }
+
+  setModMessage(
+    t("game_monitor.messages.remove_game_success", { game: gameLabel }, `Spiel "${gameLabel}" entfernt.`),
+    "success"
+  );
+}
+
 function renderGameList() {
   if (!gameListEl) return;
 
@@ -428,6 +466,7 @@ function renderGameList() {
   const html = games
     .map((game) => {
       const isActive = game.key === activeGame;
+      const isRemovable = !game.system && game.key !== GAME_AGENT_DEFAULT_GAME;
       const note =
         game.key === GAME_AGENT_DEFAULT_GAME
           ? "Direkt via IP und Agent/Key"
@@ -436,12 +475,23 @@ function renderGameList() {
           : "Agent/Mod mit Connection Key";
 
       return `
-        <button class="game-item ${isActive ? "active" : ""}" type="button" data-game="${escapeHtml(game.key)}" ${
+        <div class="game-item-row">
+          <button class="game-item ${isActive ? "active" : ""}" type="button" data-game="${escapeHtml(game.key)}" ${
         isActive ? 'aria-current="page"' : ""
       }>
-          <span class="game-item-name">${escapeHtml(game.name || toReadableGameName(game.key))}</span>
-          <span class="game-item-note">${escapeHtml(note)}</span>
-        </button>
+            <span class="game-item-name">${escapeHtml(game.name || toReadableGameName(game.key))}</span>
+            <span class="game-item-note">${escapeHtml(note)}</span>
+          </button>
+          ${
+            isRemovable
+              ? `<button
+            class="btn ghost game-item-delete"
+            type="button"
+            data-remove-game="${escapeHtml(game.key)}"
+          >${escapeHtml(t("common.delete", null, "Delete"))}</button>`
+              : ""
+          }
+        </div>
       `;
     })
     .join("");
@@ -455,6 +505,20 @@ function renderGameList() {
       if (!nextGame || nextGame === activeGame) return;
       setActiveGame(nextGame).catch(() => {
         setModMessage(t("common.connection_failed", null, "Verbindung fehlgeschlagen."), "error");
+      });
+    });
+  }
+
+  const removeButtons = gameListEl.querySelectorAll("[data-remove-game]");
+  for (const button of removeButtons) {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const gameKey = String(button.getAttribute("data-remove-game") || "").trim();
+      removeGame(gameKey).catch(() => {
+        setModMessage(
+          t("game_monitor.messages.remove_game_failed", null, "Spiel konnte nicht entfernt werden."),
+          "error"
+        );
       });
     });
   }
