@@ -261,7 +261,7 @@ function ensureResponseHelpModal() {
   const titleText =
     String(titleSource?.textContent || "").trim() ||
     t("app.response.help_title", null, i18nLang() === "de" ? "So liest du den Chart" : "How to read this chart");
-  const closeText = t("app.response.help_close", null, i18nLang() === "de" ? "Schließen" : "Close");
+  const closeText = t("app.response.help_close", null, i18nLang() === "de" ? "Schliessen" : "Close");
   const fallbackList = `
       <ul class="response-help-list">
         <li>${escapeHtml(t("app.response.help_p50", null, "P50 (Median): 50% aller Checks sind schneller als dieser Wert."))}</li>
@@ -269,10 +269,10 @@ function ensureResponseHelpModal() {
           t("app.response.help_p95", null, "P95: 95% aller Checks sind schneller. Das zeigt Lastspitzen besser als der Durchschnitt.")
         )}</li>
         <li>${escapeHtml(
-          t("app.response.help_chart", null, "Linie = Antwortzeit pro Check. Farbbereiche: grün < 100 ms, gelb 100-250 ms, rot > 250 ms.")
+          t("app.response.help_chart", null, "Linie = Antwortzeit pro Check. Farbbereiche: gruen < 100 ms, gelb 100-250 ms, rot > 250 ms.")
         )}</li>
         <li>${escapeHtml(
-          t("app.response.help_tooltip", null, "Mit der Maus über die Linie fahren für Zeitstempel, Statuscode und Fehler je Messpunkt.")
+          t("app.response.help_tooltip", null, "Mit der Maus ueber die Linie fahren fuer Zeitstempel, Statuscode und Fehler je Messpunkt.")
         )}</li>
       </ul>
   `;
@@ -2682,3 +2682,4 @@ async function init() {
 }
 
 init();
+
