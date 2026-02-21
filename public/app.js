@@ -49,7 +49,8 @@ const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
 const responseHelpButton = document.getElementById("response-help-btn");
-const responseHelpPopover = document.getElementById("response-help-popover");
+const responseHelpModal = document.getElementById("response-help-modal");
+const responseHelpModalCloseButton = document.getElementById("response-help-modal-close");
 const incidentsCard = document.querySelector(".incidents-side-card");
 const sidebarEl = document.getElementById("dashboard-sidebar");
 const mobileNavToggle = document.getElementById("mobile-nav-toggle");
@@ -179,15 +180,27 @@ function setupMobileSidebar() {
 }
 
 function setResponseHelpOpen(open) {
-  if (!responseHelpButton || !responseHelpPopover) return;
+  if (!responseHelpButton || !responseHelpModal) return;
   const shouldOpen = !!open;
-  responseHelpPopover.hidden = !shouldOpen;
+
+  if (shouldOpen) {
+    if (typeof responseHelpModal.showModal === "function") {
+      if (!responseHelpModal.open) responseHelpModal.showModal();
+    } else {
+      responseHelpModal.setAttribute("open", "");
+    }
+  } else if (typeof responseHelpModal.close === "function") {
+    if (responseHelpModal.open) responseHelpModal.close();
+  } else {
+    responseHelpModal.removeAttribute("open");
+  }
+
   responseHelpButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
   responseHelpButton.classList.toggle("is-open", shouldOpen);
 }
 
 function setupResponseHelp() {
-  if (!responseHelpButton || !responseHelpPopover) return;
+  if (!responseHelpButton || !responseHelpModal) return;
 
   setResponseHelpOpen(false);
 
@@ -197,16 +210,21 @@ function setupResponseHelp() {
     setResponseHelpOpen(!isOpen);
   });
 
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Node)) return;
-    if (responseHelpButton.contains(target) || responseHelpPopover.contains(target)) return;
+  if (responseHelpModalCloseButton) {
+    responseHelpModalCloseButton.addEventListener("click", () => {
+      setResponseHelpOpen(false);
+    });
+  }
+
+  responseHelpModal.addEventListener("click", (event) => {
+    if (event.target !== responseHelpModal) return;
     setResponseHelpOpen(false);
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    setResponseHelpOpen(false);
+  responseHelpModal.addEventListener("close", () => {
+    responseHelpButton.setAttribute("aria-expanded", "false");
+    responseHelpButton.classList.remove("is-open");
+    responseHelpButton.focus();
   });
 }
 
