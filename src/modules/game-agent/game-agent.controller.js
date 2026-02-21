@@ -49,6 +49,201 @@ function createGameAgentController(dependencies = {}) {
     console.error(event, error);
   };
 
+  const GAME_AGENT_EVENT_RETENTION_DAYS = 30;
+  const GAME_AGENT_TELEMETRY_STALE_DAYS = 14;
+  const GAME_AGENT_EVENTS_LIST_DEFAULT = 50;
+  const GAME_AGENT_EVENTS_LIST_MAX = 200;
+
+  function normalizePositiveInteger(value, fallback, min, max) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    const rounded = Math.trunc(numeric);
+    if (!Number.isInteger(rounded)) return fallback;
+    if (rounded < min || rounded > max) return fallback;
+    return rounded;
+  }
+
+  function serializeGameAgentEventRow(row) {
+    if (!row) return null;
+    const id = Number(row.id);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    const type = String(row.event_type || "info")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "")
+      .slice(0, 24);
+    const severity = String(row.severity || "info")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z]/g, "")
+      .slice(0, 16);
+    const message = String(row.message || "").trim().slice(0, 512);
+    if (!message) return null;
+
+    const eventCodeRaw = String(row.event_code || "")
+      .trim()
+      .replace(/[^A-Za-z0-9._-]/g, "")
+      .slice(0, 64);
+    const sessionId = String(row.session_public_id || "").trim();
+    const sessionName = String(row.session_server_name || row.session_server_host || row.session_instance_id || "")
+      .trim()
+      .slice(0, 120);
+
+    return {
+      id,
+      type: type || "info",
+      severity: severity || "info",
+      message,
+      eventCode: eventCodeRaw || null,
+      happenedAt: toTimestampMs(row.happened_at),
+      createdAt: toTimestampMs(row.created_at),
+      session: sessionId
+        ? {
+            id: sessionId,
+            name: sessionName || null,
+          }
+        : null,
+    };
+  }
+
+  async function persistGameAgentTelemetrySnapshot({ queryable = pool, sessionId, userId, game, payload }) {
+    const normalizedGame = normalizeGameAgentGame(game);
+    const numericSessionId = Number(sessionId);
+    const numericUserId = Number(userId);
+    if (!normalizedGame) return;
+    if (!Number.isInteger(numericSessionId) || numericSessionId <= 0) return;
+    if (!Number.isInteger(numericUserId) || numericUserId <= 0) return;
+
+    const source = payload && typeof payload === "object" ? payload : {};
+    const metrics = source.metrics && typeof source.metrics === "object" ? source.metrics : {};
+    const sampledAtMs = toTimestampMs(metrics.sampledAt);
+    const sampledAt = Number.isFinite(sampledAtMs) && sampledAtMs > 0 ? new Date(sampledAtMs) : new Date();
+
+    const pluginsInput = Array.isArray(source.plugins) ? source.plugins : [];
+    await queryable.query("DELETE FROM game_agent_session_plugins WHERE session_id = ?", [numericSessionId]);
+    const pluginRows = [];
+    for (const rawPlugin of pluginsInput) {
+      if (!rawPlugin || typeof rawPlugin !== "object") continue;
+      const pluginName = String(rawPlugin.name || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 80);
+      if (!pluginName) continue;
+      const pluginVersion = String(rawPlugin.version || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 64);
+      const enabled = rawPlugin.enabled === false ? 0 : 1;
+      pluginRows.push([numericSessionId, numericUserId, normalizedGame, pluginName, pluginVersion || null, enabled, sampledAt]);
+      if (pluginRows.length >= 200) break;
+    }
+    if (pluginRows.length) {
+      const placeholders = pluginRows.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ");
+      await queryable.query(
+        `
+          INSERT INTO game_agent_session_plugins (
+            session_id,
+            user_id,
+            game,
+            plugin_name,
+            plugin_version,
+            enabled,
+            detected_at
+          )
+          VALUES ${placeholders}
+        `,
+        pluginRows.flat()
+      );
+    }
+
+    const latencyInput = Array.isArray(source.regionalLatency) ? source.regionalLatency : [];
+    await queryable.query("DELETE FROM game_agent_session_region_latency WHERE session_id = ?", [numericSessionId]);
+    const latencyRows = [];
+    for (const rawEntry of latencyInput) {
+      if (!rawEntry || typeof rawEntry !== "object") continue;
+      const regionKey = String(rawEntry.region || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, "")
+        .slice(0, 32);
+      if (!regionKey) continue;
+      const pingMs = Number(rawEntry.pingMs);
+      if (!Number.isFinite(pingMs) || pingMs < 0 || pingMs > 600000) continue;
+      latencyRows.push([numericSessionId, numericUserId, normalizedGame, regionKey, Math.trunc(pingMs), sampledAt]);
+      if (latencyRows.length >= 64) break;
+    }
+    if (latencyRows.length) {
+      const placeholders = latencyRows.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+      await queryable.query(
+        `
+          INSERT INTO game_agent_session_region_latency (
+            session_id,
+            user_id,
+            game,
+            region_key,
+            ping_ms,
+            sampled_at
+          )
+          VALUES ${placeholders}
+        `,
+        latencyRows.flat()
+      );
+    }
+
+    const eventsInput = Array.isArray(source.events) ? source.events : [];
+    const eventRows = [];
+    for (const rawEvent of eventsInput) {
+      if (!rawEvent || typeof rawEvent !== "object") continue;
+      const type = String(rawEvent.type || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "")
+        .slice(0, 24);
+      const severity = String(rawEvent.severity || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z]/g, "")
+        .slice(0, 16);
+      const message = String(rawEvent.message || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 512);
+      if (!type || !severity || !message) continue;
+      const eventCode = String(rawEvent.eventCode || "")
+        .trim()
+        .replace(/[^A-Za-z0-9._-]/g, "")
+        .slice(0, 64);
+      const happenedAtMs = toTimestampMs(rawEvent.happenedAt);
+      const happenedAt = Number.isFinite(happenedAtMs) && happenedAtMs > 0 ? new Date(happenedAtMs) : new Date();
+      const eventHash = crypto
+        .createHash("sha256")
+        .update(`${type}|${severity}|${eventCode}|${message}|${happenedAt.getTime()}`)
+        .digest("hex");
+      eventRows.push([numericSessionId, numericUserId, normalizedGame, eventHash, type, severity, message, eventCode || null, happenedAt]);
+      if (eventRows.length >= 120) break;
+    }
+    if (eventRows.length) {
+      const placeholders = eventRows.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
+      await queryable.query(
+        `
+          INSERT IGNORE INTO game_agent_session_events (
+            session_id,
+            user_id,
+            game,
+            event_hash,
+            event_type,
+            severity,
+            message,
+            event_code,
+            happened_at
+          )
+          VALUES ${placeholders}
+        `,
+        eventRows.flat()
+      );
+    }
+  }
+
   async function handleGameMonitorMinecraftStatus(req, res, url) {
     const user = await requireAuth(req, res);
     if (!user) return;
@@ -129,6 +324,26 @@ function createGameAgentController(dependencies = {}) {
   async function cleanupGameAgentPairings() {
     await pool.query(
       "DELETE FROM game_agent_pairings WHERE expires_at < UTC_TIMESTAMP(3) OR (used_at IS NOT NULL AND used_at < DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 DAY))"
+    );
+    await pool.query(
+      `DELETE FROM game_agent_session_events
+       WHERE happened_at < DATE_SUB(UTC_TIMESTAMP(3), INTERVAL ${GAME_AGENT_EVENT_RETENTION_DAYS} DAY)`
+    );
+    await pool.query(
+      `DELETE p
+       FROM game_agent_session_plugins p
+       LEFT JOIN game_agent_sessions s ON s.id = p.session_id
+       WHERE s.id IS NULL
+          OR s.revoked_at IS NOT NULL
+          OR COALESCE(s.last_heartbeat_at, s.created_at) < DATE_SUB(UTC_TIMESTAMP(3), INTERVAL ${GAME_AGENT_TELEMETRY_STALE_DAYS} DAY)`
+    );
+    await pool.query(
+      `DELETE r
+       FROM game_agent_session_region_latency r
+       LEFT JOIN game_agent_sessions s ON s.id = r.session_id
+       WHERE s.id IS NULL
+          OR s.revoked_at IS NOT NULL
+          OR COALESCE(s.last_heartbeat_at, s.created_at) < DATE_SUB(UTC_TIMESTAMP(3), INTERVAL ${GAME_AGENT_TELEMETRY_STALE_DAYS} DAY)`
     );
   }
 
@@ -364,6 +579,65 @@ function createGameAgentController(dependencies = {}) {
     }
   }
 
+  async function listGameAgentEventsForUser(userId, game = gameAgentDefaultGame, limit = GAME_AGENT_EVENTS_LIST_DEFAULT) {
+    const normalizedGame = normalizeGameAgentGame(game);
+    if (!normalizedGame) return [];
+    const safeLimit = normalizePositiveInteger(limit, GAME_AGENT_EVENTS_LIST_DEFAULT, 1, GAME_AGENT_EVENTS_LIST_MAX);
+
+    const [rows] = await pool.query(
+      `
+        SELECT
+          e.id,
+          e.event_type,
+          e.severity,
+          e.message,
+          e.event_code,
+          e.happened_at,
+          e.created_at,
+          s.public_id AS session_public_id,
+          s.server_name AS session_server_name,
+          s.server_host AS session_server_host,
+          s.instance_id AS session_instance_id
+        FROM game_agent_session_events e
+        LEFT JOIN game_agent_sessions s ON s.id = e.session_id
+        WHERE e.user_id = ?
+          AND e.game = ?
+        ORDER BY e.happened_at DESC, e.id DESC
+        LIMIT ?
+      `,
+      [userId, normalizedGame, safeLimit]
+    );
+
+    return rows.map((row) => serializeGameAgentEventRow(row)).filter(Boolean);
+  }
+
+  async function handleGameAgentEventsList(req, res, url) {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const game = normalizeGameAgentGame(url.searchParams.get("game"));
+    if (!game) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    const limit = normalizePositiveInteger(url.searchParams.get("limit"), GAME_AGENT_EVENTS_LIST_DEFAULT, 1, GAME_AGENT_EVENTS_LIST_MAX);
+
+    try {
+      const events = await listGameAgentEventsForUser(user.id, game, limit);
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          game,
+          events,
+        },
+      });
+    } catch (error) {
+      logError("game_agent_events_list_failed", error);
+      sendJson(res, 500, { ok: false, error: "internal error" });
+    }
+  }
+
   async function handleGameAgentSessionRevoke(req, res, publicId) {
     const user = await requireAuth(req, res);
     if (!user) return;
@@ -460,6 +734,7 @@ function createGameAgentController(dependencies = {}) {
       const modVersion = normalizeGameAgentVersion(body?.modVersion || body?.mod_version);
       const gameVersion = normalizeGameAgentVersion(body?.gameVersion || body?.game_version);
       const incomingPayload = normalizeGameAgentPayload(body);
+      let payloadForPersistence = incomingPayload;
       const token = crypto.randomBytes(32).toString("hex");
       const tokenHash = hashSessionToken(token);
       const tokenLast4 = token.slice(-4);
@@ -498,6 +773,7 @@ function createGameAgentController(dependencies = {}) {
       if (existingRows.length) {
         const existing = existingRows[0];
         const mergedPayload = mergeGameAgentPayload(parseGameAgentJsonColumn(existing.last_payload), incomingPayload);
+        payloadForPersistence = mergedPayload;
         await connection.query(
           `
             UPDATE game_agent_sessions
@@ -569,6 +845,14 @@ function createGameAgentController(dependencies = {}) {
         );
         sessionId = Number(insertResult.insertId);
       }
+
+      await persistGameAgentTelemetrySnapshot({
+        queryable: connection,
+        sessionId,
+        userId: pairing.user_id,
+        game,
+        payload: payloadForPersistence,
+      });
 
       await connection.query(
         `
@@ -671,6 +955,7 @@ function createGameAgentController(dependencies = {}) {
       const modVersion = normalizeGameAgentVersion(body?.modVersion || body?.mod_version) || session.mod_version || null;
       const gameVersion = normalizeGameAgentVersion(body?.gameVersion || body?.game_version) || session.game_version || null;
       const clientIp = getClientIp(req);
+      const sessionGame = normalizeGameAgentGame(session.game) || gameAgentDefaultGame;
 
       const [updateResult] = await pool.query(
         `
@@ -694,6 +979,13 @@ function createGameAgentController(dependencies = {}) {
         sendJson(res, 403, { ok: false, error: "token revoked" });
         return;
       }
+
+      await persistGameAgentTelemetrySnapshot({
+        sessionId: session.id,
+        userId: session.user_id,
+        game: sessionGame,
+        payload: mergedPayload,
+      });
 
       sendJson(res, 200, {
         ok: true,
@@ -755,6 +1047,7 @@ function createGameAgentController(dependencies = {}) {
     handleGameAgentPairingCreate,
     handleGameAgentPairingsList,
     handleGameAgentSessionsList,
+    handleGameAgentEventsList,
     handleGameAgentSessionRevoke,
     handleGameAgentLink,
     handleGameAgentHeartbeat,

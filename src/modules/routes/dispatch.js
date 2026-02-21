@@ -88,6 +88,7 @@ async function handleDispatchedRoutes(context) {
       handleGameAgentPairingsList: handlers.handleGameAgentPairingsList,
       handleGameAgentPairingCreate: handlers.handleGameAgentPairingCreate,
       handleGameAgentSessionsList: handlers.handleGameAgentSessionsList,
+      handleGameAgentEventsList: handlers.handleGameAgentEventsList,
       handleGameAgentSessionRevoke: handlers.handleGameAgentSessionRevoke,
       handleGameAgentLink: handlers.handleGameAgentLink,
       handleGameAgentHeartbeat: handlers.handleGameAgentHeartbeat,

@@ -17,6 +17,11 @@ async function handleGameAgentRoutes(context) {
     return true;
   }
 
+  if (method === "GET" && pathname === "/api/game-agent/events") {
+    await handlers.handleGameAgentEventsList(req, res, url);
+    return true;
+  }
+
   const gameAgentSessionMatch = pathname.match(/^\/api\/game-agent\/sessions\/([A-Za-z0-9]{10,64})\/?$/);
   if (method === "DELETE" && gameAgentSessionMatch) {
     await handlers.handleGameAgentSessionRevoke(req, res, gameAgentSessionMatch[1]);

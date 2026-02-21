@@ -540,6 +540,21 @@ const GAME_AGENT_HEARTBEAT_INTERVAL_MS = readEnvNumber(
     max: GAME_AGENT_HEARTBEAT_STALE_MS,
   }
 );
+const GAME_AGENT_MAX_PLUGIN_ENTRIES = readEnvNumber("GAME_AGENT_MAX_PLUGIN_ENTRIES", 120, {
+  integer: true,
+  min: 1,
+  max: 500,
+});
+const GAME_AGENT_MAX_REGION_LATENCY_ENTRIES = readEnvNumber("GAME_AGENT_MAX_REGION_LATENCY_ENTRIES", 32, {
+  integer: true,
+  min: 1,
+  max: 128,
+});
+const GAME_AGENT_MAX_EVENT_ENTRIES = readEnvNumber("GAME_AGENT_MAX_EVENT_ENTRIES", 60, {
+  integer: true,
+  min: 1,
+  max: 500,
+});
 const MONITORS_PER_USER_MAX = readEnvNumber("MONITORS_PER_USER_MAX", 1000, {
   integer: true,
   min: 1,
@@ -4131,16 +4146,273 @@ function normalizeGameAgentMetricNumber(value, options = {}) {
   return Math.round(numeric * 100) / 100;
 }
 
+function normalizeGameAgentPercentMetric(value, options = {}) {
+  const { allowRatio = false, min = 0, max = 100, integer = false } = options;
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return null;
+  let normalized = raw;
+  if (allowRatio && raw > 0 && raw <= 1) normalized = raw * 100;
+  return normalizeGameAgentMetricNumber(normalized, { min, max, integer });
+}
+
+function normalizeGameAgentText(value, maxLength = 64) {
+  const normalized = String(value || "").trim().replace(/\s+/g, " ");
+  if (!normalized) return "";
+  return normalized.slice(0, maxLength);
+}
+
+function normalizeGameAgentPluginName(value) {
+  const normalized = normalizeGameAgentText(value, 80);
+  if (!normalized) return "";
+  return normalized.replace(/[^\w .:+\-#()/]/g, "").trim().slice(0, 80);
+}
+
+function normalizeGameAgentRegionKey(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+  if (!normalized) return "";
+  if (normalized.length > 32) return normalized.slice(0, 32);
+  return normalized;
+}
+
+function normalizeGameAgentEventType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "");
+  if (!normalized) return "info";
+
+  if (normalized === "crash" || normalized === "servercrash") return "crash";
+  if (normalized === "restart" || normalized === "serverrestart" || normalized === "start") return "restart";
+  if (normalized === "disconnect" || normalized === "offline" || normalized === "timeout") return "disconnect";
+  if (normalized === "connect" || normalized === "online" || normalized === "resume") return "connect";
+  if (normalized === "warning" || normalized === "warn") return "warning";
+  if (normalized === "error") return "error";
+  if (normalized === "info" || normalized === "notice") return "info";
+  return "info";
+}
+
+function normalizeGameAgentEventSeverity(value, fallbackType = "info") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  if (normalized === "critical") return "critical";
+  if (normalized === "error") return "error";
+  if (normalized === "warning" || normalized === "warn") return "warning";
+  if (normalized === "info" || normalized === "notice") return "info";
+
+  if (fallbackType === "crash" || fallbackType === "error") return "error";
+  if (fallbackType === "warning") return "warning";
+  return "info";
+}
+
+function normalizeGameAgentEventTimestamp(value, fallback = Date.now()) {
+  const parsed = toTimestampMs(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  const now = Date.now();
+  const min = now - 365 * 24 * 60 * 60 * 1000;
+  const max = now + 10 * 60 * 1000;
+  if (parsed < min || parsed > max) return fallback;
+  return parsed;
+}
+
+function normalizeGameAgentPlugins(input) {
+  if (!Array.isArray(input)) return [];
+
+  const seen = new Set();
+  const output = [];
+  for (const entry of input) {
+    if (output.length >= GAME_AGENT_MAX_PLUGIN_ENTRIES) break;
+    const item = entry && typeof entry === "object" ? entry : { name: entry };
+    const name = normalizeGameAgentPluginName(item.name || item.plugin || item.id);
+    if (!name) continue;
+
+    const dedupeKey = name.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    const enabledRaw = item.enabled;
+    const enabled =
+      enabledRaw === false || enabledRaw === 0 || enabledRaw === "0" || String(enabledRaw || "").trim().toLowerCase() === "false"
+        ? false
+        : true;
+
+    output.push({
+      name,
+      version: normalizeGameAgentVersion(item.version || item.pluginVersion || item.ver) || null,
+      enabled,
+    });
+  }
+
+  return output;
+}
+
+function normalizeGameAgentRegionalLatency(input) {
+  const sourceList = Array.isArray(input)
+    ? input
+    : input && typeof input === "object"
+    ? Object.entries(input).map(([region, ping]) => ({ region, pingMs: ping }))
+    : [];
+  if (!sourceList.length) return [];
+
+  const seen = new Set();
+  const output = [];
+  for (const entry of sourceList) {
+    if (output.length >= GAME_AGENT_MAX_REGION_LATENCY_ENTRIES) break;
+    if (!entry || typeof entry !== "object") continue;
+
+    const region = normalizeGameAgentRegionKey(entry.region || entry.regionKey || entry.code || entry.id || entry.location);
+    if (!region) continue;
+    if (seen.has(region)) continue;
+
+    const pingMs = normalizeGameAgentMetricNumber(entry.pingMs ?? entry.ping ?? entry.latencyMs ?? entry.value, {
+      min: 0,
+      max: 600000,
+      integer: true,
+    });
+    if (!Number.isFinite(pingMs)) continue;
+    seen.add(region);
+
+    output.push({
+      region,
+      pingMs,
+    });
+  }
+
+  return output;
+}
+
+function normalizeGameAgentEvents(input) {
+  if (!Array.isArray(input)) return [];
+
+  const seen = new Set();
+  const output = [];
+  for (const entry of input) {
+    if (output.length >= GAME_AGENT_MAX_EVENT_ENTRIES) break;
+    if (!entry || typeof entry !== "object") continue;
+
+    const type = normalizeGameAgentEventType(entry.type || entry.eventType || entry.event || entry.eventAction);
+    const severity = normalizeGameAgentEventSeverity(entry.severity || entry.level, type);
+    const message = normalizeGameAgentText(
+      entry.message || entry.description || entry.reason || (type === "crash" ? "Crash event" : `${type} event`),
+      512
+    );
+    if (!message) continue;
+
+    const eventCode = normalizeGameAgentText(entry.code || entry.eventCode || entry.id, 64) || null;
+    const happenedAt = normalizeGameAgentEventTimestamp(entry.happenedAt || entry.occurredAt || entry.eventDate || entry.timestamp, Date.now());
+    const dedupeKey = `${type}|${severity}|${eventCode || ""}|${message}|${happenedAt}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    output.push({
+      type,
+      severity,
+      message,
+      eventCode,
+      happenedAt,
+    });
+  }
+
+  output.sort((a, b) => Number(b.happenedAt || 0) - Number(a.happenedAt || 0));
+  return output.slice(0, GAME_AGENT_MAX_EVENT_ENTRIES);
+}
+
+function hasOwn(object, key) {
+  return !!(object && typeof object === "object" && Object.prototype.hasOwnProperty.call(object, key));
+}
+
 function normalizeGameAgentPayload(input) {
   const source = input && typeof input === "object" ? input : {};
-  const tps = normalizeGameAgentMetricNumber(source.tps, { min: 0, max: 40 });
-  const pingMs = normalizeGameAgentMetricNumber(source.pingMs, { min: 0, max: 600000, integer: true });
-  const playersOnline = normalizeGameAgentMetricNumber(source.playersOnline, { min: 0, max: 10000000, integer: true });
-  const playersMax = normalizeGameAgentMetricNumber(source.playersMax, { min: 0, max: 10000000, integer: true });
-  const motd = String(source.motd || "").trim().slice(0, 512) || null;
-  const version = normalizeGameAgentVersion(source.version) || null;
-  const world = normalizeGameAgentVersion(source.world) || null;
-  const dimension = normalizeGameAgentVersion(source.dimension) || null;
+  const sourceMetrics = source.metrics && typeof source.metrics === "object" ? source.metrics : {};
+  const sourceMemory = source.memory && typeof source.memory === "object" ? source.memory : {};
+
+  const pick = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null) return value;
+    }
+    return null;
+  };
+
+  const tps = normalizeGameAgentMetricNumber(pick(source.tps, sourceMetrics.tps), { min: 0, max: 40 });
+  const pingMs = normalizeGameAgentMetricNumber(pick(source.pingMs, source.ping, sourceMetrics.pingMs, sourceMetrics.ping), {
+    min: 0,
+    max: 600000,
+    integer: true,
+  });
+  const playersOnline = normalizeGameAgentMetricNumber(pick(source.playersOnline, source.onlinePlayers, sourceMetrics.playersOnline), {
+    min: 0,
+    max: 10000000,
+    integer: true,
+  });
+  const playersMax = normalizeGameAgentMetricNumber(pick(source.playersMax, source.maxPlayers, sourceMetrics.playersMax), {
+    min: 0,
+    max: 10000000,
+    integer: true,
+  });
+  const motd = normalizeGameAgentText(pick(source.motd, sourceMetrics.motd), 512) || null;
+  const version = normalizeGameAgentVersion(pick(source.version, sourceMetrics.version)) || null;
+  const world = normalizeGameAgentVersion(pick(source.world, sourceMetrics.world)) || null;
+  const dimension = normalizeGameAgentVersion(pick(source.dimension, sourceMetrics.dimension)) || null;
+
+  const cpuUsagePct = normalizeGameAgentPercentMetric(
+    pick(source.cpuUsagePct, source.cpuUsage, source.cpu, sourceMetrics.cpuUsagePct, sourceMetrics.cpuUsage, sourceMetrics.cpu),
+    { min: 0, max: 100 }
+  );
+  const memoryUsedMb = normalizeGameAgentMetricNumber(
+    pick(
+      source.memoryUsedMb,
+      source.memoryUsageMb,
+      source.memoryUsed,
+      sourceMetrics.memoryUsedMb,
+      sourceMetrics.memoryUsageMb,
+      sourceMemory.usedMb,
+      sourceMemory.used,
+      sourceMemory.currentMb
+    ),
+    { min: 0, max: 1024 * 1024, integer: true }
+  );
+  const memoryMaxMb = normalizeGameAgentMetricNumber(
+    pick(
+      source.memoryMaxMb,
+      source.memoryLimitMb,
+      source.memoryMax,
+      sourceMetrics.memoryMaxMb,
+      sourceMetrics.memoryLimitMb,
+      sourceMemory.maxMb,
+      sourceMemory.max,
+      sourceMemory.limitMb
+    ),
+    { min: 0, max: 1024 * 1024, integer: true }
+  );
+  const uptimeSec = normalizeGameAgentMetricNumber(
+    pick(source.uptimeSec, source.uptimeSeconds, source.uptime, sourceMetrics.uptimeSec, sourceMetrics.uptimeSeconds),
+    { min: 0, max: 60 * 60 * 24 * 365 * 20, integer: true }
+  );
+  const packetLossPct = normalizeGameAgentPercentMetric(
+    pick(source.packetLossPct, source.packetLoss, sourceMetrics.packetLossPct, sourceMetrics.packetLoss),
+    { min: 0, max: 100, allowRatio: true }
+  );
+
+  const hasPlugins =
+    hasOwn(source, "plugins") || hasOwn(source, "pluginList") || hasOwn(source, "mods") || hasOwn(sourceMetrics, "plugins");
+  const hasRegionalLatency =
+    hasOwn(source, "regionalLatency") ||
+    hasOwn(source, "latencyByRegion") ||
+    hasOwn(source, "regionLatency") ||
+    hasOwn(sourceMetrics, "regionalLatency");
+  const hasEvents = hasOwn(source, "events") || hasOwn(source, "eventLog") || hasOwn(sourceMetrics, "events");
+
+  const plugins = hasPlugins
+    ? normalizeGameAgentPlugins(pick(source.plugins, source.pluginList, source.mods, sourceMetrics.plugins))
+    : null;
+  const regionalLatency = hasRegionalLatency
+    ? normalizeGameAgentRegionalLatency(pick(source.regionalLatency, source.latencyByRegion, source.regionLatency, sourceMetrics.regionalLatency))
+    : null;
+  const events = hasEvents ? normalizeGameAgentEvents(pick(source.events, source.eventLog, sourceMetrics.events)) : null;
 
   return {
     metrics: {
@@ -4152,8 +4424,16 @@ function normalizeGameAgentPayload(input) {
       version,
       world,
       dimension,
+      cpuUsagePct,
+      memoryUsedMb,
+      memoryMaxMb,
+      uptimeSec,
+      packetLossPct,
       sampledAt: Date.now(),
     },
+    plugins,
+    regionalLatency,
+    events,
   };
 }
 
@@ -4162,6 +4442,12 @@ function mergeGameAgentPayload(existingPayload, incomingPayload) {
   const incoming = incomingPayload && typeof incomingPayload === "object" ? incomingPayload : {};
   const existingMetrics = existing.metrics && typeof existing.metrics === "object" ? existing.metrics : {};
   const incomingMetrics = incoming.metrics && typeof incoming.metrics === "object" ? incoming.metrics : {};
+  const existingPlugins = Array.isArray(existing.plugins) ? existing.plugins : [];
+  const incomingPlugins = Array.isArray(incoming.plugins) ? incoming.plugins : null;
+  const existingRegionalLatency = Array.isArray(existing.regionalLatency) ? existing.regionalLatency : [];
+  const incomingRegionalLatency = Array.isArray(incoming.regionalLatency) ? incoming.regionalLatency : null;
+  const existingEvents = Array.isArray(existing.events) ? existing.events : [];
+  const incomingEvents = Array.isArray(incoming.events) ? incoming.events : [];
 
   return {
     metrics: {
@@ -4173,8 +4459,16 @@ function mergeGameAgentPayload(existingPayload, incomingPayload) {
       version: incomingMetrics.version ?? existingMetrics.version ?? null,
       world: incomingMetrics.world ?? existingMetrics.world ?? null,
       dimension: incomingMetrics.dimension ?? existingMetrics.dimension ?? null,
+      cpuUsagePct: incomingMetrics.cpuUsagePct ?? existingMetrics.cpuUsagePct ?? null,
+      memoryUsedMb: incomingMetrics.memoryUsedMb ?? existingMetrics.memoryUsedMb ?? null,
+      memoryMaxMb: incomingMetrics.memoryMaxMb ?? existingMetrics.memoryMaxMb ?? null,
+      uptimeSec: incomingMetrics.uptimeSec ?? existingMetrics.uptimeSec ?? null,
+      packetLossPct: incomingMetrics.packetLossPct ?? existingMetrics.packetLossPct ?? null,
       sampledAt: Date.now(),
     },
+    plugins: incomingPlugins === null ? existingPlugins : incomingPlugins,
+    regionalLatency: incomingRegionalLatency === null ? existingRegionalLatency : incomingRegionalLatency,
+    events: normalizeGameAgentEvents([...incomingEvents, ...existingEvents]),
   };
 }
 
@@ -4226,6 +4520,9 @@ function serializeGameAgentSessionRow(row, now = Date.now()) {
   if (!game) return null;
   const payload = parseGameAgentJsonColumn(row.last_payload) || {};
   const metrics = payload?.metrics && typeof payload.metrics === "object" ? payload.metrics : {};
+  const plugins = normalizeGameAgentPlugins(payload?.plugins);
+  const regionalLatency = normalizeGameAgentRegionalLatency(payload?.regionalLatency);
+  const events = normalizeGameAgentEvents(payload?.events);
 
   return {
     id: publicId,
@@ -4250,8 +4547,16 @@ function serializeGameAgentSessionRow(row, now = Date.now()) {
       version: normalizeGameAgentVersion(metrics.version) || null,
       world: normalizeGameAgentVersion(metrics.world) || null,
       dimension: normalizeGameAgentVersion(metrics.dimension) || null,
+      cpuUsagePct: normalizeGameAgentPercentMetric(metrics.cpuUsagePct, { min: 0, max: 100 }),
+      memoryUsedMb: normalizeGameAgentMetricNumber(metrics.memoryUsedMb, { min: 0, max: 1024 * 1024, integer: true }),
+      memoryMaxMb: normalizeGameAgentMetricNumber(metrics.memoryMaxMb, { min: 0, max: 1024 * 1024, integer: true }),
+      uptimeSec: normalizeGameAgentMetricNumber(metrics.uptimeSec, { min: 0, max: 60 * 60 * 24 * 365 * 20, integer: true }),
+      packetLossPct: normalizeGameAgentPercentMetric(metrics.packetLossPct, { min: 0, max: 100 }),
       sampledAt: toTimestampMs(metrics.sampledAt),
     },
+    plugins,
+    regionalLatency,
+    events,
   };
 }
 
@@ -5667,6 +5972,76 @@ async function initDb() {
       INDEX idx_game_agent_sessions_user_game (user_id, game, created_at),
       INDEX idx_game_agent_sessions_heartbeat (last_heartbeat_at),
       CONSTRAINT fk_game_agent_sessions_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_agent_session_events (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      session_id BIGINT NOT NULL,
+      user_id BIGINT NOT NULL,
+      game VARCHAR(24) NOT NULL,
+      event_hash CHAR(64) NOT NULL,
+      event_type VARCHAR(24) NOT NULL,
+      severity VARCHAR(16) NOT NULL,
+      message VARCHAR(512) NOT NULL,
+      event_code VARCHAR(64) NULL,
+      happened_at DATETIME(3) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_game_agent_event_hash (session_id, event_hash),
+      INDEX idx_game_agent_events_user_game_time (user_id, game, happened_at),
+      INDEX idx_game_agent_events_session_time (session_id, happened_at),
+      CONSTRAINT fk_game_agent_events_session
+        FOREIGN KEY (session_id) REFERENCES game_agent_sessions(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_game_agent_events_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_agent_session_plugins (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      session_id BIGINT NOT NULL,
+      user_id BIGINT NOT NULL,
+      game VARCHAR(24) NOT NULL,
+      plugin_name VARCHAR(80) NOT NULL,
+      plugin_version VARCHAR(64) NULL,
+      enabled TINYINT(1) NOT NULL DEFAULT 1,
+      detected_at DATETIME(3) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_game_agent_plugin_session_name (session_id, plugin_name),
+      INDEX idx_game_agent_plugins_user_game (user_id, game, detected_at),
+      CONSTRAINT fk_game_agent_plugins_session
+        FOREIGN KEY (session_id) REFERENCES game_agent_sessions(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_game_agent_plugins_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_agent_session_region_latency (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      session_id BIGINT NOT NULL,
+      user_id BIGINT NOT NULL,
+      game VARCHAR(24) NOT NULL,
+      region_key VARCHAR(32) NOT NULL,
+      ping_ms INT UNSIGNED NOT NULL,
+      sampled_at DATETIME(3) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_game_agent_region_session_key (session_id, region_key),
+      INDEX idx_game_agent_region_user_game (user_id, game, sampled_at),
+      CONSTRAINT fk_game_agent_region_session
+        FOREIGN KEY (session_id) REFERENCES game_agent_sessions(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_game_agent_region_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
     )
@@ -9230,6 +9605,7 @@ const {
   handleGameAgentPairingCreate,
   handleGameAgentPairingsList,
   handleGameAgentSessionsList,
+  handleGameAgentEventsList,
   handleGameAgentSessionRevoke,
   handleGameAgentLink,
   handleGameAgentHeartbeat,
@@ -12135,6 +12511,7 @@ const runtimeHandlers = {
   handleGameAgentPairingsList,
   handleGameAgentPairingCreate,
   handleGameAgentSessionsList,
+  handleGameAgentEventsList,
   handleGameAgentSessionRevoke,
   handleGameAgentLink,
   handleGameAgentHeartbeat,

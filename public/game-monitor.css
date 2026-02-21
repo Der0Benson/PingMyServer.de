@@ -168,10 +168,6 @@
   color: var(--accent);
 }
 
-.summary-trend.soon {
-  color: #f4b45a;
-}
-
 .game-chart-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -241,10 +237,6 @@
   font-size: 0.78rem;
 }
 
-.metrics-table .soon-cell {
-  color: #f4b45a;
-}
-
 .events-list {
   display: grid;
   gap: 10px;
@@ -299,10 +291,18 @@
   background: rgba(244, 180, 90, 0.16);
 }
 
-.event-type.soon {
-  color: #ffe9bc;
-  border-color: rgba(244, 180, 90, 0.48);
-  background: rgba(244, 180, 90, 0.14);
+.event-type.info,
+.event-type.connect {
+  color: #d8edff;
+  border-color: rgba(138, 194, 255, 0.42);
+  background: rgba(138, 194, 255, 0.12);
+}
+
+.event-type.disconnect,
+.event-type.error {
+  color: #ffd1d1;
+  border-color: rgba(242, 107, 107, 0.45);
+  background: rgba(242, 107, 107, 0.16);
 }
 
 .event-desc {
@@ -387,27 +387,71 @@
   font-size: 0.92rem;
 }
 
-.coming-soon-box {
-  border: 1px solid rgba(244, 180, 90, 0.24);
-  border-radius: 10px;
-  background: rgba(244, 180, 90, 0.07);
-  padding: 10px;
+.plugins-list,
+.latency-list {
   display: grid;
   gap: 8px;
 }
 
-.soon-pill {
-  display: inline-flex;
+.plugin-item,
+.latency-item {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(8, 13, 21, 0.6);
+  padding: 8px 10px;
+}
+
+.plugin-head,
+.latency-head {
+  display: flex;
   align-items: center;
-  align-self: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plugin-name,
+.latency-region {
+  font-family: "Syne", sans-serif;
+  font-size: 0.86rem;
+}
+
+.plugin-version,
+.latency-value {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.plugin-state {
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  border: 1px solid rgba(244, 180, 90, 0.45);
-  color: #ffe0a8;
-  background: rgba(244, 180, 90, 0.16);
-  text-transform: uppercase;
+  padding: 2px 8px;
+  font-size: 0.66rem;
+  border: 1px solid transparent;
+}
+
+.plugin-state.enabled {
+  color: #b5f89d;
+  border-color: rgba(181, 248, 157, 0.4);
+  background: rgba(181, 248, 157, 0.1);
+}
+
+.plugin-state.disabled {
+  color: #ffb6b6;
+  border-color: rgba(255, 182, 182, 0.4);
+  background: rgba(255, 182, 182, 0.12);
+}
+
+.latency-bar-wrap {
+  margin-top: 8px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.latency-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(76, 201, 240, 0.85), rgba(185, 242, 124, 0.85));
 }
 
 .discord-card-copy {
@@ -435,6 +479,12 @@
   justify-content: space-between;
   gap: 10px;
   align-items: center;
+}
+
+.discord-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .insight-line {
@@ -483,6 +533,12 @@
   color: #ffb8b8;
   border-color: rgba(255, 184, 184, 0.45);
   background: rgba(255, 184, 184, 0.12);
+}
+
+.status-pill.warning {
+  color: #f6d394;
+  border-color: rgba(246, 211, 148, 0.45);
+  background: rgba(246, 211, 148, 0.12);
 }
 
 @media (max-width: 1260px) {

@@ -23,6 +23,13 @@ const els = {
   metricsBody: byId("metrics-body"),
   events: byId("events-list"),
   sessions: byId("mod-sessions-list"),
+  pluginsSummary: byId("plugins-summary"),
+  pluginsList: byId("plugins-list"),
+  latencySummary: byId("latency-summary"),
+  latencyList: byId("latency-list"),
+  discordStatusPill: byId("discord-status-pill"),
+  discordStatusCopy: byId("discord-status-copy"),
+  discordTestBtn: byId("discord-test-btn"),
   insight1: byId("insight-line-1"),
   insight2: byId("insight-line-2"),
 };
@@ -42,6 +49,8 @@ const state = {
   user: null,
   sessions: [],
   pairing: null,
+  notifications: null,
+  eventFeed: [],
   updatedAt: 0,
   tps: [],
   players: [],
@@ -51,6 +60,7 @@ const state = {
 };
 
 let loopHandle = null;
+let discordTestPending = false;
 
 const esc = (v) =>
   String(v || "")
@@ -96,6 +106,26 @@ function fmtTime(ts) {
   } catch {
     return new Date(n).toLocaleTimeString();
   }
+}
+
+function fmtPercent(v, digits = 1) {
+  if (!isNum(v)) return "--";
+  return `${fmtNum(v, digits)}%`;
+}
+
+function fmtMemory(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "--";
+  if (n >= 1024) return `${fmtNum(n / 1024, 2)} GB`;
+  return `${fmtNum(n, 0)} MB`;
+}
+
+function fmtUptimeSeconds(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "--";
+  const hours = n / 3600;
+  if (hours >= 24) return `${fmtNum(hours / 24, 1)} d`;
+  return `${fmtNum(hours, 1)} h`;
 }
 
 function setMsg(text, type = "") {
@@ -178,6 +208,36 @@ async function fetchPairing() {
   return true;
 }
 
+async function fetchNotifications() {
+  const res = await fetch("/api/account/notifications", { cache: "no-store" });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    return false;
+  }
+  if (!res.ok) {
+    state.notifications = null;
+    return false;
+  }
+  const payload = await res.json().catch(() => null);
+  state.notifications = payload?.ok && payload?.data && typeof payload.data === "object" ? payload.data : null;
+  return true;
+}
+
+async function fetchEvents() {
+  const res = await fetch(`/api/game-agent/events?game=${encodeURIComponent(GAME)}&limit=80`, { cache: "no-store" });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    return false;
+  }
+  if (!res.ok) {
+    state.eventFeed = [];
+    return false;
+  }
+  const payload = await res.json().catch(() => null);
+  state.eventFeed = Array.isArray(payload?.data?.events) ? payload.data.events : [];
+  return true;
+}
+
 async function createPairing() {
   const res = await fetch("/api/game-agent/pairings", {
     method: "POST",
@@ -199,6 +259,30 @@ async function createPairing() {
   return true;
 }
 
+async function sendDiscordTestAlert() {
+  if (discordTestPending) return;
+  discordTestPending = true;
+  if (els.discordTestBtn) els.discordTestBtn.disabled = true;
+  try {
+    const res = await fetch("/api/account/notifications/discord/test", { method: "POST" });
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || payload?.ok === false) {
+      setMsg(t("game_monitor.dashboard.discord.test_failed", null, "Discord-Test konnte nicht gesendet werden."), "error");
+      return;
+    }
+    setMsg(t("game_monitor.dashboard.discord.test_sent", null, "Discord-Test versendet."), "success");
+  } catch {
+    setMsg(t("game_monitor.dashboard.discord.test_failed", null, "Discord-Test konnte nicht gesendet werden."), "error");
+  } finally {
+    discordTestPending = false;
+    renderDiscord();
+  }
+}
+
 function sortedSessions() {
   return [...state.sessions].sort((a, b) => {
     if (Boolean(a?.online) !== Boolean(b?.online)) return a?.online ? -1 : 1;
@@ -210,14 +294,34 @@ function primarySession() {
   return sortedSessions()[0] || null;
 }
 
+function activeSessions() {
+  const online = state.sessions.filter((s) => s?.online);
+  return online.length ? online : state.sessions;
+}
+
 function onlineCount() {
   return state.sessions.filter((s) => s?.online).length;
 }
 
-function avgPing() {
-  const values = state.sessions.map((s) => Number(s?.metrics?.pingMs)).filter((v) => Number.isFinite(v));
+function avgMetric(field, digits = 2) {
+  const values = activeSessions()
+    .map((s) => Number(s?.metrics?.[field]))
+    .filter((v) => Number.isFinite(v));
   if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
+  const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
+  return Number(avg.toFixed(digits));
+}
+
+function sumMetric(field) {
+  const values = activeSessions()
+    .map((s) => Number(s?.metrics?.[field]))
+    .filter((v) => Number.isFinite(v));
+  if (!values.length) return null;
+  return values.reduce((sum, v) => sum + Math.max(0, v), 0);
+}
+
+function avgPing() {
+  return avgMetric("pingMs", 1);
 }
 
 function sumPlayers(field) {
@@ -234,18 +338,37 @@ function sumPlayers(field) {
 
 function healthScore(session) {
   if (!state.sessions.length) return null;
-  const weights = [];
+  const scores = [];
+  let totalWeight = 0;
+
   if (isNum(session?.metrics?.tps)) {
-    weights.push(Math.max(0, Math.min(100, (Number(session.metrics.tps) / 20) * 100)) * 0.45);
+    scores.push(Math.max(0, Math.min(100, (Number(session.metrics.tps) / 20) * 100)) * 0.35);
+    totalWeight += 0.35;
   }
+
   const ping = avgPing();
   if (isNum(ping)) {
-    weights.push(Math.max(0, 100 - Number(ping) * 0.5) * 0.25);
+    scores.push(Math.max(0, 100 - Number(ping) * 0.5) * 0.2);
+    totalWeight += 0.2;
   }
-  weights.push((state.sessions.length ? (onlineCount() / state.sessions.length) * 100 : 0) * 0.3);
-  const totalWeight = (isNum(session?.metrics?.tps) ? 0.45 : 0) + (isNum(ping) ? 0.25 : 0) + 0.3;
+
+  const cpu = avgMetric("cpuUsagePct", 1);
+  if (isNum(cpu)) {
+    scores.push(Math.max(0, 100 - Number(cpu) * 0.7) * 0.1);
+    totalWeight += 0.1;
+  }
+
+  const packetLoss = avgMetric("packetLossPct", 2);
+  if (isNum(packetLoss)) {
+    scores.push(Math.max(0, 100 - Number(packetLoss) * 4) * 0.1);
+    totalWeight += 0.1;
+  }
+
+  scores.push((state.sessions.length ? (onlineCount() / state.sessions.length) * 100 : 0) * 0.25);
+  totalWeight += 0.25;
+
   if (totalWeight <= 0) return null;
-  return Math.round(weights.reduce((a, b) => a + b, 0) / totalWeight);
+  return Math.round(scores.reduce((a, b) => a + b, 0) / totalWeight);
 }
 
 function statusMeta() {
@@ -269,9 +392,9 @@ function updateHistory() {
   pushHistory(state.players, state.sessions.length ? sumPlayers("playersOnline") : null);
 }
 
-function addEvent(type, description) {
-  state.events.unshift({ type, description, ts: Date.now() });
-  if (state.events.length > EVENTS_MAX) state.events.splice(EVENTS_MAX);
+function addEvent(type, description, sessionName = null, ts = Date.now()) {
+  state.events.unshift({ type, description, sessionName, ts: Number(ts) || Date.now() });
+  if (state.events.length > EVENTS_MAX * 3) state.events.splice(EVENTS_MAX * 3);
 }
 
 function updateEvents() {
@@ -290,14 +413,15 @@ function updateEvents() {
   for (const s of state.sessions) {
     const id = String(s?.id || "").trim();
     if (!id) continue;
+    const sessionName = s.serverName || s.serverHost || id;
     const prev = state.prevOnline.get(id);
     if (prev === undefined) {
-      addEvent("restart", t("game_monitor.dashboard.events.new_session", { session: s.serverName || id }, `Neue Session erkannt: ${s.serverName || id}`));
+      addEvent("connect", t("game_monitor.dashboard.events.new_session", { session: sessionName }, `Neue Session erkannt: ${sessionName}`), sessionName);
       continue;
     }
     if (prev !== Boolean(s.online)) {
-      if (s.online) addEvent("restart", t("game_monitor.dashboard.events.session_recovered", { session: s.serverName || id }, `Session wieder online: ${s.serverName || id}`));
-      else addEvent("warning", t("game_monitor.dashboard.events.session_stale", { session: s.serverName || id }, `Heartbeat stale/offline: ${s.serverName || id}`));
+      if (s.online) addEvent("restart", t("game_monitor.dashboard.events.session_recovered", { session: sessionName }, `Session wieder online: ${sessionName}`), sessionName);
+      else addEvent("disconnect", t("game_monitor.dashboard.events.session_stale", { session: sessionName }, `Heartbeat stale/offline: ${sessionName}`), sessionName);
     }
   }
   state.prevOnline = next;
@@ -388,6 +512,10 @@ function renderSummary(session) {
   const ping = avgPing();
   const playersOnline = sumPlayers("playersOnline");
   const playersMax = sumPlayers("playersMax");
+  const cpu = avgMetric("cpuUsagePct", 1);
+  const memoryUsed = sumMetric("memoryUsedMb");
+  const memoryMax = sumMetric("memoryMaxMb");
+  const uptimeSec = avgMetric("uptimeSec", 0);
   const h = healthScore(session);
 
   const cards = [
@@ -413,22 +541,22 @@ function renderSummary(session) {
     },
     {
       title: t("game_monitor.dashboard.kpis.cpu_usage", null, "CPU Usage"),
-      value: t("game_monitor.dashboard.soon_short", null, "Bald"),
-      trend: { text: t("game_monitor.dashboard.soon_from_mod", null, "Sobald die Mod es liefert"), css: "soon" },
+      value: fmtPercent(cpu, 1),
+      trend: { text: t("game_monitor.dashboard.trend.live_value", null, "Live aus Mod-Metriken"), css: "neutral" },
     },
     {
       title: t("game_monitor.dashboard.kpis.memory_usage", null, "Memory Usage"),
-      value: t("game_monitor.dashboard.soon_short", null, "Bald"),
-      trend: { text: t("game_monitor.dashboard.soon_from_mod", null, "Sobald die Mod es liefert"), css: "soon" },
+      value: isNum(memoryUsed) && isNum(memoryMax) ? `${fmtMemory(memoryUsed)} / ${fmtMemory(memoryMax)}` : fmtMemory(memoryUsed),
+      trend: { text: t("game_monitor.dashboard.trend.live_value", null, "Live aus Mod-Metriken"), css: "neutral" },
     },
     {
       title: t("game_monitor.dashboard.kpis.uptime", null, "Uptime (24h)"),
-      value: t("game_monitor.dashboard.soon_short", null, "Bald"),
-      trend: { text: t("game_monitor.dashboard.soon_from_mod", null, "Sobald die Mod es liefert"), css: "soon" },
+      value: fmtUptimeSeconds(uptimeSec),
+      trend: { text: t("game_monitor.dashboard.trend.live_value", null, "Live aus Mod-Metriken"), css: "neutral" },
     },
   ];
 
-  const healthText = isNum(h) ? `${fmtNum(h)} <small>/ 100</small>` : `${esc(t("game_monitor.dashboard.soon_short", null, "Bald"))} <small>/ 100</small>`;
+  const healthText = isNum(h) ? `${fmtNum(h)} <small>/ 100</small>` : `-- <small>/ 100</small>`;
 
   els.summary.innerHTML = `
     <article class="summary-card health">
@@ -491,8 +619,8 @@ function renderCharts() {
   if (els.playersCurrent) els.playersCurrent.textContent = realPlayers.length ? fmtNum(realPlayers[realPlayers.length - 1]) : "--";
 }
 
-function metricRow(label, value, extra, soon = false) {
-  return `<tr><td>${esc(label)}</td><td class="${soon ? "soon-cell" : ""}">${esc(value)}</td><td>${esc(extra)}</td></tr>`;
+function metricRow(label, value, extra) {
+  return `<tr><td>${esc(label)}</td><td>${esc(value)}</td><td>${esc(extra)}</td></tr>`;
 }
 
 function renderLiveMetrics(session) {
@@ -500,6 +628,10 @@ function renderLiveMetrics(session) {
   const ping = avgPing();
   const playersOnline = sumPlayers("playersOnline");
   const playersMax = sumPlayers("playersMax");
+  const cpu = avgMetric("cpuUsagePct", 1);
+  const memoryUsed = sumMetric("memoryUsedMb");
+  const memoryMax = sumMetric("memoryMaxMb");
+  const packetLoss = avgMetric("packetLossPct", 2);
 
   const rows = [
     metricRow(t("game_monitor.dashboard.live_metrics.rows.tps", null, "TPS"), isNum(session?.metrics?.tps) ? `${fmtNum(session.metrics.tps, 2)} TPS` : "--", t("game_monitor.dashboard.live_metrics.rows.tps_extra", null, "Direkt aus Mod-Metriken")),
@@ -513,51 +645,247 @@ function renderLiveMetrics(session) {
     metricRow(t("game_monitor.dashboard.live_metrics.rows.mod_version", null, "Mod Version"), session?.modVersion || "--", t("game_monitor.dashboard.live_metrics.rows.mod_version_extra", null, "Gemeldet von der verbundenen Session")),
     metricRow(t("game_monitor.dashboard.live_metrics.rows.instance", null, "Instance"), session?.instanceId || "--", t("game_monitor.dashboard.live_metrics.rows.instance_extra", null, "Eindeutige Session-ID")),
     metricRow(t("game_monitor.dashboard.live_metrics.rows.heartbeat", null, "Last Heartbeat"), fmtDate(session?.lastHeartbeatAt), t("game_monitor.dashboard.live_metrics.rows.heartbeat_extra", null, "Zeitpunkt des letzten Heartbeats")),
-    metricRow(t("game_monitor.dashboard.live_metrics.rows.cpu", null, "CPU Usage"), t("game_monitor.dashboard.soon_short", null, "Bald"), t("game_monitor.dashboard.soon_from_mod", null, "Sobald die Mod es liefert"), true),
-    metricRow(t("game_monitor.dashboard.live_metrics.rows.memory", null, "Memory Usage"), t("game_monitor.dashboard.soon_short", null, "Bald"), t("game_monitor.dashboard.soon_from_mod", null, "Sobald die Mod es liefert"), true),
-    metricRow(t("game_monitor.dashboard.live_metrics.rows.packet_loss", null, "Packet Loss"), t("game_monitor.dashboard.soon_short", null, "Bald"), t("game_monitor.dashboard.soon_from_mod", null, "Sobald die Mod es liefert"), true),
+    metricRow(t("game_monitor.dashboard.live_metrics.rows.cpu", null, "CPU Usage"), fmtPercent(cpu, 1), t("game_monitor.dashboard.live_metrics.rows.cpu_extra", null, "Mittelwert ueber aktive Sessions")),
+    metricRow(
+      t("game_monitor.dashboard.live_metrics.rows.memory", null, "Memory Usage"),
+      isNum(memoryUsed) && isNum(memoryMax) ? `${fmtMemory(memoryUsed)} / ${fmtMemory(memoryMax)}` : fmtMemory(memoryUsed),
+      t("game_monitor.dashboard.live_metrics.rows.memory_extra", null, "Aggregiert ueber aktive Sessions")
+    ),
+    metricRow(t("game_monitor.dashboard.live_metrics.rows.packet_loss", null, "Packet Loss"), fmtPercent(packetLoss, 2), t("game_monitor.dashboard.live_metrics.rows.packet_loss_extra", null, "Durchschnitt in Prozent")),
   ];
 
   els.metricsBody.innerHTML = rows.join("");
 }
 
-function renderEvents() {
-  if (!els.events) return;
-  const list = [
-    {
-      type: "soon",
-      ts: Date.now(),
-      description: t(
-        "game_monitor.dashboard.events.crash_restart_soon",
-        null,
-        "Crash- und Restart-Detection folgt, sobald strukturierte Event-Daten aus der Mod verfuegbar sind."
-      ),
-    },
-    ...state.events,
-  ];
+function resolveEventStyle(item) {
+  const type = String(item?.type || "").toLowerCase();
+  const severity = String(item?.severity || "").toLowerCase();
+  if (type === "crash" || severity === "critical" || severity === "error") return "error";
+  if (type === "restart") return "restart";
+  if (type === "warning" || severity === "warning") return "warning";
+  if (type === "disconnect") return "disconnect";
+  if (type === "connect") return "connect";
+  return "info";
+}
 
-  if (!state.events.length) {
-    list.push({
-      type: "restart",
-      ts: Date.now(),
-      description: t("game_monitor.dashboard.events.no_changes", null, "Noch keine Session-Statusaenderungen erkannt."),
+function eventTypeLabel(style) {
+  if (style === "restart") return t("game_monitor.dashboard.events.type_restart", null, "RESTART");
+  if (style === "error") return t("game_monitor.dashboard.events.type_error", null, "ERROR");
+  if (style === "disconnect") return t("game_monitor.dashboard.events.type_disconnect", null, "DISCONNECT");
+  if (style === "connect") return t("game_monitor.dashboard.events.type_connect", null, "CONNECT");
+  if (style === "warning") return t("game_monitor.dashboard.events.type_warning", null, "WARNING");
+  return t("game_monitor.dashboard.events.type_info", null, "INFO");
+}
+
+function collectEventsForRender() {
+  const merged = [];
+
+  for (const item of state.eventFeed) {
+    if (!item || typeof item !== "object") continue;
+    merged.push({
+      type: item.type || "info",
+      severity: item.severity || "info",
+      description: String(item.message || "").trim(),
+      ts: Number(item.happenedAt || item.createdAt || 0) || Date.now(),
+      sessionName: String(item?.session?.name || "").trim() || null,
     });
   }
 
+  for (const s of state.sessions) {
+    const sessionName = s?.serverName || s?.serverHost || s?.instanceId || null;
+    const events = Array.isArray(s?.events) ? s.events : [];
+    for (const item of events) {
+      if (!item || typeof item !== "object") continue;
+      merged.push({
+        type: item.type || "info",
+        severity: item.severity || "info",
+        description: String(item.message || "").trim(),
+        ts: Number(item.happenedAt || 0) || Date.now(),
+        sessionName,
+      });
+    }
+  }
+
+  merged.push(...state.events);
+
+  const dedupe = new Set();
+  const list = [];
+  for (const item of merged) {
+    if (!item?.description) continue;
+    const key = `${String(item.type || "")}|${String(item.severity || "")}|${String(item.description)}|${Number(item.ts || 0)}|${item.sessionName || ""}`;
+    if (dedupe.has(key)) continue;
+    dedupe.add(key);
+    list.push(item);
+  }
+
+  list.sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+  return list.slice(0, EVENTS_MAX);
+}
+
+function renderEvents() {
+  if (!els.events) return;
+  const list = collectEventsForRender();
+  if (!list.length) list.push({ type: "info", severity: "info", ts: Date.now(), description: t("game_monitor.dashboard.events.no_changes", null, "Noch keine Session-Statusaenderungen erkannt."), sessionName: null });
+
   els.events.innerHTML = list
     .map((item) => {
-      const type = String(item.type || "warning").toLowerCase();
-      const label =
-        type === "restart"
-          ? t("game_monitor.dashboard.events.type_restart", null, "RESTART")
-          : type === "crash"
-          ? t("game_monitor.dashboard.events.type_crash", null, "CRASH")
-          : type === "soon"
-          ? t("game_monitor.dashboard.events.type_soon", null, "SOON")
-          : t("game_monitor.dashboard.events.type_warning", null, "WARNING");
-      return `<article class="event-item"><div class="event-meta"><span class="event-time">${esc(fmtTime(item.ts))}</span><span class="event-type ${esc(type)}">${esc(label)}</span></div><div class="event-desc">${esc(item.description || "")}</div></article>`;
+      const style = resolveEventStyle(item);
+      const label = eventTypeLabel(style);
+      const prefix = item.sessionName ? `[${item.sessionName}] ` : "";
+      return `<article class="event-item"><div class="event-meta"><span class="event-time">${esc(fmtTime(item.ts))}</span><span class="event-type ${esc(style)}">${esc(label)}</span></div><div class="event-desc">${esc(prefix)}${esc(item.description || "")}</div></article>`;
     })
     .join("");
+}
+
+function collectPlugins() {
+  const map = new Map();
+  for (const session of activeSessions()) {
+    const plugins = Array.isArray(session?.plugins) ? session.plugins : [];
+    for (const plugin of plugins) {
+      const name = String(plugin?.name || "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          name,
+          version: String(plugin?.version || "").trim() || null,
+          enabled: plugin?.enabled !== false,
+        });
+        continue;
+      }
+      const existing = map.get(key);
+      existing.enabled = existing.enabled || plugin?.enabled !== false;
+      if (!existing.version && plugin?.version) existing.version = String(plugin.version).trim().slice(0, 64);
+    }
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 50);
+}
+
+function renderPlugins() {
+  const plugins = collectPlugins();
+  if (els.pluginsSummary) {
+    els.pluginsSummary.textContent = plugins.length
+      ? t("game_monitor.dashboard.plugins.summary_count", { count: fmtNum(plugins.length) }, `${fmtNum(plugins.length)} Plugins erkannt`)
+      : t("game_monitor.dashboard.plugins.empty", null, "Noch keine Plugin-Daten aus der Mod erhalten.");
+  }
+  if (!els.pluginsList) return;
+  if (!plugins.length) {
+    els.pluginsList.innerHTML = "";
+    return;
+  }
+  els.pluginsList.innerHTML = plugins
+    .map((plugin) => {
+      const stateLabel = plugin.enabled
+        ? t("game_monitor.dashboard.plugins.enabled", null, "Aktiv")
+        : t("game_monitor.dashboard.plugins.disabled", null, "Deaktiviert");
+      return `
+        <article class="plugin-item">
+          <div class="plugin-head">
+            <span class="plugin-name">${esc(plugin.name)}</span>
+            <span class="plugin-state ${plugin.enabled ? "enabled" : "disabled"}">${esc(stateLabel)}</span>
+          </div>
+          <div class="plugin-version">${esc(plugin.version || t("game_monitor.dashboard.plugins.version_unknown", null, "Version unbekannt"))}</div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function collectRegionalLatency() {
+  const buckets = new Map();
+  for (const session of activeSessions()) {
+    const entries = Array.isArray(session?.regionalLatency) ? session.regionalLatency : [];
+    for (const entry of entries) {
+      const region = String(entry?.region || "")
+        .trim()
+        .toLowerCase();
+      const pingMs = Number(entry?.pingMs);
+      if (!region || !Number.isFinite(pingMs) || pingMs < 0) continue;
+      if (!buckets.has(region)) buckets.set(region, { region, sum: 0, count: 0 });
+      const bucket = buckets.get(region);
+      bucket.sum += pingMs;
+      bucket.count += 1;
+    }
+  }
+  return [...buckets.values()]
+    .map((bucket) => ({
+      region: bucket.region,
+      pingMs: bucket.count ? bucket.sum / bucket.count : null,
+    }))
+    .filter((entry) => Number.isFinite(entry.pingMs))
+    .sort((a, b) => Number(a.pingMs) - Number(b.pingMs))
+    .slice(0, 24);
+}
+
+function renderLatency() {
+  const entries = collectRegionalLatency();
+  if (els.latencySummary) {
+    els.latencySummary.textContent = entries.length
+      ? t("game_monitor.dashboard.latency.summary_count", { count: fmtNum(entries.length) }, `${fmtNum(entries.length)} Regionen`)
+      : t("game_monitor.dashboard.latency.empty", null, "Noch keine regionalen Latenzwerte verfuegbar.");
+  }
+  if (!els.latencyList) return;
+  if (!entries.length) {
+    els.latencyList.innerHTML = "";
+    return;
+  }
+  const maxPing = Math.max(...entries.map((entry) => Number(entry.pingMs || 0)), 1);
+  els.latencyList.innerHTML = entries
+    .map((entry) => {
+      const ratio = Math.min(100, (Number(entry.pingMs || 0) / maxPing) * 100);
+      return `
+        <article class="latency-item">
+          <div class="latency-head">
+            <span class="latency-region">${esc(entry.region.toUpperCase())}</span>
+            <span class="latency-value">${esc(fmtNum(entry.pingMs, 0))} ms</span>
+          </div>
+          <div class="latency-bar-wrap"><div class="latency-bar" style="width:${ratio.toFixed(2)}%"></div></div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderDiscord() {
+  const discord = state.notifications?.discord || null;
+  let statusCss = "loading";
+  let statusText = t("game_monitor.dashboard.discord.status_loading", null, "Wird geladen");
+  let copyText = t("game_monitor.dashboard.discord.status_loading_desc", null, "Discord-Konfiguration wird geladen.");
+  let canTest = false;
+
+  if (discord) {
+    const configured = discord.configured === true;
+    const enabled = discord.enabled === true;
+    const maskedWebhook = String(discord.webhookMasked || "").trim();
+
+    if (!configured) {
+      statusCss = "warning";
+      statusText = t("game_monitor.dashboard.discord.status_not_configured", null, "Nicht konfiguriert");
+      copyText = t("game_monitor.dashboard.discord.not_configured_desc", null, "Lege in den Verbindungen einen Discord-Webhook fest.");
+    } else if (enabled) {
+      statusCss = "online";
+      statusText = t("game_monitor.dashboard.discord.status_enabled", null, "Aktiv");
+      copyText = t("game_monitor.dashboard.discord.enabled_desc", { webhook: maskedWebhook || "-" }, `Alerts aktiv (${maskedWebhook || "-"})`);
+      canTest = true;
+    } else {
+      statusCss = "warning";
+      statusText = t("game_monitor.dashboard.discord.status_disabled", null, "Deaktiviert");
+      copyText = t(
+        "game_monitor.dashboard.discord.disabled_desc",
+        { webhook: maskedWebhook || "-" },
+        `Webhook hinterlegt, aber Alerts sind deaktiviert (${maskedWebhook || "-"})`
+      );
+      canTest = true;
+    }
+  }
+
+  if (els.discordStatusPill) {
+    els.discordStatusPill.textContent = statusText;
+    els.discordStatusPill.classList.remove("online", "offline", "loading", "degraded", "revoked", "warning");
+    els.discordStatusPill.classList.add(statusCss);
+  }
+  if (els.discordStatusCopy) els.discordStatusCopy.textContent = copyText;
+  if (els.discordTestBtn) els.discordTestBtn.disabled = !canTest || discordTestPending;
 }
 
 function renderSessions() {
@@ -661,12 +989,20 @@ function renderAll() {
   renderLiveMetrics(session);
   renderEvents();
   renderSessions();
+  renderPlugins();
+  renderLatency();
+  renderDiscord();
   renderInsight(session);
 }
 
 async function refreshData({ silent = true } = {}) {
   try {
-    const [sessionOk] = await Promise.all([fetchSessions(), fetchPairing()]);
+    const [sessionOk] = await Promise.all([
+      fetchSessions().catch(() => false),
+      fetchPairing().catch(() => false),
+      fetchEvents().catch(() => false),
+      fetchNotifications().catch(() => false),
+    ]);
     state.updatedAt = Date.now();
     updateEvents();
     updateHistory();
@@ -689,6 +1025,12 @@ function bindEvents() {
   if (els.createPairing)
     els.createPairing.addEventListener("click", () => {
       createPairing().catch(() => setMsg(t("game_monitor.messages.pairing_failed", null, "Code konnte nicht erstellt werden."), "error"));
+    });
+  if (els.discordTestBtn)
+    els.discordTestBtn.addEventListener("click", () => {
+      sendDiscordTestAlert().catch(() =>
+        setMsg(t("game_monitor.dashboard.discord.test_failed", null, "Discord-Test konnte nicht gesendet werden."), "error")
+      );
     });
 }
 
@@ -717,3 +1059,4 @@ async function init() {
 }
 
 init();
+

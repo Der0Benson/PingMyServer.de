@@ -218,22 +218,18 @@
 
                   <article class="card">
                     <div class="card-title" data-i18n="game_monitor.dashboard.plugins.title">Mods & Plugins</div>
-                    <div class="coming-soon-box">
-                      <span class="soon-pill" data-i18n="game_monitor.dashboard.soon">Bald / Soon</span>
-                      <p class="muted" data-i18n="game_monitor.dashboard.plugins.soon_desc">
-                        Plugin-Checks werden verknuepft, sobald die Mod diesen Kanal liefert.
-                      </p>
-                    </div>
+                    <p class="muted" id="plugins-summary" data-i18n="game_monitor.dashboard.plugins.empty">
+                      Noch keine Plugin-Daten aus der Mod erhalten.
+                    </p>
+                    <div class="plugins-list" id="plugins-list"></div>
                   </article>
 
                   <article class="card">
                     <div class="card-title" data-i18n="game_monitor.dashboard.latency.title">Latency by Region</div>
-                    <div class="coming-soon-box">
-                      <span class="soon-pill" data-i18n="game_monitor.dashboard.soon">Bald / Soon</span>
-                      <p class="muted" data-i18n="game_monitor.dashboard.latency.soon_desc">
-                        Regionale Latenzwerte folgen nach Multi-Region-Probe-Integration.
-                      </p>
-                    </div>
+                    <p class="muted" id="latency-summary" data-i18n="game_monitor.dashboard.latency.empty">
+                      Noch keine regionalen Latenzwerte verfuegbar.
+                    </p>
+                    <div class="latency-list" id="latency-list"></div>
                   </article>
 
                   <article class="card">
@@ -249,14 +245,17 @@
                       </div>
                       <div class="discord-row">
                         <span class="muted" data-i18n="game_monitor.dashboard.discord.status_label">Status</span>
-                        <span class="soon-pill" data-i18n="game_monitor.dashboard.soon">Bald / Soon</span>
+                        <span class="status-pill loading" id="discord-status-pill" data-i18n="game_monitor.dashboard.discord.status_loading"
+                          >Wird geladen</span
+                        >
                       </div>
-                      <button class="btn primary" type="button" disabled data-i18n="game_monitor.dashboard.discord.test_button">
+                      <button class="btn primary" id="discord-test-btn" type="button" disabled data-i18n="game_monitor.dashboard.discord.test_button">
                         Send test alert
                       </button>
-                      <p class="muted" data-i18n="game_monitor.dashboard.discord.soon_desc">
-                        Discord Alerts werden im naechsten Integrationsschritt aktiviert.
+                      <p class="muted" id="discord-status-copy" data-i18n="game_monitor.dashboard.discord.status_loading_desc">
+                        Discord-Konfiguration wird geladen.
                       </p>
+                      <a class="btn ghost" href="/connections" data-i18n="game_monitor.dashboard.discord.settings_link">Zu den Einstellungen</a>
                     </div>
                   </article>
 
