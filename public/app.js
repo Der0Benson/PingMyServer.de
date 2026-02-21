@@ -48,6 +48,8 @@ const locationSelect = document.getElementById("location-select");
 const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
+const responseHelpButton = document.getElementById("response-help-btn");
+const responseHelpPopover = document.getElementById("response-help-popover");
 const incidentsCard = document.querySelector(".incidents-side-card");
 const sidebarEl = document.getElementById("dashboard-sidebar");
 const mobileNavToggle = document.getElementById("mobile-nav-toggle");
@@ -174,6 +176,38 @@ function setupMobileSidebar() {
       if (!isMobileSidebarViewport()) closeMobileSidebar();
     });
   }
+}
+
+function setResponseHelpOpen(open) {
+  if (!responseHelpButton || !responseHelpPopover) return;
+  const shouldOpen = !!open;
+  responseHelpPopover.hidden = !shouldOpen;
+  responseHelpButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  responseHelpButton.classList.toggle("is-open", shouldOpen);
+}
+
+function setupResponseHelp() {
+  if (!responseHelpButton || !responseHelpPopover) return;
+
+  setResponseHelpOpen(false);
+
+  responseHelpButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    const isOpen = responseHelpButton.getAttribute("aria-expanded") === "true";
+    setResponseHelpOpen(!isOpen);
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (responseHelpButton.contains(target) || responseHelpPopover.contains(target)) return;
+    setResponseHelpOpen(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    setResponseHelpOpen(false);
+  });
 }
 
 function setAssertionsMessage(message, variant = "") {
@@ -2379,6 +2413,7 @@ async function init() {
   if (!authenticated) return;
 
   setupMobileSidebar();
+  setupResponseHelp();
   activeLocation = readStoredLocation();
   availableProbes = await fetchProbes();
   renderLocationPicker();

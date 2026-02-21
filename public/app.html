@@ -210,6 +210,38 @@
                     <div class="card-title" data-i18n="app.response.title">Antwortzeit.</div>
                     <div class="muted" data-i18n="app.response.last_hour">Letzte Stunde</div>
                   </div>
+                  <div class="response-help">
+                    <button
+                      id="response-help-btn"
+                      class="response-help-btn"
+                      type="button"
+                      aria-controls="response-help-popover"
+                      aria-haspopup="true"
+                      aria-expanded="false"
+                      data-i18n-aria-label="app.response.help_button_aria"
+                      data-i18n-title="app.response.help_button_title"
+                      title="Erklaerung anzeigen"
+                    >
+                      ?
+                    </button>
+                    <div id="response-help-popover" class="response-help-popover" hidden>
+                      <div class="response-help-title" data-i18n="app.response.help_title">So liest du den Chart</div>
+                      <ul class="response-help-list">
+                        <li data-i18n="app.response.help_p50">
+                          P50 (Median): 50% aller Checks sind schneller als dieser Wert.
+                        </li>
+                        <li data-i18n="app.response.help_p95">
+                          P95: 95% aller Checks sind schneller. Das zeigt Lastspitzen besser als der Durchschnitt.
+                        </li>
+                        <li data-i18n="app.response.help_chart">
+                          Linie = Antwortzeit pro Check. Farbbereiche: gruen &lt; 100 ms, gelb 100-250 ms, rot &gt; 250 ms.
+                        </li>
+                        <li data-i18n="app.response.help_tooltip">
+                          Mit der Maus ueber die Linie fahren fuer Zeitstempel, Statuscode und Fehler je Messpunkt.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
                 <div class="chart">
                   <svg id="response-chart" viewBox="0 0 960 240" preserveAspectRatio="none"></svg>
