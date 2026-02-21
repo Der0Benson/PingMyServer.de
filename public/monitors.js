@@ -25,6 +25,7 @@
   let monitors = [];
   let activeLocation = "aggregate";
   let availableProbes = [];
+  const emailTogglePending = new Set();
 
   function setMessage(text) {
     if (!messageEl) return;
@@ -188,6 +189,13 @@
       : t("app.state.online", null, "Online");
   }
 
+  function isMonitorEmailNotificationsEnabled(monitor) {
+    const numeric = Number(monitor?.notify_email_enabled);
+    if (Number.isFinite(numeric)) return numeric === 1;
+    if (monitor?.notify_email_enabled === undefined || monitor?.notify_email_enabled === null) return true;
+    return !!monitor?.notify_email_enabled;
+  }
+
   function formatTimeAgo(ms) {
     if (!Number.isFinite(ms) || ms < 0) {
       return rtf().format(0, "second");
@@ -272,6 +280,77 @@
     }
   }
 
+  function updateEmailToggleButtonState(button, monitor) {
+    if (!button) return;
+    const enabled = isMonitorEmailNotificationsEnabled(monitor);
+    button.classList.toggle("is-on", enabled);
+    button.classList.toggle("is-off", !enabled);
+    button.textContent = enabled
+      ? t("monitors.email_toggle_on", null, "E-Mail an")
+      : t("monitors.email_toggle_off", null, "E-Mail aus");
+    const monitorName = getMonitorDisplayName(monitor);
+    button.title = enabled
+      ? t("monitors.email_toggle_disable", null, "E-Mail-Benachrichtigung für diesen Monitor deaktivieren")
+      : t("monitors.email_toggle_enable", null, "E-Mail-Benachrichtigung für diesen Monitor aktivieren");
+    button.setAttribute(
+      "aria-label",
+      enabled
+        ? t(
+            "monitors.email_toggle_disable_aria",
+            { name: monitorName },
+            `E-Mail-Benachrichtigung für ${monitorName} deaktivieren`
+          )
+        : t(
+            "monitors.email_toggle_enable_aria",
+            { name: monitorName },
+            `E-Mail-Benachrichtigung für ${monitorName} aktivieren`
+          )
+    );
+  }
+
+  async function toggleMonitorEmailNotifications(monitor, button) {
+    const monitorId = String(monitor?.id || "").trim();
+    if (!monitorId) return;
+    if (emailTogglePending.has(monitorId)) return;
+
+    const nextEnabled = !isMonitorEmailNotificationsEnabled(monitor);
+    emailTogglePending.add(monitorId);
+    if (button) button.disabled = true;
+    setMessage(t("monitors.msg_email_saving", null, "E-Mail-Einstellung wird gespeichert..."));
+
+    try {
+      const response = await fetch(`/api/monitors/${encodeURIComponent(monitorId)}/email-notifications`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: nextEnabled }),
+      });
+
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok || typeof payload?.data?.enabled !== "boolean") {
+        setMessage(t("monitors.msg_email_save_failed", null, "E-Mail-Einstellung konnte nicht gespeichert werden."));
+        return;
+      }
+
+      monitor.notify_email_enabled = payload.data.enabled ? 1 : 0;
+      updateEmailToggleButtonState(button, monitor);
+      setMessage(
+        payload.data.enabled
+          ? t("monitors.msg_email_enabled", null, "E-Mail-Benachrichtigung für Monitor aktiviert.")
+          : t("monitors.msg_email_disabled", null, "E-Mail-Benachrichtigung für Monitor deaktiviert.")
+      );
+    } catch (error) {
+      setMessage(t("monitors.msg_email_save_failed", null, "E-Mail-Einstellung konnte nicht gespeichert werden."));
+    } finally {
+      emailTogglePending.delete(monitorId);
+      if (button) button.disabled = false;
+    }
+  }
+
   function createMonitorRow(monitor) {
     const row = document.createElement("div");
     row.className = "monitor-nav-row";
@@ -309,12 +388,30 @@
       ? formatTimeAgo(Date.now() - monitor.last_checked_at)
       : t("app.monitor.no_check", null, "no check yet");
     const ep = endpointLabel(getMonitorUrl(monitor));
+    const emailNotificationsLabel = isMonitorEmailNotificationsEnabled(monitor)
+      ? t("monitors.email_meta_on", null, "E-Mail: an")
+      : t("monitors.email_meta_off", null, "E-Mail: aus");
     meta.textContent = `${monitorStatusLabel(monitor.last_status)} \u00b7 ${ep} \u00b7 ${lastCheckLabel}`;
+    meta.textContent += ` \u00b7 ${emailNotificationsLabel}`;
 
     item.appendChild(head);
     item.appendChild(meta);
     item.addEventListener("click", () => {
       window.location.href = `/app/monitors/${encodeURIComponent(String(monitor.id))}`;
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "monitor-nav-actions";
+
+    const emailToggleButton = document.createElement("button");
+    emailToggleButton.type = "button";
+    emailToggleButton.className = "monitor-nav-email-toggle";
+    updateEmailToggleButtonState(emailToggleButton, monitor);
+    emailToggleButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleMonitorEmailNotifications(monitor, emailToggleButton).catch(() => {
+        // ignore
+      });
     });
 
     const deleteButton = document.createElement("button");
@@ -333,8 +430,11 @@
       });
     });
 
+    actions.appendChild(emailToggleButton);
+    actions.appendChild(deleteButton);
+
     row.appendChild(item);
-    row.appendChild(deleteButton);
+    row.appendChild(actions);
     return row;
   }
 

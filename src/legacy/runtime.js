@@ -3264,6 +3264,13 @@ function isMonitorSloEnabled(monitor) {
   return !!monitor?.slo_enabled;
 }
 
+function isMonitorEmailNotificationsEnabled(monitor) {
+  const value = Number(monitor?.notify_email_enabled);
+  if (Number.isFinite(value)) return value === 1;
+  if (monitor?.notify_email_enabled === undefined || monitor?.notify_email_enabled === null) return true;
+  return !!monitor?.notify_email_enabled;
+}
+
 function getMonitorIntervalMs(monitor) {
   const value = Number(monitor.interval_ms);
   if (!Number.isFinite(value) || value <= 0) return normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
@@ -5262,6 +5269,11 @@ async function ensureSchemaCompatibility() {
       "ALTER TABLE monitors ADD COLUMN notify_email_last_sent_status ENUM('online','offline') NULL AFTER notify_email_last_sent_at"
     );
   }
+  if (!(await hasColumn("monitors", "notify_email_enabled"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN notify_email_enabled TINYINT(1) NOT NULL DEFAULT 1 AFTER notify_email_last_sent_status"
+    );
+  }
 
   if (!(await hasColumn("monitor_checks", "error_message"))) {
     await pool.query("ALTER TABLE monitor_checks ADD COLUMN error_message VARCHAR(255) NULL AFTER status_code");
@@ -5319,6 +5331,7 @@ async function ensureSchemaCompatibility() {
   );
   await pool.query("UPDATE monitors SET slo_enabled = 0 WHERE slo_enabled IS NULL OR slo_enabled NOT IN (0, 1)");
   await pool.query("UPDATE monitors SET is_paused = 0 WHERE is_paused IS NULL");
+  await pool.query("UPDATE monitors SET notify_email_enabled = 1 WHERE notify_email_enabled IS NULL OR notify_email_enabled NOT IN (0, 1)");
   await pool.query(
     "UPDATE monitors SET notify_email_last_sent_status = NULL WHERE notify_email_last_sent_status IS NOT NULL AND notify_email_last_sent_status NOT IN ('online', 'offline')"
   );
@@ -5698,6 +5711,7 @@ async function initDb() {
       last_response_ms INT NULL,
       notify_email_last_sent_at DATETIME(3) NULL,
       notify_email_last_sent_status ENUM('online','offline') NULL,
+      notify_email_enabled TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_monitors_user_id (user_id),
@@ -7945,6 +7959,7 @@ async function sendEmailStatusNotificationForMonitorChange({
   const numericUserId = Number(userId);
   if (!Number.isInteger(numericUserId) || numericUserId <= 0) return;
   if (!monitor || !isOwnerSmtpConfigured()) return;
+  if (!isMonitorEmailNotificationsEnabled(monitor)) return;
 
   const account = await getUserNotificationSettingsById(numericUserId);
   if (!account) return;
@@ -9158,6 +9173,7 @@ const {
   handleMonitorHttpAssertionsGet,
   handleMonitorHttpAssertionsUpdate,
   handleMonitorIntervalUpdate,
+  handleMonitorEmailNotificationUpdate,
   handleMonitorSloGet,
   handleMonitorSloUpdate,
   listMaintenancesForMonitorId,
@@ -9593,6 +9609,7 @@ async function getDueMonitors() {
         http_follow_redirects,
         http_max_redirects,
         http_timeout_ms,
+        notify_email_enabled,
         is_paused,
         last_status,
         status_since,
@@ -9634,6 +9651,7 @@ async function getDueMonitorsForProbe(probeId = PROBE_ID) {
         m.http_follow_redirects,
         m.http_max_redirects,
         m.http_timeout_ms,
+        m.notify_email_enabled,
         m.is_paused,
         m.created_at
       FROM monitors m
@@ -12132,6 +12150,7 @@ const runtimeHandlers = {
   handleMonitorHttpAssertionsGet,
   handleMonitorHttpAssertionsUpdate,
   handleMonitorIntervalUpdate,
+  handleMonitorEmailNotificationUpdate,
   handleMonitorSloGet,
   handleMonitorSloUpdate,
   handleMonitorMaintenancesList,

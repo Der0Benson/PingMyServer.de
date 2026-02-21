@@ -156,6 +156,17 @@ async function handleMonitorApiRoutes(context) {
     }
   }
 
+  const monitorEmailNotificationsMatch = pathname.match(
+    /^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/email-notifications\/?$/
+  );
+  if (monitorEmailNotificationsMatch) {
+    const monitorId = monitorEmailNotificationsMatch[1];
+    if (method === "PUT" || method === "PATCH") {
+      await handlers.handleMonitorEmailNotificationUpdate(req, res, monitorId);
+      return true;
+    }
+  }
+
   const monitorSloMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/slo\/?$/);
   if (monitorSloMatch) {
     const monitorId = monitorSloMatch[1];
