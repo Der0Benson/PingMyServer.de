@@ -1,187 +1,220 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PingMyServer | Game Server Monitoring</title>
-        <link rel="stylesheet" href="/assets/game-server-demo-dashboard.css" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Game Server Monitoring Dashboard mit Fokus auf TPS, Spieler, Performance und Events."
+    />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="googlebot" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b0f14" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Game Server Dashboard · PingMyServer</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/game-server-demo-dashboard.css" />
+    <link rel="stylesheet" href="/assets/footer.css" />
   </head>
-  <body>
-    <div class="layout">
-      <aside class="side">
-        <div class="brand">
-          <div class="brand-icon" aria-hidden="true"></div>
-          <div>
-            <h1>PingMyServer</h1>
-            <p>Game Server Monitoring</p>
-          </div>
-        </div>
-        <nav class="nav" aria-label="Dashboard navigation">
-          <a class="active" href="#">Overview</a>
-          <a href="#">Performance</a>
-          <a href="#">Players</a>
-          <a href="#">Alerts</a>
-          <a href="#">Settings</a>
+  <body class="dashboard-page">
+    <div class="app">
+      <aside class="sidebar" id="dashboard-sidebar">
+        <a class="brand brand-link" href="/" aria-label="PingMyServer Startseite">
+          <img class="brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+          <span class="brand-name">PingMyServer.de</span>
+        </a>
+        <nav class="side-nav">
+          <a href="/app">Monitoring</a>
+          <a href="/monitors">Monitore</a>
+          <a href="/incidents">Vorfälle</a>
+          <a href="/notifications">Benachrichtigungen</a>
+          <a class="active" href="/assets/game-server-demo-dashboard.html">Game Dashboard</a>
+          <a href="/connections">Connections</a>
+          <a href="/status" target="_blank" rel="noreferrer">Statusseite</a>
         </nav>
+        <div class="side-footer">
+          <a class="user-pill profile-link" href="/connections" aria-label="Connections und Kontoeinstellungen">
+            <span class="avatar small">U</span>
+            <span class="muted">eingeloggt</span>
+          </a>
+          <button class="btn ghost" id="logout-btn" type="button">Abmelden</button>
+        </div>
       </aside>
 
-      <main class="main">
-        <header class="card top">
-          <div class="server">
-            <span class="server-dot" aria-hidden="true"></span>
-            <div>
-              <h2 id="serverName">mc-survival-01.eu.pingmyserver.cloud</h2>
-              <p>Live gameplay node | Minecraft 1.21.1</p>
-            </div>
-          </div>
-          <div class="top-right">
-            <span id="statusBadge" class="badge online">Online</span>
-            <span id="updatedAt" class="updated">Last update: --</span>
-          </div>
-        </header>
+      <button
+        class="mobile-nav-backdrop"
+        id="mobile-nav-backdrop"
+        type="button"
+        aria-label="Navigation schließen"
+        hidden
+      ></button>
 
-        <section class="grid">
-          <!-- KPI cards -->
-          <div id="kpis" class="kpis"></div>
-
-          <!-- Charts section -->
-          <div class="two">
-            <article class="card box surface-strong">
-              <div class="head">
-                <h3>TPS Over Time</h3>
-                <span class="sub">Last 60 minutes</span>
-              </div>
-              <div class="legend">
-                <span><i class="c"></i>TPS</span>
-                <span><i class="m"></i>Target 20</span>
-                <span>Y-axis: TPS</span>
-                <span>X-axis: Time</span>
-              </div>
-              <div class="chart">
-                <span class="ay">TPS</span>
-                <span class="ax">Time (min)</span>
-                <svg id="tpsChart" viewBox="0 0 600 250" role="img" aria-label="TPS chart"></svg>
-              </div>
-            </article>
-
-            <article class="card box surface-soft">
-              <div class="head">
-                <h3>Player Count Over Time</h3>
-                <span class="sub">Last 60 minutes</span>
-              </div>
-              <div class="legend">
-                <span><i class="c"></i>Players</span>
-                <span><i class="m"></i>Capacity trend</span>
-                <span>Y-axis: Players</span>
-                <span>X-axis: Time</span>
-              </div>
-              <div class="chart">
-                <span class="ay">Players</span>
-                <span class="ax">Time (min)</span>
-                <svg id="playersChart" viewBox="0 0 600 250" role="img" aria-label="Player chart"></svg>
-              </div>
-            </article>
-          </div>
-
-          <!-- // AI Insight -->
-          <article class="card box ai-insight">
-            <div class="ai-head">
-              <span class="ai-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="img" aria-label="AI icon">
-                  <path
-                    d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 1 1 0 6h-1v1a4 4 0 1 1-8 0v-1H7a3 3 0 1 1 0-6h1V6a4 4 0 0 1 4-4zm-2 5h4V6a2 2 0 1 0-4 0zm4 6h-4v1a2 2 0 1 0 4 0zm3-2a1 1 0 1 0 0-2h-1v2zM7 9a1 1 0 1 0 0 2h1V9zm3 1a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm3 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0z"
-                  ></path>
-                </svg>
-              </span>
+      <div class="content">
+        <div class="page">
+          <div class="crumb">Game Monitoring</div>
+          <header class="topbar">
+            <div class="title-block">
+              <button
+                class="mobile-sidebar-toggle"
+                id="mobile-nav-toggle"
+                type="button"
+                aria-controls="dashboard-sidebar"
+                aria-expanded="false"
+                aria-label="Navigation öffnen"
+              >
+                <span class="mobile-sidebar-toggle-line"></span>
+                <span class="mobile-sidebar-toggle-line"></span>
+                <span class="mobile-sidebar-toggle-line"></span>
+              </button>
+              <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <h3 class="ai-title">AI Insight</h3>
-                <span class="sub">Behavior summary</span>
+                <div class="title" id="server-name">mc-survival-01.eu.pingmyserver.cloud</div>
+                <div class="subtitle">Live Übersicht für Performance, Spieler und Vorfälle</div>
               </div>
             </div>
-            <p id="aiInsightLine1" class="ai-copy"></p>
-            <p id="aiInsightLine2" class="ai-copy ai-copy-second"></p>
-            <p class="ai-note">No live AI call connected yet.</p>
-          </article>
+            <div class="top-actions">
+              <span id="top-status-badge" class="status-pill loading">Wird aktualisiert</span>
+              <span class="muted topbar-last-update" id="top-last-update">Letztes Update: --</span>
+              <button class="btn ghost" id="refresh-btn" type="button">Aktualisieren</button>
+            </div>
+          </header>
 
-          <div class="cols">
-            <article class="card box surface-soft">
-              <div class="head">
-                <h3>Live Server Metrics</h3>
-                <span class="sub">Realtime snapshot</span>
-              </div>
-              <ul id="liveMetrics" class="list"></ul>
-            </article>
-
-            <article class="card box surface-strong">
-              <div class="head">
-                <h3>Events / Incidents</h3>
-                <span class="sub">Crash and restart detection</span>
-              </div>
-              <!-- // Improved Events -->
-              <ul id="events" class="timeline"></ul>
-            </article>
-          </div>
-
-          <div class="cols">
-            <article class="card box surface-soft">
-              <div class="head">
-                <h3>Mods & Plugins</h3>
-                <span class="sub">Health checks and versions</span>
-              </div>
-              <table class="mods">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Version</th>
-                    <th>Status</th>
-                    <th>Last check</th>
-                  </tr>
-                </thead>
-                <tbody id="plugins"></tbody>
-              </table>
-            </article>
-
-            <div class="grid">
-              <article class="card box surface-soft">
-                <div class="head">
-                  <h3>Latency by Region</h3>
-                  <span class="sub">Synthetic ping checks</span>
-                </div>
-                <div id="regions" class="regions"></div>
+          <main class="dashboard game-dashboard">
+            <section class="main-col">
+              <article class="card wide">
+                <div class="card-title">Server KPIs</div>
+                <div class="summary-grid" id="summary-grid"></div>
               </article>
 
-              <article class="card box surface-strong">
-                <div class="head">
-                  <div class="discord-title">
-                    <svg class="discord-icon" viewBox="0 0 127.14 96.36" role="img" aria-label="Discord icon">
+              <div class="grid game-chart-grid">
+                <article class="card">
+                  <div class="card-title">TPS über Zeit</div>
+                  <div class="chart">
+                    <svg id="tps-chart" viewBox="0 0 960 240" preserveAspectRatio="none"></svg>
+                  </div>
+                  <div class="stat-row">
+                    <div>
+                      <div class="stat-title">Minimum</div>
+                      <div class="stat-value" id="tps-min">--</div>
+                    </div>
+                    <div>
+                      <div class="stat-title">Maximum</div>
+                      <div class="stat-value" id="tps-max">--</div>
+                    </div>
+                    <div>
+                      <div class="stat-title">Aktuell</div>
+                      <div class="stat-value" id="tps-current">--</div>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="card">
+                  <div class="card-title">Spieler über Zeit</div>
+                  <div class="chart">
+                    <svg id="players-chart" viewBox="0 0 960 240" preserveAspectRatio="none"></svg>
+                  </div>
+                  <div class="stat-row">
+                    <div>
+                      <div class="stat-title">Peak</div>
+                      <div class="stat-value" id="players-peak">--</div>
+                    </div>
+                    <div>
+                      <div class="stat-title">Durchschnitt</div>
+                      <div class="stat-value" id="players-avg">--</div>
+                    </div>
+                    <div>
+                      <div class="stat-title">Aktuell</div>
+                      <div class="stat-value" id="players-current">--</div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <article class="card wide">
+                <div class="card-title">Live Server Metrics</div>
+                <div class="metrics-table-wrap">
+                  <table class="metrics-table">
+                    <tbody id="metrics-body"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="card wide">
+                <div class="card-title">Events / Incidents</div>
+                <div class="events-list" id="events-list"></div>
+              </article>
+            </section>
+
+            <aside class="side-col">
+              <article class="card">
+                <div class="card-title">Mods & Plugins</div>
+                <div class="plugin-table-wrap">
+                  <table class="plugin-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                        <th>Letzter Check</th>
+                      </tr>
+                    </thead>
+                    <tbody id="plugin-body"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="card">
+                <div class="card-title">Latency by Region</div>
+                <div class="latency-list" id="latency-list"></div>
+              </article>
+
+              <article class="card">
+                <div class="card-title">Discord Integration</div>
+                <div class="discord-card-copy">
+                  <div class="discord-head">
+                    <svg class="discord-icon" viewBox="0 0 127.14 96.36" role="img" aria-label="Discord">
                       <path
                         d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83 72.37 72.37 0 0 0 45.64 0 105.89 105.89 0 0 0 19.39 8.09C2.79 32.65-1.7 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.27 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.79-1.34 2.64-2.04 20.9 9.82 43.65 9.82 64.32 0 .85.7 1.73 1.38 2.64 2.04a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.26A105.25 105.25 0 0 0 126.6 80.2c2.63-27.38-4.49-51.11-18.9-72.13ZM42.45 65.69C36.18 65.69 31 59.96 31 52.91s5-12.78 11.43-12.78c6.48 0 11.57 5.78 11.46 12.78 0 7.05-5.04 12.78-11.44 12.78Zm42.24 0c-6.27 0-11.43-5.73-11.43-12.78s5-12.78 11.43-12.78c6.48 0 11.57 5.78 11.46 12.78 0 7.05-5.03 12.78-11.46 12.78Z"
                       ></path>
                     </svg>
-                    <h3>Discord Integration</h3>
+                    <span class="metric">#server-status</span>
                   </div>
-                  <span class="sub">Notification channel widget</span>
-                </div>
-                <div class="dlist">
-                  <!-- // Discord Improvements -->
-                  <div class="drow">
-                    <span class="dkey">Status</span>
-                    <span id="discordStatus" class="status-pill connected">Connected</span>
+                  <div class="discord-row">
+                    <span class="muted">Status</span>
+                    <span class="status-pill online" id="discord-status">Connected</span>
                   </div>
-                  <div class="drow"><span class="dkey">Channel</span><span id="discordChannel" class="dval">#server-status</span></div>
-                  <div class="drow"><span class="dkey">Last notification</span><span id="discordLast" class="dval">--</span></div>
-                  <button id="testAlert" class="btn btn-primary" type="button">Send test alert</button>
-                  <p id="testHint" class="hint">No backend wired. Action is simulated.</p>
+                  <div class="discord-row">
+                    <span class="muted">Letzte Notification</span>
+                    <span class="metric-small" id="discord-last">--</span>
+                  </div>
+                  <button class="btn primary" id="discord-test" type="button">Send test alert</button>
+                  <p class="muted" id="discord-note">Notification Test bereit.</p>
                 </div>
               </article>
-            </div>
-          </div>
 
-          <p class="note">Preview data only. No API calls.</p>
-        </section>
-      </main>
+              <article class="card">
+                <div class="card-title">AI Insight</div>
+                <p class="muted insight-line" id="insight-line-1"></p>
+                <p class="muted insight-line" id="insight-line-2"></p>
+              </article>
+            </aside>
+          </main>
+
+          <footer class="site-footer">
+            <span class="site-footer-note">Rechtliches</span>
+            <nav class="site-footer-links" aria-label="Rechtliche Navigation">
+              <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>
+              <a href="/datenschutz">Datenschutz</a>
+              <a href="/impressum">Impressum</a>
+            </nav>
+          </footer>
+        </div>
+      </div>
     </div>
 
-        <script src="/assets/game-server-demo-dashboard.js" defer></script>
+    <script src="/assets/dashboard-shell.js"></script>
+    <script src="/assets/game-server-demo-dashboard.js"></script>
   </body>
 </html>
