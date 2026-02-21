@@ -241,10 +241,13 @@ function createMonitorSettingsController(dependencies = {}) {
   }
 
   function serializeMonitorSloConfig(monitor) {
+    const enabledRaw = Number(monitor?.slo_enabled);
+    const enabled = Number.isFinite(enabledRaw) ? enabledRaw === 1 : !!monitor?.slo_enabled;
     const targetPercent = normalizeMonitorSloTargetPercent
       ? normalizeMonitorSloTargetPercent(monitor?.slo_target_percent, monitorSloTargetDefaultPercent)
       : monitorSloTargetDefaultPercent;
     return {
+      enabled,
       targetPercent,
       minTargetPercent: monitorSloTargetMinPercent,
       maxTargetPercent: monitorSloTargetMaxPercent,
@@ -283,7 +286,13 @@ function createMonitorSettingsController(dependencies = {}) {
 
     const hasTargetPercent = Object.prototype.hasOwnProperty.call(body, "targetPercent");
     const hasTargetPercentLegacy = Object.prototype.hasOwnProperty.call(body, "target_percent");
-    if (!hasTargetPercent && !hasTargetPercentLegacy) {
+    const hasEnabled = Object.prototype.hasOwnProperty.call(body, "enabled");
+    if (!hasTargetPercent && !hasTargetPercentLegacy && !hasEnabled) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    if (hasEnabled && typeof body.enabled !== "boolean") {
       sendJson(res, 400, { ok: false, error: "invalid input" });
       return;
     }
@@ -294,18 +303,25 @@ function createMonitorSettingsController(dependencies = {}) {
       return;
     }
 
-    const rawTargetPercent = hasTargetPercent ? body.targetPercent : body.target_percent;
-    const numericTarget = Number(rawTargetPercent);
-    if (!Number.isFinite(numericTarget)) {
-      sendJson(res, 400, { ok: false, error: "invalid input" });
-      return;
+    const currentSlo = serializeMonitorSloConfig(monitor);
+    let targetPercent = currentSlo.targetPercent;
+    if (hasTargetPercent || hasTargetPercentLegacy) {
+      const rawTargetPercent = hasTargetPercent ? body.targetPercent : body.target_percent;
+      const numericTarget = Number(rawTargetPercent);
+      if (!Number.isFinite(numericTarget)) {
+        sendJson(res, 400, { ok: false, error: "invalid input" });
+        return;
+      }
+
+      targetPercent = normalizeMonitorSloTargetPercent
+        ? normalizeMonitorSloTargetPercent(numericTarget, monitorSloTargetDefaultPercent)
+        : monitorSloTargetDefaultPercent;
     }
 
-    const targetPercent = normalizeMonitorSloTargetPercent
-      ? normalizeMonitorSloTargetPercent(numericTarget, monitorSloTargetDefaultPercent)
-      : monitorSloTargetDefaultPercent;
+    const enabled = hasEnabled ? body.enabled : currentSlo.enabled;
 
-    await pool.query("UPDATE monitors SET slo_target_percent = ? WHERE id = ? AND user_id = ? LIMIT 1", [
+    await pool.query("UPDATE monitors SET slo_enabled = ?, slo_target_percent = ? WHERE id = ? AND user_id = ? LIMIT 1", [
+      enabled ? 1 : 0,
       targetPercent,
       monitor.id,
       user.id,
@@ -314,6 +330,7 @@ function createMonitorSettingsController(dependencies = {}) {
     sendJson(res, 200, {
       ok: true,
       data: {
+        enabled,
         targetPercent,
         minTargetPercent: monitorSloTargetMinPercent,
         maxTargetPercent: monitorSloTargetMaxPercent,
