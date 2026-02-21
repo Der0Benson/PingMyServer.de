@@ -1909,14 +1909,7 @@ function updateIncidents(incidents) {
     } else {
       const range = formatIncidentRange(incident.startTs, incident.endTs, incident.ongoing);
       const duration = formatDuration(incident.durationMs || 0);
-      const codes = (incident.statusCodes || []).filter((code) => Number.isFinite(code));
-      const codeLabel = codes.length
-        ? t(
-            codes.length > 1 ? "app.errors.http_codes" : "app.errors.http_code",
-            { codes: codes.join(", ") },
-            `HTTP code${codes.length > 1 ? "s" : ""}: ${codes.join(", ")}`
-          )
-        : t("app.errors.no_response_single", null, "Error code: no response");
+      const codeLabel = formatErrorCodeSummary(incident.errorCodes, incident.statusCodes);
       const sampleCount = Number.isFinite(Number(incident.samples)) ? Number(incident.samples) : 0;
 
       item.innerHTML = `
@@ -2053,16 +2046,34 @@ function formatIncidentDay(value) {
   }).format(date);
 }
 
-function formatErrorCodeSummary(errorCodes) {
+function formatErrorCodeLabel(value) {
+  const code = String(value || "NO_RESPONSE").trim().toUpperCase();
+  if (!code || code === "NO_RESPONSE") {
+    return t("app.errors.no_response_label", null, "keine Antwort");
+  }
+  if (/^\d{3}$/.test(code)) return code;
+  return code.replaceAll("_", " ").toLowerCase();
+}
+
+function formatErrorCodeSummary(errorCodes, statusCodes = []) {
   const items = Array.isArray(errorCodes) ? errorCodes : [];
-  if (!items.length) return t("app.errors.no_response_single", null, "Fehlercode: keine Antwort");
+  if (!items.length) {
+    const codes = (statusCodes || []).filter((code) => Number.isFinite(code));
+    if (codes.length) {
+      return t(
+        codes.length > 1 ? "app.errors.http_codes" : "app.errors.http_code",
+        { codes: codes.join(", ") },
+        `HTTP-Code${codes.length > 1 ? "s" : ""}: ${codes.join(", ")}`
+      );
+    }
+    return t("app.errors.no_response_single", null, "Fehlercode: keine Antwort");
+  }
   const parts = items
     .slice(0, 5)
     .map((item) => {
       const code = String(item.code || "NO_RESPONSE");
       const hits = Number(item.hits || 0);
-      const label =
-        code === "NO_RESPONSE" ? t("app.errors.no_response_label", null, "keine Antwort") : code;
+      const label = formatErrorCodeLabel(code);
       return hits > 0 ? `${label} (${hits}x)` : label;
     });
   return t("app.errors.codes", { codes: parts.join(", ") }, `Fehlercodes: ${parts.join(", ")}`);

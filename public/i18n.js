@@ -683,6 +683,7 @@
           monitor_id: "Monitor ID",
           status_codes: "Statuscodes",
           error_codes: "Fehlercodes",
+          last_error: "Letzter Fehler",
         },
         controls: {
           title: "Filter & Sortierung",
@@ -2037,6 +2038,7 @@
           monitor_id: "Monitor ID",
           status_codes: "Status codes",
           error_codes: "Error codes",
+          last_error: "Last error",
         },
         controls: {
           title: "Filters & sorting",
