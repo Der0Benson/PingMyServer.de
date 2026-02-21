@@ -772,6 +772,7 @@ const MYSQL_HOST = requireEnvString("MYSQL_HOST");
 const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 65535 });
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
+const SESSION_TOKEN_HASH_SECRET = readEnvString("SESSION_TOKEN_HASH_SECRET", MYSQL_PASSWORD, { trim: false });
 const EMAIL_UNSUBSCRIBE_SECRET = readEnvString("EMAIL_UNSUBSCRIBE_SECRET", MYSQL_PASSWORD, { trim: false });
 const EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS = readEnvNumber("EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS", 3650, {
   integer: true,
@@ -2112,7 +2113,7 @@ async function readJsonBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
 }
 
 function hashSessionToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex");
+  return crypto.createHmac("sha256", SESSION_TOKEN_HASH_SECRET).update(String(token || "")).digest("hex");
 }
 
 function timingSafeEqualHex(leftHex, rightHex) {
@@ -4417,7 +4418,7 @@ async function fetchSslInfo(hostname, port = 443) {
         host: hostname,
         port,
         servername: hostname,
-        rejectUnauthorized: false,
+        rejectUnauthorized: true,
         timeout: CHECK_TIMEOUT_MS,
       },
       () => {
