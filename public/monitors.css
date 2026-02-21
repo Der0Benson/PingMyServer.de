@@ -90,8 +90,60 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.monitor-nav-actions {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.monitor-nav-email-toggle {
+  border: 1px solid rgba(76, 201, 240, 0.4);
+  background: rgba(76, 201, 240, 0.12);
+  color: #cfeeff;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+  white-space: nowrap;
+}
+
+.monitor-nav-email-toggle:hover {
+  border-color: rgba(76, 201, 240, 0.65);
+  background: rgba(76, 201, 240, 0.2);
+}
+
+.monitor-nav-email-toggle:focus-visible {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.75);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.2);
+}
+
+.monitor-nav-email-toggle.is-on {
+  border-color: rgba(185, 242, 124, 0.5);
+  background: rgba(185, 242, 124, 0.16);
+  color: #e7f8cb;
+}
+
+.monitor-nav-email-toggle.is-off {
+  border-color: rgba(244, 180, 90, 0.52);
+  background: rgba(244, 180, 90, 0.16);
+  color: #ffdca9;
+}
+
+.monitor-nav-email-toggle:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
 /* On this page we want the list to be full height, not a small scroll area. */
 .monitors-page .monitor-nav-list {
   max-height: none;
 }
 
+@media (max-width: 900px) {
+  .monitor-nav-actions {
+    flex-direction: column;
+  }
+}

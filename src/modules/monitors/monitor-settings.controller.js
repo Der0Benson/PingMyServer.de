@@ -240,6 +240,43 @@ function createMonitorSettingsController(dependencies = {}) {
     sendJson(res, 200, { ok: true, data: { intervalMs } });
   }
 
+  async function handleMonitorEmailNotificationUpdate(req, res, monitorId) {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    let body = {};
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(body, "enabled") || typeof body.enabled !== "boolean") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    const monitor = await getMonitorByIdForUser(user.id, monitorId);
+    if (!monitor) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+
+    const enabled = body.enabled === true;
+    await pool.query("UPDATE monitors SET notify_email_enabled = ? WHERE id = ? AND user_id = ? LIMIT 1", [
+      enabled ? 1 : 0,
+      monitor.id,
+      user.id,
+    ]);
+
+    sendJson(res, 200, { ok: true, data: { enabled } });
+  }
+
   function serializeMonitorSloConfig(monitor) {
     const enabledRaw = Number(monitor?.slo_enabled);
     const enabled = Number.isFinite(enabledRaw) ? enabledRaw === 1 : !!monitor?.slo_enabled;
@@ -699,6 +736,7 @@ function createMonitorSettingsController(dependencies = {}) {
     handleMonitorHttpAssertionsGet,
     handleMonitorHttpAssertionsUpdate,
     handleMonitorIntervalUpdate,
+    handleMonitorEmailNotificationUpdate,
     handleMonitorSloGet,
     handleMonitorSloUpdate,
     listMaintenancesForMonitorId,

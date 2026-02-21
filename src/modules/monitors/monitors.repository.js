@@ -13,10 +13,15 @@ function createMonitorsRepository(dependencies = {}) {
   function serializeMonitorRow(row) {
     const publicId = isValidMonitorPublicId(String(row.public_id || "")) ? String(row.public_id) : null;
     if (!publicId) return null;
+    const rawEmailNotificationsEnabled = Number(row.notify_email_enabled);
+    const emailNotificationsEnabled = Number.isFinite(rawEmailNotificationsEnabled)
+      ? rawEmailNotificationsEnabled === 1
+      : true;
     return {
       id: publicId,
       name: row.name,
       url: getMonitorUrl(row),
+      notify_email_enabled: emailNotificationsEnabled,
       is_paused: !!row.is_paused,
       last_status: row.last_status || "online",
       last_checked_at: toMs(row.last_checked_at) || toMs(row.last_check_at),
@@ -33,6 +38,7 @@ function createMonitorsRepository(dependencies = {}) {
           name,
           url,
           target_url,
+          notify_email_enabled,
           is_paused,
           last_status,
           last_checked_at,
@@ -91,6 +97,7 @@ function createMonitorsRepository(dependencies = {}) {
           m.name,
           m.url,
           m.target_url,
+          m.notify_email_enabled,
           m.is_paused,
           COALESCE(ps.last_status, 'online') AS last_status,
           ps.last_checked_at AS last_checked_at,
@@ -155,6 +162,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_follow_redirects,
           http_max_redirects,
           http_timeout_ms,
+          notify_email_enabled,
           is_paused,
           last_status,
           status_since,
@@ -198,6 +206,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_follow_redirects,
           http_max_redirects,
           http_timeout_ms,
+          notify_email_enabled,
           is_paused,
           last_status,
           status_since,
@@ -244,6 +253,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_follow_redirects,
           http_max_redirects,
           http_timeout_ms,
+          notify_email_enabled,
           is_paused,
           last_status,
           status_since,
@@ -288,6 +298,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_follow_redirects,
           http_max_redirects,
           http_timeout_ms,
+          notify_email_enabled,
           is_paused,
           last_status,
           status_since,
