@@ -10,8 +10,8 @@ const lastCheck = document.getElementById("last-check");
 const checkInterval = document.getElementById("check-interval");
 
 const statAvg = document.getElementById("stat-avg");
-const statMin = document.getElementById("stat-min");
-const statMax = document.getElementById("stat-max");
+const statP50 = document.getElementById("stat-p50");
+const statP95 = document.getElementById("stat-p95");
 const uptimeIncidents = document.getElementById("uptime-incidents");
 const uptimePercent = document.getElementById("uptime-percent");
 
@@ -1477,7 +1477,7 @@ async function loadMetrics() {
     updateStatus(data);
     updateStats(data.stats);
     updateUptimeBars(data.last24h);
-    renderChart(chart, (data.series || []).map((point) => point.ms));
+    renderChart(chart, data.series || []);
     renderHeatmap(data.heatmap);
     updateRangeSummaries(data.ranges);
     updateMap(data.location, data.network);
@@ -1545,8 +1545,8 @@ function updateStatus(data) {
 function updateStats(stats) {
   if (!stats) return;
   if (statAvg) statAvg.textContent = formatMs(stats.avg);
-  if (statMin) statMin.textContent = formatMs(stats.min);
-  if (statMax) statMax.textContent = formatMs(stats.max);
+  if (statP50) statP50.textContent = formatMs(stats.p50);
+  if (statP95) statP95.textContent = formatMs(stats.p95);
 }
 
 function updateUptimeBars(last24h) {
@@ -1618,7 +1618,35 @@ function updateRangeCell(summary, uptimeEl, metaEl) {
 function renderChart(svg, series) {
   if (!svg) return;
 
-  if (!series.length) {
+  if (typeof svg.__chartCleanup === "function") {
+    svg.__chartCleanup();
+    svg.__chartCleanup = null;
+  }
+
+  const normalizedSeries = (Array.isArray(series) ? series : [])
+    .map((point) => {
+      const rawStatusCode = point?.statusCode;
+      const parsedStatusCode = Number(rawStatusCode);
+      const statusCode =
+        rawStatusCode === null ||
+        rawStatusCode === undefined ||
+        !Number.isFinite(parsedStatusCode) ||
+        parsedStatusCode < 100 ||
+        parsedStatusCode > 599
+          ? null
+          : Math.round(parsedStatusCode);
+
+      return {
+        ts: Number(point?.ts),
+        ms: Number(point?.ms),
+        ok: point?.ok !== false,
+        statusCode,
+        errorMessage: String(point?.errorMessage || "").trim() || null,
+      };
+    })
+    .filter((point) => Number.isFinite(point.ms) && point.ms >= 0);
+
+  if (!normalizedSeries.length) {
     svg.innerHTML = "";
     return;
   }
@@ -1626,49 +1654,208 @@ function renderChart(svg, series) {
   const width = 960;
   const height = 240;
   const padding = 32;
-  const minVal = Math.min(...series);
-  const maxVal = Math.max(...series);
-  const paddingVal = Math.max(30, (maxVal - minVal) * 0.2);
+  const plotLeft = padding;
+  const plotRight = width - padding;
+  const plotTop = padding;
+  const plotBottom = height - padding;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
+
+  const values = normalizedSeries.map((point) => point.ms);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const paddingVal = Math.max(20, (maxVal - minVal) * 0.2);
   const min = Math.max(0, minVal - paddingVal);
-  const max = maxVal + paddingVal;
+  const max = Math.max(min + 1, maxVal + paddingVal);
 
-  const points = series.map((value, i) => {
-    const x = padding + (i / (series.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((value - min) / (max - min)) * (height - padding * 2);
-    return [x, y];
+  const clamp = (value, lower, upper) => Math.max(lower, Math.min(upper, value));
+  const yForValue = (value) => plotBottom - ((value - min) / (max - min)) * plotHeight;
+  const xForIndex = (index) =>
+    normalizedSeries.length > 1
+      ? plotLeft + (index / (normalizedSeries.length - 1)) * plotWidth
+      : plotLeft + plotWidth / 2;
+
+  const points = normalizedSeries.map((point, index) => {
+    const x = xForIndex(index);
+    const y = yForValue(point.ms);
+    return { x, y, point, index };
   });
+  const path = smoothPath(points.map((point) => [point.x, point.y]));
 
-  const path = smoothPath(points);
-  const ticks = 4;
+  const ticks = 5;
   const grid = [];
   for (let i = 0; i < ticks; i += 1) {
     const t = i / (ticks - 1);
     const value = max - (max - min) * t;
-    const y = padding + (height - padding * 2) * t;
-    grid.push(`<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="rgba(255,255,255,0.07)" />`);
+    const y = plotTop + plotHeight * t;
+    grid.push(`<line x1="${plotLeft}" y1="${y}" x2="${plotRight}" y2="${y}" stroke="rgba(255,255,255,0.07)" />`);
     grid.push(`<text x="6" y="${y + 4}" fill="rgba(255,255,255,0.45)" font-size="11">${Math.round(value)} ms</text>`);
   }
 
-  const lastPoint = points[points.length - 1];
+  const thresholdGoodMs = 100;
+  const thresholdWarnMs = 250;
+  const yGood = clamp(yForValue(thresholdGoodMs), plotTop, plotBottom);
+  const yWarn = clamp(yForValue(thresholdWarnMs), plotTop, plotBottom);
+  const ySlowTop = Math.min(yWarn, yGood);
+  const yModerateTop = Math.max(yWarn, plotTop);
+  const yModerateBottom = Math.min(yGood, plotBottom);
+  const yFastTop = Math.max(yGood, plotTop);
+
+  const thresholdBands = [
+    `<rect x="${plotLeft}" y="${plotTop}" width="${plotWidth}" height="${Math.max(0, ySlowTop - plotTop)}" fill="rgba(255, 104, 104, 0.12)" />`,
+    `<rect x="${plotLeft}" y="${yModerateTop}" width="${plotWidth}" height="${Math.max(0, yModerateBottom - yModerateTop)}" fill="rgba(255, 199, 95, 0.1)" />`,
+    `<rect x="${plotLeft}" y="${yFastTop}" width="${plotWidth}" height="${Math.max(0, plotBottom - yFastTop)}" fill="rgba(122, 242, 166, 0.08)" />`,
+  ];
+
+  const thresholdGuides = [
+    `<line x1="${plotLeft}" y1="${yGood}" x2="${plotRight}" y2="${yGood}" stroke="rgba(122,242,166,0.35)" stroke-dasharray="5 5" />`,
+    `<line x1="${plotLeft}" y1="${yWarn}" x2="${plotRight}" y2="${yWarn}" stroke="rgba(255,199,95,0.35)" stroke-dasharray="5 5" />`,
+  ];
+
+  const gradientId = "lineGradientResponse";
+  const clipId = "chartPlotClip";
+  const lastPoint = points[points.length - 1] || null;
+  const lastCx = lastPoint ? lastPoint.x : plotLeft;
+  const lastCy = lastPoint ? lastPoint.y : plotBottom;
 
   svg.innerHTML = `
     <defs>
-      <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+      <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0%" stop-color="#4cc9f0" />
         <stop offset="100%" stop-color="#b9f27c" />
       </linearGradient>
+      <clipPath id="${clipId}">
+        <rect x="${plotLeft}" y="${plotTop}" width="${plotWidth}" height="${plotHeight}" />
+      </clipPath>
     </defs>
+    <g clip-path="url(#${clipId})">
+      ${thresholdBands.join("\n")}
+    </g>
     ${grid.join("\n")}
+    ${thresholdGuides.join("\n")}
     <path
       d="${path}"
       fill="none"
-      stroke="url(#lineGradient)"
+      stroke="url(#${gradientId})"
       stroke-width="3"
       stroke-linecap="round"
       stroke-linejoin="round"
+      clip-path="url(#${clipId})"
     />
-    <circle cx="${lastPoint[0]}" cy="${lastPoint[1]}" r="4.5" fill="#b9f27c" />
+    <line data-chart-hover-line x1="${lastCx}" y1="${plotTop}" x2="${lastCx}" y2="${plotBottom}" stroke="rgba(255,255,255,0.4)" stroke-width="1" opacity="0" />
+    <circle data-chart-hover-dot cx="${lastCx}" cy="${lastCy}" r="4.5" fill="#b9f27c" opacity="0" />
+    <circle cx="${lastCx}" cy="${lastCy}" r="4.5" fill="#b9f27c" />
   `;
+
+  const chartWrapper = svg.closest(".chart");
+  if (!chartWrapper) return;
+
+  let tooltip = chartWrapper.querySelector(".chart-tooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.className = "chart-tooltip";
+    tooltip.hidden = true;
+    chartWrapper.appendChild(tooltip);
+  }
+
+  const hoverLine = svg.querySelector("[data-chart-hover-line]");
+  const hoverDot = svg.querySelector("[data-chart-hover-dot]");
+  const hideHover = () => {
+    if (hoverLine) hoverLine.setAttribute("opacity", "0");
+    if (hoverDot) hoverDot.setAttribute("opacity", "0");
+    tooltip.hidden = true;
+  };
+
+  const formatTs = (value) => {
+    if (!Number.isFinite(value)) return t("common.not_available", null, "n/a");
+    return new Intl.DateTimeFormat(i18nLocale(), {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(new Date(value));
+  };
+
+  const handlePointerMove = (event) => {
+    const svgRect = svg.getBoundingClientRect();
+    if (!svgRect.width || !svgRect.height) return;
+
+    const relativeX = ((event.clientX - svgRect.left) / svgRect.width) * width;
+    const ratio = clamp((relativeX - plotLeft) / Math.max(1, plotWidth), 0, 1);
+    const index = Math.round(ratio * (points.length - 1));
+    const selectedPoint = points[index];
+    if (!selectedPoint) return;
+
+    const statusCode = Number.isFinite(selectedPoint.point.statusCode) ? Math.round(selectedPoint.point.statusCode) : null;
+    const statusLabel =
+      statusCode !== null
+        ? String(statusCode)
+        : selectedPoint.point.ok
+          ? t("app.state.online", null, "Online")
+          : t("app.errors.no_response_label", null, "no response");
+    const errorLabel = selectedPoint.point.errorMessage || t("common.none", null, "none");
+
+    tooltip.innerHTML = `
+      <div class="chart-tooltip-title">${escapeHtml(formatTs(selectedPoint.point.ts))}</div>
+      <div class="chart-tooltip-row"><span>${escapeHtml(t("app.response.tooltip_response", null, "Response"))}</span><strong>${escapeHtml(
+        formatMs(selectedPoint.point.ms)
+      )}</strong></div>
+      <div class="chart-tooltip-row"><span>${escapeHtml(t("app.response.tooltip_status", null, "Status"))}</span><strong>${escapeHtml(
+        statusLabel
+      )}</strong></div>
+      <div class="chart-tooltip-row"><span>${escapeHtml(t("app.response.tooltip_error", null, "Error"))}</span><strong>${escapeHtml(
+        errorLabel
+      )}</strong></div>
+    `;
+
+    tooltip.hidden = false;
+    if (hoverLine) {
+      hoverLine.setAttribute("x1", String(selectedPoint.x));
+      hoverLine.setAttribute("x2", String(selectedPoint.x));
+      hoverLine.setAttribute("opacity", "1");
+    }
+    if (hoverDot) {
+      hoverDot.setAttribute("cx", String(selectedPoint.x));
+      hoverDot.setAttribute("cy", String(selectedPoint.y));
+      hoverDot.setAttribute("opacity", "1");
+    }
+
+    const wrapperRect = chartWrapper.getBoundingClientRect();
+    const localX = event.clientX - wrapperRect.left;
+    const localY = event.clientY - wrapperRect.top;
+    const tooltipWidth = tooltip.offsetWidth || 180;
+    const tooltipHeight = tooltip.offsetHeight || 96;
+
+    let tooltipX = localX + 14;
+    if (tooltipX + tooltipWidth + 8 > wrapperRect.width) {
+      tooltipX = localX - tooltipWidth - 14;
+    }
+    tooltipX = clamp(tooltipX, 8, Math.max(8, wrapperRect.width - tooltipWidth - 8));
+
+    let tooltipY = localY - tooltipHeight - 12;
+    if (tooltipY < 8) {
+      tooltipY = localY + 12;
+    }
+    tooltipY = clamp(tooltipY, 8, Math.max(8, wrapperRect.height - tooltipHeight - 8));
+
+    tooltip.style.left = `${Math.round(tooltipX)}px`;
+    tooltip.style.top = `${Math.round(tooltipY)}px`;
+  };
+
+  svg.addEventListener("pointermove", handlePointerMove);
+  svg.addEventListener("pointerdown", handlePointerMove);
+  svg.addEventListener("pointerleave", hideHover);
+  svg.addEventListener("pointercancel", hideHover);
+
+  svg.__chartCleanup = () => {
+    svg.removeEventListener("pointermove", handlePointerMove);
+    svg.removeEventListener("pointerdown", handlePointerMove);
+    svg.removeEventListener("pointerleave", hideHover);
+    svg.removeEventListener("pointercancel", hideHover);
+    hideHover();
+  };
 }
 
 function smoothPath(points) {

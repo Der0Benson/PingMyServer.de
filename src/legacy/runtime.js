@@ -10609,19 +10609,38 @@ async function runMonitorChecks() {
 }
 
 function getStats(series) {
-  if (!series.length) return { avg: null, min: null, max: null };
-  const values = series.map((point) => point.ms);
+  if (!series.length) return { avg: null, min: null, max: null, p50: null, p95: null };
+  const values = series
+    .map((point) => Number(point?.ms))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (!values.length) return { avg: null, min: null, max: null, p50: null, p95: null };
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const percentile = (p) => {
+    const normalized = Math.max(0, Math.min(100, Number(p)));
+    if (!Number.isFinite(normalized) || !sorted.length) return null;
+    if (sorted.length === 1) return sorted[0];
+    const rank = (normalized / 100) * (sorted.length - 1);
+    const lowerIndex = Math.floor(rank);
+    const upperIndex = Math.ceil(rank);
+    if (lowerIndex === upperIndex) return sorted[lowerIndex];
+    const weight = rank - lowerIndex;
+    return sorted[lowerIndex] + (sorted[upperIndex] - sorted[lowerIndex]) * weight;
+  };
+
   const sum = values.reduce((acc, value) => acc + value, 0);
   return {
     avg: sum / values.length,
     min: Math.min(...values),
     max: Math.max(...values),
+    p50: percentile(50),
+    p95: percentile(95),
   };
 }
 
 async function getSeries(monitorId) {
   const [rows] = await pool.query(
-    "SELECT checked_at, response_ms, ok FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT ?",
+    "SELECT checked_at, response_ms, ok, status_code, error_message FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT ?",
     [monitorId, SERIES_LIMIT]
   );
 
@@ -10631,6 +10650,8 @@ async function getSeries(monitorId) {
       ts: row.checked_at.getTime(),
       ms: row.response_ms,
       ok: !!row.ok,
+      statusCode: parseHttpStatusCodeForIncident(row.status_code),
+      errorMessage: row.error_message ? String(row.error_message) : null,
     }));
 }
 
@@ -10640,7 +10661,7 @@ async function getSeriesForProbe(monitorId, probeId) {
 
   const [rows] = await pool.query(
     `
-      SELECT checked_at, response_ms, ok
+      SELECT checked_at, response_ms, ok, status_code, error_message
       FROM monitor_probe_checks
       WHERE monitor_id = ?
         AND probe_id = ?
@@ -10656,6 +10677,8 @@ async function getSeriesForProbe(monitorId, probeId) {
       ts: row.checked_at.getTime(),
       ms: row.response_ms,
       ok: !!row.ok,
+      statusCode: parseHttpStatusCodeForIncident(row.status_code),
+      errorMessage: row.error_message ? String(row.error_message) : null,
     }));
 }
 
