@@ -12,6 +12,7 @@ function createMonitorSettingsController(dependencies = {}) {
     pool,
     normalizeMonitorIntervalMs,
     defaultMonitorIntervalMs,
+    normalizeMonitorSloTargetPercent,
     dayMs,
     toTimestampMs,
     getMonitorUrl,
@@ -36,6 +37,15 @@ function createMonitorSettingsController(dependencies = {}) {
   const maintenanceMaxPastStartMs = Number.isFinite(Number(dependencies.maintenanceMaxPastStartMs))
     ? Math.max(60 * 1000, Math.round(Number(dependencies.maintenanceMaxPastStartMs)))
     : 24 * 60 * 60 * 1000;
+  const monitorSloTargetDefaultPercent = Number.isFinite(Number(dependencies.monitorSloTargetDefaultPercent))
+    ? Number(dependencies.monitorSloTargetDefaultPercent)
+    : 99.9;
+  const monitorSloTargetMinPercent = Number.isFinite(Number(dependencies.monitorSloTargetMinPercent))
+    ? Number(dependencies.monitorSloTargetMinPercent)
+    : 90;
+  const monitorSloTargetMaxPercent = Number.isFinite(Number(dependencies.monitorSloTargetMaxPercent))
+    ? Math.max(monitorSloTargetMinPercent, Number(dependencies.monitorSloTargetMaxPercent))
+    : 99.999;
 
   const logError = (event, error) => {
     if (logger && typeof logger.error === "function") {
@@ -228,6 +238,88 @@ function createMonitorSettingsController(dependencies = {}) {
     ]);
 
     sendJson(res, 200, { ok: true, data: { intervalMs } });
+  }
+
+  function serializeMonitorSloConfig(monitor) {
+    const targetPercent = normalizeMonitorSloTargetPercent
+      ? normalizeMonitorSloTargetPercent(monitor?.slo_target_percent, monitorSloTargetDefaultPercent)
+      : monitorSloTargetDefaultPercent;
+    return {
+      targetPercent,
+      minTargetPercent: monitorSloTargetMinPercent,
+      maxTargetPercent: monitorSloTargetMaxPercent,
+      defaultTargetPercent: monitorSloTargetDefaultPercent,
+    };
+  }
+
+  async function handleMonitorSloGet(req, res, monitorId) {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const monitor = await getMonitorByIdForUser(user.id, monitorId);
+    if (!monitor) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true, data: serializeMonitorSloConfig(monitor) });
+  }
+
+  async function handleMonitorSloUpdate(req, res, monitorId) {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    let body = {};
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    const hasTargetPercent = Object.prototype.hasOwnProperty.call(body, "targetPercent");
+    const hasTargetPercentLegacy = Object.prototype.hasOwnProperty.call(body, "target_percent");
+    if (!hasTargetPercent && !hasTargetPercentLegacy) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    const monitor = await getMonitorByIdForUser(user.id, monitorId);
+    if (!monitor) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+
+    const rawTargetPercent = hasTargetPercent ? body.targetPercent : body.target_percent;
+    const numericTarget = Number(rawTargetPercent);
+    if (!Number.isFinite(numericTarget)) {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+
+    const targetPercent = normalizeMonitorSloTargetPercent
+      ? normalizeMonitorSloTargetPercent(numericTarget, monitorSloTargetDefaultPercent)
+      : monitorSloTargetDefaultPercent;
+
+    await pool.query("UPDATE monitors SET slo_target_percent = ? WHERE id = ? AND user_id = ? LIMIT 1", [
+      targetPercent,
+      monitor.id,
+      user.id,
+    ]);
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        targetPercent,
+        minTargetPercent: monitorSloTargetMinPercent,
+        maxTargetPercent: monitorSloTargetMaxPercent,
+        defaultTargetPercent: monitorSloTargetDefaultPercent,
+      },
+    });
   }
 
   function normalizeMaintenanceTitle(value) {
@@ -590,6 +682,8 @@ function createMonitorSettingsController(dependencies = {}) {
     handleMonitorHttpAssertionsGet,
     handleMonitorHttpAssertionsUpdate,
     handleMonitorIntervalUpdate,
+    handleMonitorSloGet,
+    handleMonitorSloUpdate,
     listMaintenancesForMonitorId,
     buildMaintenancePayload,
     handleMonitorMaintenancesList,
