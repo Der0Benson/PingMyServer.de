@@ -180,11 +180,15 @@
 
               <div class="card wide slo-card">
                 <div class="card-header">
-                  <div>
+                  <div class="slo-card-copy">
                     <div class="card-title" data-i18n="app.slo.title">SLO & Error-Budget.</div>
                     <div class="muted" data-i18n="app.slo.subtitle">SLO-Ziel, Budgetverbrauch und Burn-Rate.</div>
+                    <div class="slo-card-note muted" id="slo-card-note" data-i18n="app.slo.card_disabled_note">
+                      SLO ist deaktiviert. Aktiviere es unter „Mehr Einstellungen“.
+                    </div>
                   </div>
                   <div class="slo-target-block">
+                    <div class="slo-state-badge is-off" id="slo-card-state-badge" data-i18n="app.slo.state_inactive">Nicht aktiviert</div>
                     <div class="stat-title" data-i18n="app.slo.target_label">SLO-Ziel</div>
                     <div class="stat-value" id="slo-target-display">--.--%</div>
                   </div>
@@ -341,13 +345,33 @@
                   <p class="muted card-copy" data-i18n="app.slo.settings_desc">
                     Definiere dein Uptime-Ziel pro Monitor. Das Error-Budget und die Burn-Rate werden daran ausgerichtet.
                   </p>
-                  <form class="slo-form" id="slo-form" autocomplete="off">
+                  <div class="slo-explainer">
+                    <div class="slo-explainer-title" data-i18n="app.slo.explain_title">Was sind SLO-Ziele?</div>
+                    <p class="muted" data-i18n="app.slo.explain_body">
+                      Ein SLO-Ziel ist dein Verfügbarkeitsversprechen, z.B. 99,9% in 30 Tagen. Daraus ergibt sich dein Error-Budget.
+                    </p>
+                    <p class="muted" data-i18n="app.slo.explain_example">
+                      Beispiel: Bei 99,9% stehen dir in 30 Tagen etwa 43 Minuten Ausfallzeit als Budget zur Verfügung.
+                    </p>
+                  </div>
+                  <div class="slo-activation-row">
+                    <div class="slo-activation-copy">
+                      <span class="slo-state-badge is-off" id="slo-state-badge" data-i18n="app.slo.state_inactive">Nicht aktiviert</span>
+                      <span class="muted" data-i18n="app.slo.settings_activation_hint">
+                        Aktiviere SLO zuerst, damit Error-Budget und Burn-Rate berechnet werden.
+                      </span>
+                    </div>
+                    <button class="btn feature-activate-btn" id="slo-activate-btn" type="button" data-i18n="app.slo.activate_button">
+                      SLO aktivieren
+                    </button>
+                  </div>
+                  <form class="slo-form is-disabled" id="slo-form" autocomplete="off">
                     <label>
                       <span data-i18n="app.slo.settings_target_label">SLO-Ziel (%)</span>
-                      <input id="slo-target-input" type="number" min="90" max="99.999" step="0.001" />
+                      <input id="slo-target-input" type="number" min="90" max="99.999" step="0.001" disabled />
                     </label>
                     <div class="slo-settings-actions">
-                      <button class="btn primary" id="slo-save" type="submit" data-i18n="common.save">Speichern</button>
+                      <button class="btn primary" id="slo-save" type="submit" data-i18n="common.save" disabled>Speichern</button>
                       <span class="slo-message" id="slo-message"></span>
                     </div>
                   </form>

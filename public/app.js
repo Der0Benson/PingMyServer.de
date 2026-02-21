@@ -24,6 +24,9 @@ const sloBudgetConsumedTime = document.getElementById("slo-budget-consumed-time"
 const sloBurn1h = document.getElementById("slo-burn-1h");
 const sloBurn6h = document.getElementById("slo-burn-6h");
 const sloBurn24h = document.getElementById("slo-burn-24h");
+const sloCardEl = document.querySelector(".slo-card");
+const sloCardStateBadge = document.getElementById("slo-card-state-badge");
+const sloCardNote = document.getElementById("slo-card-note");
 
 const mapEl = document.querySelector(".map");
 const mapLocation = document.getElementById("map-location");
@@ -91,6 +94,9 @@ const maintenanceCreateButton = document.getElementById("maintenance-create");
 const maintenanceVerifyLinkEl = document.getElementById("maintenance-verify-link");
 const sloForm = document.getElementById("slo-form");
 const sloTargetInput = document.getElementById("slo-target-input");
+const sloSaveButton = document.getElementById("slo-save");
+const sloActivateButton = document.getElementById("slo-activate-btn");
+const sloStateBadge = document.getElementById("slo-state-badge");
 const sloMessageEl = document.getElementById("slo-message");
 
 let user = null;
@@ -122,6 +128,7 @@ let assertionsDirty = false;
 let assertionsBoundMonitorId = null;
 let maintenanceBoundMonitorId = null;
 let sloDirty = false;
+let sloEnabled = false;
 
 function isMobileSidebarViewport() {
   return !!mobileNavQuery && !!mobileNavQuery.matches;
@@ -343,6 +350,37 @@ function markSloDirty() {
   setSloMessage("");
 }
 
+function setSloStateBadge(element, enabled) {
+  if (!element) return;
+  const active = !!enabled;
+  element.classList.toggle("is-on", active);
+  element.classList.toggle("is-off", !active);
+  element.textContent = active
+    ? t("app.slo.state_active", null, "Aktiv")
+    : t("app.slo.state_inactive", null, "Nicht aktiviert");
+}
+
+function applySloEnabledState(enabled) {
+  const active = !!enabled;
+  sloEnabled = active;
+
+  if (sloForm) {
+    sloForm.classList.toggle("is-disabled", !active);
+  }
+  if (sloTargetInput) {
+    sloTargetInput.disabled = !active;
+  }
+  if (sloSaveButton) {
+    sloSaveButton.disabled = !active;
+  }
+  if (sloActivateButton) {
+    sloActivateButton.hidden = active;
+    sloActivateButton.disabled = active;
+  }
+
+  setSloStateBadge(sloStateBadge, active);
+}
+
 function syncSloSettingsBounds(slo) {
   if (!sloTargetInput || !slo || typeof slo !== "object") return;
   if (Number.isFinite(Number(slo.minTargetPercent))) {
@@ -356,15 +394,19 @@ function syncSloSettingsBounds(slo) {
 function syncSloPanel(slo, options = {}) {
   const { force = false } = options;
   if (!sloForm || !sloTargetInput) return;
-  if (!force && sloDirty) return;
 
   const normalized = slo && typeof slo === "object" ? slo : null;
   if (!normalized) {
+    applySloEnabledState(false);
     sloTargetInput.value = "";
     return;
   }
 
   syncSloSettingsBounds(normalized);
+  const enabled = Object.prototype.hasOwnProperty.call(normalized, "enabled") ? !!normalized.enabled : true;
+  applySloEnabledState(enabled);
+
+  if (!force && sloDirty) return;
 
   const targetPercent = Number(normalized.targetPercent);
   if (Number.isFinite(targetPercent)) {
@@ -381,6 +423,41 @@ function readSloPayload() {
   return {
     targetPercent: Number(sloTargetInput?.value),
   };
+}
+
+async function activateSloForActiveMonitor() {
+  if (!activeMonitorId || !sloActivateButton || sloEnabled) return;
+
+  sloActivateButton.disabled = true;
+  setSloMessage(t("app.slo.msg_activating", null, "SLO wird aktiviert ..."));
+
+  try {
+    const response = await fetch(`/api/monitors/${encodeURIComponent(activeMonitorId)}/slo`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: true }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      setSloMessage(t("app.slo.msg_failed", null, "Speichern fehlgeschlagen."), "error");
+      sloActivateButton.disabled = false;
+      return;
+    }
+
+    sloDirty = false;
+    setSloMessage(t("app.slo.msg_activated", null, "SLO aktiviert."), "success");
+    syncSloPanel(payload.data, { force: true });
+    await loadMetrics();
+  } catch (error) {
+    setSloMessage(t("app.slo.msg_failed", null, "Speichern fehlgeschlagen."), "error");
+    sloActivateButton.disabled = false;
+  }
 }
 
 function hideMaintenanceVerifyLink() {
@@ -1561,7 +1638,9 @@ async function setActiveMonitor(monitorId, options = {}) {
   assertionsBoundMonitorId = null;
   setAssertionsMessage("");
   sloDirty = false;
+  sloEnabled = false;
   setSloMessage("");
+  applySloEnabledState(false);
   intervalPickerValue = null;
   if (intervalSelect) {
     intervalSelect.disabled = true;
@@ -1872,6 +1951,9 @@ function updateSloBurnPill(element, burnSummary) {
 
 function updateSloCard(slo) {
   if (!slo) {
+    if (sloCardEl) sloCardEl.classList.remove("is-disabled");
+    setSloStateBadge(sloCardStateBadge, false);
+    if (sloCardNote) sloCardNote.textContent = t("common.no_data", null, "No data");
     if (sloTargetDisplay) sloTargetDisplay.textContent = "--.--%";
     if (sloWindowUptime) sloWindowUptime.textContent = "--.--%";
     if (sloWindowMeta) sloWindowMeta.textContent = t("common.no_data", null, "No data");
@@ -1886,12 +1968,39 @@ function updateSloCard(slo) {
   }
 
   const summary = slo.summary && typeof slo.summary === "object" ? slo.summary : {};
+  const enabled = Object.prototype.hasOwnProperty.call(slo, "enabled") ? !!slo.enabled : true;
   const objectiveDays = Number.isFinite(Number(slo.objectiveDays)) ? Number(slo.objectiveDays) : 30;
   const checks = Number.isFinite(Number(summary.checks)) ? Number(summary.checks) : 0;
   const incidents = Number.isFinite(Number(summary.incidents)) ? Number(summary.incidents) : 0;
 
+  if (sloCardEl) sloCardEl.classList.toggle("is-disabled", !enabled);
+  setSloStateBadge(sloCardStateBadge, enabled);
+
   if (sloTargetDisplay) {
     sloTargetDisplay.textContent = formatPercent(slo.targetPercent, 3);
+  }
+
+  if (sloCardNote) {
+    sloCardNote.textContent = enabled
+      ? t(
+          "app.slo.card_enabled_note",
+          { days: objectiveDays },
+          `SLO-Auswertung basiert auf den letzten ${objectiveDays} Tagen.`
+        )
+      : t("app.slo.card_disabled_note", null, "SLO ist deaktiviert. Aktiviere es unter „Mehr Einstellungen“.");
+  }
+
+  if (!enabled) {
+    if (sloWindowUptime) sloWindowUptime.textContent = "--.--%";
+    if (sloWindowMeta) sloWindowMeta.textContent = t("app.slo.disabled_hint", null, "SLO ist derzeit deaktiviert.");
+    if (sloBudgetRemaining) sloBudgetRemaining.textContent = "--.--%";
+    if (sloBudgetRemainingTime) sloBudgetRemainingTime.textContent = t("app.slo.disabled_hint", null, "SLO ist derzeit deaktiviert.");
+    if (sloBudgetConsumed) sloBudgetConsumed.textContent = "--.--%";
+    if (sloBudgetConsumedTime) sloBudgetConsumedTime.textContent = t("app.slo.disabled_hint", null, "SLO ist derzeit deaktiviert.");
+    updateSloBurnPill(sloBurn1h, null);
+    updateSloBurnPill(sloBurn6h, null);
+    updateSloBurnPill(sloBurn24h, null);
+    return;
   }
 
   if (sloWindowUptime) {
@@ -2701,6 +2810,7 @@ async function init() {
   activeLocation = readStoredLocation();
   availableProbes = await fetchProbes();
   renderLocationPicker();
+  applySloEnabledState(false);
 
   if (sloTargetInput) {
     sloTargetInput.addEventListener("input", () => {
@@ -2708,10 +2818,22 @@ async function init() {
     });
   }
 
+  if (sloActivateButton) {
+    sloActivateButton.addEventListener("click", () => {
+      activateSloForActiveMonitor().catch(() => {
+        // ignore
+      });
+    });
+  }
+
   if (sloForm) {
     sloForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!activeMonitorId) return;
+      if (!sloEnabled) {
+        setSloMessage(t("app.slo.msg_enable_first", null, "Bitte zuerst SLO aktivieren."), "error");
+        return;
+      }
 
       setSloMessage(t("app.slo.msg_saving", null, "Speichern ..."));
       try {

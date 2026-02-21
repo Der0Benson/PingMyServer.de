@@ -3212,6 +3212,12 @@ function getMonitorSloTargetPercent(monitor) {
   return normalizeMonitorSloTargetPercent(value, MONITOR_SLO_TARGET_DEFAULT_PERCENT);
 }
 
+function isMonitorSloEnabled(monitor) {
+  const value = Number(monitor?.slo_enabled);
+  if (Number.isFinite(value)) return value === 1;
+  return !!monitor?.slo_enabled;
+}
+
 function getMonitorIntervalMs(monitor) {
   const value = Number(monitor.interval_ms);
   if (!Number.isFinite(value) || value <= 0) return normalizeMonitorIntervalMs(DEFAULT_MONITOR_INTERVAL_MS);
@@ -5156,6 +5162,11 @@ async function ensureSchemaCompatibility() {
       "ALTER TABLE monitors ADD COLUMN slo_target_percent DECIMAL(6,3) NOT NULL DEFAULT 99.900 AFTER interval_ms"
     );
   }
+  if (!(await hasColumn("monitors", "slo_enabled"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN slo_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER slo_target_percent"
+    );
+  }
   if (!(await hasColumn("monitors", "http_assertions_enabled"))) {
     await pool.query(
       "ALTER TABLE monitors ADD COLUMN http_assertions_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER interval_ms"
@@ -5260,6 +5271,7 @@ async function ensureSchemaCompatibility() {
     "UPDATE monitors SET slo_target_percent = ? WHERE slo_target_percent IS NULL OR slo_target_percent < ? OR slo_target_percent > ?",
     [MONITOR_SLO_TARGET_DEFAULT_PERCENT, MONITOR_SLO_TARGET_MIN_PERCENT, MONITOR_SLO_TARGET_MAX_PERCENT]
   );
+  await pool.query("UPDATE monitors SET slo_enabled = 0 WHERE slo_enabled IS NULL OR slo_enabled NOT IN (0, 1)");
   await pool.query("UPDATE monitors SET is_paused = 0 WHERE is_paused IS NULL");
   await pool.query(
     "UPDATE monitors SET notify_email_last_sent_status = NULL WHERE notify_email_last_sent_status IS NOT NULL AND notify_email_last_sent_status NOT IN ('online', 'offline')"
@@ -5624,6 +5636,7 @@ async function initDb() {
       target_url VARCHAR(2048) NULL,
       interval_ms INT NOT NULL DEFAULT 60000,
       slo_target_percent DECIMAL(6,3) NOT NULL DEFAULT 99.900,
+      slo_enabled TINYINT(1) NOT NULL DEFAULT 0,
       http_assertions_enabled TINYINT(1) NOT NULL DEFAULT 0,
       http_expected_status_codes VARCHAR(128) NULL,
       http_content_type_contains VARCHAR(128) NULL,
@@ -11672,8 +11685,21 @@ async function buildSloSnapshotForMonitor(monitor, options = {}) {
   const monitorId = Number(monitor?.id);
   if (!Number.isFinite(monitorId) || monitorId <= 0) return null;
 
+  const enabled = isMonitorSloEnabled(monitor);
   const targetPercent = getMonitorSloTargetPercent(monitor);
   const objectiveDays = SLO_OBJECTIVE_WINDOW_DAYS;
+  if (!enabled) {
+    return {
+      enabled: false,
+      targetPercent,
+      minTargetPercent: MONITOR_SLO_TARGET_MIN_PERCENT,
+      maxTargetPercent: MONITOR_SLO_TARGET_MAX_PERCENT,
+      objectiveDays,
+      summary: null,
+      burnRate: null,
+    };
+  }
+
   const probe = parseProbeIdParam(options?.probeId);
   const fetchWindow = probe
     ? (windowMs) => getRecentAvailabilityWindowForProbe(monitorId, probe, windowMs)
@@ -11686,6 +11712,7 @@ async function buildSloSnapshotForMonitor(monitor, options = {}) {
   ]);
 
   return {
+    enabled: true,
     targetPercent,
     minTargetPercent: MONITOR_SLO_TARGET_MIN_PERCENT,
     maxTargetPercent: MONITOR_SLO_TARGET_MAX_PERCENT,
