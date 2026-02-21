@@ -113,11 +113,46 @@
           </header>
 
           <main class="notifications-page">
-            <section class="card wide email-card">
-              <div class="card-title" data-i18n="notifications.email.title">E-Mail Benachrichtigung</div>
-              <p class="muted card-copy" data-i18n="notifications.email.copy">
-                Bei Statuswechseln (online/offline) senden wir eine E-Mail. Der Anti-Spam Cooldown verhindert Mail-Flut bei Flapping.
-              </p>
+            <section class="card wide notifications-overview" aria-hidden="true">
+              <div class="overview-chips">
+                <span class="overview-chip">
+                  <span class="overview-chip-icon" aria-hidden="true">E</span>
+                  <span data-i18n="notifications.email.title">E-Mail Benachrichtigung</span>
+                </span>
+                <span class="overview-chip">
+                  <span class="overview-chip-icon" aria-hidden="true">D</span>
+                  <span data-i18n="notifications.discord.title">Discord Webhook</span>
+                </span>
+                <span class="overview-chip">
+                  <span class="overview-chip-icon" aria-hidden="true">S</span>
+                  <span data-i18n="notifications.slack.title">Slack Incoming Webhook</span>
+                </span>
+                <span class="overview-chip">
+                  <span class="overview-chip-icon" aria-hidden="true">W</span>
+                  <span data-i18n="notifications.webhook.title">HTTPS Webhook</span>
+                </span>
+                <span class="overview-chip">
+                  <span class="overview-chip-icon" aria-hidden="true">$</span>
+                  <span>Billing (Stripe)</span>
+                </span>
+              </div>
+            </section>
+
+            <section class="card wide notification-channel channel-email email-card">
+              <div class="channel-head">
+                <span class="channel-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <rect x="3" y="5" width="18" height="14" rx="3" ry="3"></rect>
+                    <path d="M4.5 7.5L12 13l7.5-5.5"></path>
+                  </svg>
+                </span>
+                <div class="channel-copy">
+                  <div class="card-title" data-i18n="notifications.email.title">E-Mail Benachrichtigung</div>
+                  <p class="muted card-copy" data-i18n="notifications.email.copy">
+                    Bei Statuswechseln (online/offline) senden wir eine E-Mail. Der Anti-Spam Cooldown verhindert Mail-Flut bei Flapping.
+                  </p>
+                </div>
+              </div>
               <div class="status-row">
                 <span class="status-badge" id="email-state-badge" data-i18n="notifications.email.state_disconnected">Nicht verbunden</span>
                 <span class="muted" id="email-recipient-mask" data-i18n="notifications.email.no_recipient"
@@ -129,7 +164,7 @@
               </div>
 
               <form id="email-form" class="notification-form" novalidate>
-                <label for="email-recipient">
+                <label class="field span-6" for="email-recipient">
                   <span data-i18n="notifications.email.label_address">Empfaenger E-Mail (optional)</span>
                   <input
                     id="email-recipient"
@@ -139,22 +174,22 @@
                     placeholder="alerts@example.com"
                   />
                 </label>
-                <label for="email-cooldown-minutes">
+                <label class="field span-3" for="email-cooldown-minutes">
                   <span data-i18n="notifications.email.label_cooldown">Cooldown pro Monitor (Minuten)</span>
                   <input id="email-cooldown-minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" />
                 </label>
-                <label for="email-language">
+                <label class="field span-3" for="email-language">
                   <span data-i18n="notifications.email.label_language">E-Mail Sprache</span>
                   <select id="email-language">
                     <option value="de" data-i18n="notifications.email.lang_de">Deutsch</option>
                     <option value="en" data-i18n="notifications.email.lang_en">Englisch</option>
                   </select>
                 </label>
-                <label class="check-row" for="email-enabled">
+                <label class="check-row field span-12" for="email-enabled">
                   <input id="email-enabled" type="checkbox" />
                   <span data-i18n="notifications.email.enable">Benachrichtigungen aktivieren</span>
                 </label>
-                <div class="form-actions">
+                <div class="form-actions field span-12">
                   <button class="btn primary" id="save-email-btn" type="submit" data-i18n="common.save">Speichern</button>
                   <button class="btn ghost" id="test-email-btn" type="button" data-i18n="notifications.email.test">Test senden</button>
                   <button class="btn ghost danger-btn" id="delete-email-btn" type="button" data-i18n="notifications.email.remove"
@@ -166,18 +201,29 @@
               <p class="panel-message" id="email-message"></p>
             </section>
 
-            <section class="card wide">
-              <div class="card-title" data-i18n="notifications.discord.title">Discord Webhook</div>
-              <p class="muted card-copy" data-i18n="notifications.discord.copy">
-                Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Discord Webhook.
-              </p>
+            <section class="card wide notification-channel channel-discord">
+              <div class="channel-head">
+                <span class="channel-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M7.5 8.5a13 13 0 0 1 9 0l1.5 7a12 12 0 0 1-12 0l1.5-7z"></path>
+                    <circle cx="10" cy="12.5" r="1"></circle>
+                    <circle cx="14" cy="12.5" r="1"></circle>
+                  </svg>
+                </span>
+                <div class="channel-copy">
+                  <div class="card-title" data-i18n="notifications.discord.title">Discord Webhook</div>
+                  <p class="muted card-copy" data-i18n="notifications.discord.copy">
+                    Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Discord Webhook.
+                  </p>
+                </div>
+              </div>
               <div class="status-row">
                 <span class="status-badge" id="discord-state-badge" data-i18n="notifications.discord.state_disconnected">Nicht verbunden</span>
                 <span class="muted" id="discord-webhook-mask" data-i18n="notifications.discord.no_webhook">Kein Webhook hinterlegt.</span>
               </div>
 
               <form id="discord-form" class="notification-form" novalidate>
-                <label for="discord-webhook-url">
+                <label class="field span-8" for="discord-webhook-url">
                   <span data-i18n="notifications.discord.label_url">Webhook URL</span>
                   <input
                     id="discord-webhook-url"
@@ -186,11 +232,11 @@
                     placeholder="https://discord.com/api/webhooks/..."
                   />
                 </label>
-                <label class="check-row" for="discord-enabled">
+                <label class="check-row field span-12" for="discord-enabled">
                   <input id="discord-enabled" type="checkbox" />
                   <span data-i18n="notifications.discord.enable">Benachrichtigungen aktivieren</span>
                 </label>
-                <div class="form-actions">
+                <div class="form-actions field span-12">
                   <button class="btn primary" id="save-discord-btn" type="submit" data-i18n="common.save">Speichern</button>
                   <button class="btn ghost" id="test-discord-btn" type="button" data-i18n="notifications.discord.test">Test senden</button>
                   <button class="btn ghost danger-btn" id="delete-discord-btn" type="button" data-i18n="notifications.discord.remove">Webhook entfernen</button>
@@ -200,26 +246,35 @@
               <p class="panel-message" id="discord-message"></p>
             </section>
 
-            <section class="card wide">
-              <div class="card-title" data-i18n="notifications.slack.title">Slack Incoming Webhook</div>
-              <p class="muted card-copy" data-i18n="notifications.slack.copy">
-                Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Slack Incoming Webhook.
-              </p>
+            <section class="card wide notification-channel channel-slack">
+              <div class="channel-head">
+                <span class="channel-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M8.5 4v5m0 6v5M4 8.5h5m6 0h5M6.5 15.5a2.5 2.5 0 1 1-2.5-2.5m13.5 2.5a2.5 2.5 0 1 1-2.5-2.5M8.5 6.5A2.5 2.5 0 1 1 11 4m-2.5 15A2.5 2.5 0 1 1 11 16.5"></path>
+                  </svg>
+                </span>
+                <div class="channel-copy">
+                  <div class="card-title" data-i18n="notifications.slack.title">Slack Incoming Webhook</div>
+                  <p class="muted card-copy" data-i18n="notifications.slack.copy">
+                    Bei Statuswechseln (online/offline) senden wir eine Nachricht an deinen Slack Incoming Webhook.
+                  </p>
+                </div>
+              </div>
               <div class="status-row">
                 <span class="status-badge" id="slack-state-badge" data-i18n="notifications.slack.state_disconnected">Nicht verbunden</span>
                 <span class="muted" id="slack-webhook-mask" data-i18n="notifications.slack.no_webhook">Kein Webhook hinterlegt.</span>
               </div>
 
               <form id="slack-form" class="notification-form" novalidate>
-                <label for="slack-webhook-url">
+                <label class="field span-8" for="slack-webhook-url">
                   <span data-i18n="notifications.slack.label_url">Webhook URL</span>
                   <input id="slack-webhook-url" type="url" autocomplete="off" placeholder="https://hooks.slack.com/services/..." />
                 </label>
-                <label class="check-row" for="slack-enabled">
+                <label class="check-row field span-12" for="slack-enabled">
                   <input id="slack-enabled" type="checkbox" />
                   <span data-i18n="notifications.slack.enable">Benachrichtigungen aktivieren</span>
                 </label>
-                <div class="form-actions">
+                <div class="form-actions field span-12">
                   <button class="btn primary" id="save-slack-btn" type="submit" data-i18n="common.save">Speichern</button>
                   <button class="btn ghost" id="test-slack-btn" type="button" data-i18n="notifications.slack.test">Test senden</button>
                   <button class="btn ghost danger-btn" id="delete-slack-btn" type="button" data-i18n="notifications.slack.remove">Webhook entfernen</button>
@@ -229,11 +284,21 @@
               <p class="panel-message" id="slack-message"></p>
             </section>
 
-            <section class="card wide">
-              <div class="card-title" data-i18n="notifications.webhook.title">HTTPS Webhook</div>
-              <p class="muted card-copy" data-i18n="notifications.webhook.copy">
-                Bei Statuswechseln (online/offline) senden wir eine JSON-Nachricht an deine HTTPS Webhook-URL. Optional signieren wir Requests mit einem Secret.
-              </p>
+            <section class="card wide notification-channel channel-webhook">
+              <div class="channel-head">
+                <span class="channel-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="8"></circle>
+                    <path d="M8 12h8M12 8v8"></path>
+                  </svg>
+                </span>
+                <div class="channel-copy">
+                  <div class="card-title" data-i18n="notifications.webhook.title">HTTPS Webhook</div>
+                  <p class="muted card-copy" data-i18n="notifications.webhook.copy">
+                    Bei Statuswechseln (online/offline) senden wir eine JSON-Nachricht an deine HTTPS Webhook-URL. Optional signieren wir Requests mit einem Secret.
+                  </p>
+                </div>
+              </div>
               <div class="status-row">
                 <span class="status-badge" id="webhook-state-badge" data-i18n="notifications.webhook.state_disconnected">Nicht verbunden</span>
                 <span class="muted" id="webhook-url-mask" data-i18n="notifications.webhook.no_url">Keine URL hinterlegt.</span>
@@ -241,19 +306,19 @@
               </div>
 
               <form id="webhook-form" class="notification-form" novalidate>
-                <label for="webhook-url">
+                <label class="field span-8" for="webhook-url">
                   <span data-i18n="notifications.webhook.label_url">Webhook URL (https)</span>
                   <input id="webhook-url" type="url" autocomplete="off" placeholder="https://example.com/pingmyserver-webhook" />
                 </label>
-                <label for="webhook-secret">
+                <label class="field span-4" for="webhook-secret">
                   <span data-i18n="notifications.webhook.label_secret">Secret (optional)</span>
                   <input id="webhook-secret" type="password" autocomplete="off" placeholder="optional" />
                 </label>
-                <label class="check-row" for="webhook-enabled">
+                <label class="check-row field span-12" for="webhook-enabled">
                   <input id="webhook-enabled" type="checkbox" />
                   <span data-i18n="notifications.webhook.enable">Benachrichtigungen aktivieren</span>
                 </label>
-                <div class="form-actions">
+                <div class="form-actions field span-12">
                   <button class="btn primary" id="save-webhook-btn" type="submit" data-i18n="common.save">Speichern</button>
                   <button class="btn ghost" id="test-webhook-btn" type="button" data-i18n="notifications.webhook.test">Test senden</button>
                   <button class="btn ghost danger-btn" id="delete-webhook-btn" type="button" data-i18n="notifications.webhook.remove">Webhook entfernen</button>
@@ -263,11 +328,22 @@
               <p class="panel-message" id="webhook-message"></p>
             </section>
 
-            <section class="card wide" id="billing-card">
-              <div class="card-title">Billing (Stripe)</div>
-              <p class="muted card-copy" data-i18n="notifications.billing.copy">
-                Upgrade auf einen bezahlten Plan und verwalte dein Abo im Stripe Customer Portal.
-              </p>
+            <section class="card wide notification-channel channel-billing" id="billing-card">
+              <div class="channel-head">
+                <span class="channel-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 6h16v12H4z"></path>
+                    <path d="M4 10h16"></path>
+                    <path d="M9 15h3"></path>
+                  </svg>
+                </span>
+                <div class="channel-copy">
+                  <div class="card-title">Billing (Stripe)</div>
+                  <p class="muted card-copy" data-i18n="notifications.billing.copy">
+                    Upgrade auf einen bezahlten Plan und verwalte dein Abo im Stripe Customer Portal.
+                  </p>
+                </div>
+              </div>
               <div class="status-row">
                 <span class="status-badge" id="billing-state-badge" data-i18n="notifications.billing.state_inactive">Nicht aktiv</span>
                 <span class="muted" id="billing-state-text" data-i18n="notifications.billing.no_subscription">Kein aktives Abo.</span>
