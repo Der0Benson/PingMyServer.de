@@ -1475,7 +1475,7 @@ async function loadMetrics() {
 
     updateMonitorInfo(data);
     updateStatus(data);
-    updateStats(data.stats);
+    updateStats(data.stats, data.series || []);
     updateUptimeBars(data.last24h);
     renderChart(chart, data.series || []);
     renderHeatmap(data.heatmap);
@@ -1542,11 +1542,38 @@ function updateStatus(data) {
   }
 }
 
-function updateStats(stats) {
-  if (!stats) return;
-  if (statAvg) statAvg.textContent = formatMs(stats.avg);
-  if (statP50) statP50.textContent = formatMs(stats.p50);
-  if (statP95) statP95.textContent = formatMs(stats.p95);
+function getNumericLatencyValues(series) {
+  return (Array.isArray(series) ? series : [])
+    .map((point) => Number(point?.ms))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+}
+
+function percentile(values, p) {
+  const sorted = Array.isArray(values) ? [...values].sort((a, b) => a - b) : [];
+  if (!sorted.length) return null;
+  if (sorted.length === 1) return sorted[0];
+
+  const rank = (Math.max(0, Math.min(100, Number(p))) / 100) * (sorted.length - 1);
+  const lower = Math.floor(rank);
+  const upper = Math.ceil(rank);
+  if (lower === upper) return sorted[lower];
+  const weight = rank - lower;
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * weight;
+}
+
+function updateStats(stats, series = []) {
+  const values = getNumericLatencyValues(series);
+  const avgFallback = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const p50Fallback = percentile(values, 50);
+  const p95Fallback = percentile(values, 95);
+
+  const avg = Number.isFinite(Number(stats?.avg)) ? Number(stats.avg) : avgFallback;
+  const p50 = Number.isFinite(Number(stats?.p50)) ? Number(stats.p50) : p50Fallback;
+  const p95 = Number.isFinite(Number(stats?.p95)) ? Number(stats.p95) : p95Fallback;
+
+  if (statAvg) statAvg.textContent = formatMs(avg);
+  if (statP50) statP50.textContent = formatMs(p50);
+  if (statP95) statP95.textContent = formatMs(p95);
 }
 
 function updateUptimeBars(last24h) {
