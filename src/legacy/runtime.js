@@ -646,7 +646,7 @@ const OWNER_SMTP_PORT = readEnvNumber("OWNER_SMTP_PORT", 587, {
 });
 const OWNER_SMTP_SECURE = readEnvBoolean("OWNER_SMTP_SECURE", false);
 const OWNER_SMTP_REQUIRE_TLS = readEnvBoolean("OWNER_SMTP_REQUIRE_TLS", true);
-const OWNER_SMTP_TLS_INSECURE = readEnvBoolean("OWNER_SMTP_TLS_INSECURE", false);
+const OWNER_SMTP_TLS_CA = readEnvString("OWNER_SMTP_TLS_CA", "", { trim: false });
 const OWNER_SMTP_USER = readEnvString("OWNER_SMTP_USER", "");
 const OWNER_SMTP_PASSWORD = readEnvString("OWNER_SMTP_PASSWORD", "", { trim: false });
 const OWNER_SMTP_FROM = normalizeEmail(readEnvString("OWNER_SMTP_FROM", OWNER_SMTP_USER || ""));
@@ -773,6 +773,9 @@ const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
 const SESSION_TOKEN_HASH_SECRET = readEnvString("SESSION_TOKEN_HASH_SECRET", MYSQL_PASSWORD, { trim: false });
+const SESSION_TOKEN_HASH_PBKDF2_ITERATIONS = 120000;
+const SESSION_TOKEN_HASH_PBKDF2_KEYLEN = 32;
+const SESSION_TOKEN_HASH_PBKDF2_DIGEST = "sha256";
 const EMAIL_UNSUBSCRIBE_SECRET = readEnvString("EMAIL_UNSUBSCRIBE_SECRET", MYSQL_PASSWORD, { trim: false });
 const EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS = readEnvNumber("EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS", 3650, {
   integer: true,
@@ -2112,7 +2115,15 @@ async function readJsonBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
 }
 
 function hashSessionToken(token) {
-  return crypto.createHmac("sha256", SESSION_TOKEN_HASH_SECRET).update(String(token || "")).digest("hex");
+  return crypto
+    .pbkdf2Sync(
+      String(token || ""),
+      SESSION_TOKEN_HASH_SECRET,
+      SESSION_TOKEN_HASH_PBKDF2_ITERATIONS,
+      SESSION_TOKEN_HASH_PBKDF2_KEYLEN,
+      SESSION_TOKEN_HASH_PBKDF2_DIGEST
+    )
+    .toString("hex");
 }
 
 function timingSafeEqualHex(leftHex, rightHex) {
@@ -2863,6 +2874,41 @@ function buildOwnerSmtpTestMessage({ from, to, subject, body, textBody, htmlBody
   return `${headers.join("\r\n")}\r\n\r\n${sections.join("\r\n")}`;
 }
 
+function decodeOwnerSmtpTlsCa(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return "";
+
+  const withLineBreaks = raw.includes("\\n") ? raw.replace(/\\n/g, "\n").trim() : raw;
+  if (withLineBreaks.includes("BEGIN CERTIFICATE")) {
+    return withLineBreaks;
+  }
+
+  try {
+    const decoded = Buffer.from(raw, "base64").toString("utf8").trim();
+    if (decoded.includes("BEGIN CERTIFICATE")) {
+      return decoded;
+    }
+  } catch (error) {
+    // ignore malformed base64 and fall back to raw value
+  }
+
+  return "";
+}
+
+const OWNER_SMTP_TLS_CA_PEM = decodeOwnerSmtpTlsCa(OWNER_SMTP_TLS_CA);
+
+function buildOwnerSmtpTlsOptions(options = {}) {
+  const tlsOptions = {
+    ...options,
+    servername: OWNER_SMTP_HOST,
+    rejectUnauthorized: true,
+  };
+  if (OWNER_SMTP_TLS_CA_PEM) {
+    tlsOptions.ca = OWNER_SMTP_TLS_CA_PEM;
+  }
+  return tlsOptions;
+}
+
 function openOwnerSmtpSocket() {
   return new Promise((resolve, reject) => {
     const onError = (error) => {
@@ -2870,12 +2916,12 @@ function openOwnerSmtpSocket() {
     };
 
     if (OWNER_SMTP_SECURE) {
-      const secureSocket = tls.connect({
-        host: OWNER_SMTP_HOST,
-        port: OWNER_SMTP_PORT,
-        servername: OWNER_SMTP_HOST,
-        rejectUnauthorized: !OWNER_SMTP_TLS_INSECURE,
-      });
+      const secureSocket = tls.connect(
+        buildOwnerSmtpTlsOptions({
+          host: OWNER_SMTP_HOST,
+          port: OWNER_SMTP_PORT,
+        })
+      );
       secureSocket.setTimeout(OWNER_SMTP_TIMEOUT_MS, () => {
         secureSocket.destroy(new Error("smtp_socket_timeout"));
       });
@@ -2901,11 +2947,11 @@ function openOwnerSmtpSocket() {
 
 function upgradeOwnerSmtpSocketToTls(socket) {
   return new Promise((resolve, reject) => {
-    const secureSocket = tls.connect({
-      socket,
-      servername: OWNER_SMTP_HOST,
-      rejectUnauthorized: !OWNER_SMTP_TLS_INSECURE,
-    });
+    const secureSocket = tls.connect(
+      buildOwnerSmtpTlsOptions({
+        socket,
+      })
+    );
     secureSocket.setTimeout(OWNER_SMTP_TIMEOUT_MS, () => {
       secureSocket.destroy(new Error("smtp_tls_timeout"));
     });
