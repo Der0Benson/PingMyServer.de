@@ -108,6 +108,9 @@ const maintenanceSettingsModal = document.getElementById("maintenance-settings-m
 const sloSettingsModalCloseButton = document.getElementById("slo-settings-modal-close");
 const assertionsSettingsModalCloseButton = document.getElementById("assertions-settings-modal-close");
 const maintenanceSettingsModalCloseButton = document.getElementById("maintenance-settings-modal-close");
+const sloSettingsModalStatusEl = document.getElementById("slo-settings-modal-status");
+const assertionsSettingsModalStatusEl = document.getElementById("assertions-settings-modal-status");
+const maintenanceSettingsModalStatusEl = document.getElementById("maintenance-settings-modal-status");
 
 let user = null;
 let monitors = [];
@@ -134,11 +137,59 @@ const rtf = () =>
   I18N && typeof I18N.rtf === "function"
     ? I18N.rtf()
     : new Intl.RelativeTimeFormat(i18nLocale(), { numeric: "auto" });
-let assertionsDirty = false;
-let assertionsBoundMonitorId = null;
-let maintenanceBoundMonitorId = null;
-let sloDirty = false;
-let sloEnabled = false;
+
+const settingsModalManager =
+  window.PMSSettingsModals && typeof window.PMSSettingsModals.createModalManager === "function"
+    ? window.PMSSettingsModals.createModalManager()
+    : null;
+
+const sloSettingsController =
+  window.PMSSettingsSlo && typeof window.PMSSettingsSlo.createSloSettingsController === "function"
+    ? window.PMSSettingsSlo.createSloSettingsController({
+        t,
+        elements: {
+          cardEl: sloCardEl,
+          formEl: sloForm,
+          targetInput: sloTargetInput,
+          saveButton: sloSaveButton,
+          activateButton: sloActivateButton,
+          stateBadge: sloStateBadge,
+          activationHint: sloActivationHint,
+          messageEl: sloMessageEl,
+        },
+      })
+    : null;
+
+const assertionsSettingsController =
+  window.PMSSettingsAssertions && typeof window.PMSSettingsAssertions.createAssertionsSettingsController === "function"
+    ? window.PMSSettingsAssertions.createAssertionsSettingsController({
+        elements: {
+          formEl: assertionsForm,
+          enabledInput: assertionsEnabledInput,
+          statusCodesInput: assertionsStatusCodesInput,
+          followRedirectsInput: assertionsFollowRedirectsInput,
+          maxRedirectsInput: assertionsMaxRedirectsInput,
+          contentTypeInput: assertionsContentTypeInput,
+          bodyInput: assertionsBodyInput,
+          timeoutInput: assertionsTimeoutInput,
+          messageEl: assertionsMessageEl,
+        },
+      })
+    : null;
+
+const maintenanceSettingsController =
+  window.PMSSettingsMaintenance && typeof window.PMSSettingsMaintenance.createMaintenanceSettingsController === "function"
+    ? window.PMSSettingsMaintenance.createMaintenanceSettingsController({
+        elements: {
+          titleInput: maintenanceTitleInput,
+          startInput: maintenanceStartInput,
+          endInput: maintenanceEndInput,
+          noteInput: maintenanceNoteInput,
+          messageEl: maintenanceFormMessageEl,
+          verifyLinkEl: maintenanceVerifyLinkEl,
+        },
+      })
+    : null;
 
 function isMobileSidebarViewport() {
   return !!mobileNavQuery && !!mobileNavQuery.matches;
@@ -334,176 +385,89 @@ function ensureResponseHelpModal() {
   return responseHelpModal;
 }
 
-function showDialog(dialog) {
-  if (!dialog) return;
-  if (typeof dialog.showModal === "function") {
-    if (!dialog.open) dialog.showModal();
-    return;
-  }
-  dialog.setAttribute("open", "");
-}
-
-function hideDialog(dialog) {
-  if (!dialog) return;
-  if (typeof dialog.close === "function") {
-    if (dialog.open) dialog.close();
-    return;
-  }
-  dialog.removeAttribute("open");
-}
-
-function bindSettingsModal(openButton, modal, closeButton) {
-  if (!openButton || !modal) return;
-  openButton.setAttribute("aria-expanded", "false");
-
-  openButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    openButton.setAttribute("aria-expanded", "true");
-    openButton.classList.add("is-open");
-    showDialog(modal);
-  });
-
-  if (closeButton) {
-    closeButton.addEventListener("click", () => {
-      hideDialog(modal);
-    });
-  }
-
-  modal.addEventListener("click", (event) => {
-    if (event.target !== modal) return;
-    hideDialog(modal);
-  });
-
-  modal.addEventListener("close", () => {
-    openButton.setAttribute("aria-expanded", "false");
-    openButton.classList.remove("is-open");
-    openButton.focus();
+function showSettingsModalSavedState(key) {
+  if (!settingsModalManager) return;
+  settingsModalManager.showStatus(key, t("app.advanced.modal.saved_badge", null, "Gespeichert"), "success", {
+    ttlMs: 1800,
   });
 }
 
 function setupSettingsModals() {
-  bindSettingsModal(openSloSettingsModalButton, sloSettingsModal, sloSettingsModalCloseButton);
-  bindSettingsModal(
-    openAssertionsSettingsModalButton,
-    assertionsSettingsModal,
-    assertionsSettingsModalCloseButton
-  );
-  bindSettingsModal(
-    openMaintenanceSettingsModalButton,
-    maintenanceSettingsModal,
-    maintenanceSettingsModalCloseButton
-  );
+  if (!settingsModalManager) return;
+  const getUnsavedMessage = () =>
+    t("app.advanced.unsaved_confirm", null, "Es gibt ungespeicherte Änderungen. Wirklich schließen?");
+
+  settingsModalManager.bind({
+    key: "slo",
+    openButton: openSloSettingsModalButton,
+    modal: sloSettingsModal,
+    closeButton: sloSettingsModalCloseButton,
+    focusTarget: sloTargetInput,
+    statusEl: sloSettingsModalStatusEl,
+    isDirty: () => !!sloSettingsController?.isDirty(),
+    getUnsavedMessage,
+  });
+
+  settingsModalManager.bind({
+    key: "assertions",
+    openButton: openAssertionsSettingsModalButton,
+    modal: assertionsSettingsModal,
+    closeButton: assertionsSettingsModalCloseButton,
+    focusTarget: assertionsEnabledInput,
+    statusEl: assertionsSettingsModalStatusEl,
+    isDirty: () => !!assertionsSettingsController?.isDirty(),
+    getUnsavedMessage,
+  });
+
+  settingsModalManager.bind({
+    key: "maintenance",
+    openButton: openMaintenanceSettingsModalButton,
+    modal: maintenanceSettingsModal,
+    closeButton: maintenanceSettingsModalCloseButton,
+    focusTarget: maintenanceTitleInput,
+    statusEl: maintenanceSettingsModalStatusEl,
+    isDirty: () => !!(maintenanceSettingsController?.hasDraft?.() || maintenanceSettingsController?.isDirty?.()),
+    getUnsavedMessage,
+  });
 }
 
 function setAssertionsMessage(message, variant = "") {
-  if (!assertionsMessageEl) return;
-  assertionsMessageEl.textContent = String(message || "");
-  assertionsMessageEl.classList.toggle("success", variant === "success");
-  assertionsMessageEl.classList.toggle("error", variant === "error");
+  assertionsSettingsController?.setMessage(message, variant);
+  if (variant === "success") showSettingsModalSavedState("assertions");
 }
 
 function setMaintenanceMessage(message, variant = "") {
-  if (!maintenanceFormMessageEl) return;
-  maintenanceFormMessageEl.textContent = String(message || "");
-  maintenanceFormMessageEl.classList.toggle("success", variant === "success");
-  maintenanceFormMessageEl.classList.toggle("error", variant === "error");
+  maintenanceSettingsController?.setMessage(message, variant);
+  if (variant === "success") showSettingsModalSavedState("maintenance");
 }
 
 function setSloMessage(message, variant = "") {
-  if (!sloMessageEl) return;
-  sloMessageEl.textContent = String(message || "");
-  sloMessageEl.classList.toggle("success", variant === "success");
-  sloMessageEl.classList.toggle("error", variant === "error");
+  sloSettingsController?.setMessage(message, variant);
+  if (variant === "success") showSettingsModalSavedState("slo");
 }
 
 function markSloDirty() {
-  sloDirty = true;
-  setSloMessage("");
+  sloSettingsController?.markDirty();
 }
 
 function setSloStateBadge(element, enabled) {
-  if (!element) return;
-  const active = !!enabled;
-  element.classList.toggle("is-on", active);
-  element.classList.toggle("is-off", !active);
-  element.textContent = active
-    ? t("app.slo.state_active", null, "Aktiv")
-    : t("app.slo.state_inactive", null, "Nicht aktiviert");
+  sloSettingsController?.setStateBadge(element, enabled);
 }
 
 function applySloEnabledState(enabled) {
-  const active = !!enabled;
-  sloEnabled = active;
-
-  if (sloCardEl) {
-    sloCardEl.hidden = !active;
-  }
-
-  if (sloForm) {
-    sloForm.classList.toggle("is-disabled", !active);
-  }
-  if (sloTargetInput) {
-    sloTargetInput.disabled = !active;
-  }
-  if (sloSaveButton) {
-    sloSaveButton.disabled = !active;
-  }
-  if (sloActivateButton) {
-    sloActivateButton.hidden = false;
-    sloActivateButton.disabled = false;
-    sloActivateButton.classList.toggle("is-deactivate", active);
-    sloActivateButton.textContent = active
-      ? t("app.slo.deactivate_button", null, "SLO deaktivieren")
-      : t("app.slo.activate_button", null, "SLO aktivieren");
-  }
-  if (sloActivationHint) {
-    sloActivationHint.textContent = active
-      ? t("app.slo.settings_activation_hint_on", null, "Du kannst SLO jederzeit wieder deaktivieren.")
-      : t("app.slo.settings_activation_hint_off", null, "Aktiviere SLO zuerst, damit Error-Budget und Burn-Rate berechnet werden.");
-  }
-
-  setSloStateBadge(sloStateBadge, active);
+  sloSettingsController?.applyEnabledState(enabled);
 }
 
 function syncSloSettingsBounds(slo) {
-  if (!sloTargetInput || !slo || typeof slo !== "object") return;
-  if (Number.isFinite(Number(slo.minTargetPercent))) {
-    sloTargetInput.min = String(Number(slo.minTargetPercent));
-  }
-  if (Number.isFinite(Number(slo.maxTargetPercent))) {
-    sloTargetInput.max = String(Number(slo.maxTargetPercent));
-  }
+  sloSettingsController?.syncSettingsBounds(slo);
 }
 
 function syncSloPanel(slo, options = {}) {
-  const { force = false } = options;
-  if (!sloForm || !sloTargetInput) return;
-
-  const normalized = slo && typeof slo === "object" ? slo : null;
-  if (!normalized) {
-    applySloEnabledState(false);
-    sloTargetInput.value = "";
-    return;
-  }
-
-  syncSloSettingsBounds(normalized);
-  const enabled = Object.prototype.hasOwnProperty.call(normalized, "enabled") ? !!normalized.enabled : true;
-  applySloEnabledState(enabled);
-
-  if (!force && sloDirty) return;
-
-  const targetPercent = Number(normalized.targetPercent);
-  if (Number.isFinite(targetPercent)) {
-    sloTargetInput.value = targetPercent.toFixed(3);
-  } else if (sloTargetInput.value === "") {
-    const fallbackTarget = Number(normalized.defaultTargetPercent);
-    if (Number.isFinite(fallbackTarget)) {
-      sloTargetInput.value = fallbackTarget.toFixed(3);
-    }
-  }
+  sloSettingsController?.syncPanel(slo, options);
 }
 
 function readSloPayload() {
+  if (sloSettingsController) return sloSettingsController.readPayload();
   return {
     targetPercent: Number(sloTargetInput?.value),
   };
@@ -511,7 +475,7 @@ function readSloPayload() {
 
 async function toggleSloForActiveMonitor() {
   if (!activeMonitorId || !sloActivateButton) return;
-  const nextEnabled = !sloEnabled;
+  const nextEnabled = !(sloSettingsController?.isEnabled?.() || false);
 
   sloActivateButton.disabled = true;
   setSloMessage(
@@ -538,7 +502,7 @@ async function toggleSloForActiveMonitor() {
       return;
     }
 
-    sloDirty = false;
+    sloSettingsController?.setDirty(false);
     setSloMessage(
       nextEnabled
         ? t("app.slo.msg_activated", null, "SLO aktiviert.")
@@ -555,20 +519,11 @@ async function toggleSloForActiveMonitor() {
 }
 
 function hideMaintenanceVerifyLink() {
-  if (!maintenanceVerifyLinkEl) return;
-  maintenanceVerifyLinkEl.hidden = true;
-  maintenanceVerifyLinkEl.removeAttribute("data-hostname");
-  maintenanceVerifyLinkEl.href = "/connections#domain-verification";
+  maintenanceSettingsController?.hideVerifyLink();
 }
 
 function showMaintenanceVerifyLink(hostname) {
-  if (!maintenanceVerifyLinkEl) return;
-  const clean = String(hostname || "").trim();
-  maintenanceVerifyLinkEl.href = clean
-    ? `/connections?domain=${encodeURIComponent(clean)}#domain-verification`
-    : "/connections#domain-verification";
-  maintenanceVerifyLinkEl.hidden = false;
-  if (clean) maintenanceVerifyLinkEl.dataset.hostname = clean;
+  maintenanceSettingsController?.showVerifyLink(hostname);
 }
 
 function extractHostname(value) {
@@ -596,74 +551,19 @@ function getActiveMonitorHostnameHint() {
 }
 
 function markAssertionsDirty() {
-  assertionsDirty = true;
-  setAssertionsMessage("");
+  assertionsSettingsController?.markDirty();
 }
 
 function applyAssertionsEnabledState() {
-  if (!assertionsForm || !assertionsEnabledInput) return;
-
-  const enabled = !!assertionsEnabledInput.checked;
-  assertionsForm.classList.toggle("is-disabled", !enabled);
-
-  const fields = [
-    assertionsStatusCodesInput,
-    assertionsFollowRedirectsInput,
-    assertionsMaxRedirectsInput,
-    assertionsContentTypeInput,
-    assertionsBodyInput,
-    assertionsTimeoutInput,
-  ].filter(Boolean);
-
-  for (const field of fields) {
-    field.disabled = !enabled;
-  }
-
-  if (assertionsMaxRedirectsInput) {
-    const redirectsEnabled = !!assertionsFollowRedirectsInput?.checked;
-    assertionsMaxRedirectsInput.disabled = !enabled || !redirectsEnabled;
-  }
+  assertionsSettingsController?.applyEnabledState();
 }
 
 function syncAssertionsPanel(assertions, options = {}) {
-  const { force = false } = options;
-  if (!assertionsForm) return;
-  if (!force && assertionsDirty) return;
-
-  const normalized = assertions && typeof assertions === "object" ? assertions : null;
-
-  assertionsBoundMonitorId = activeMonitorId;
-
-  if (!normalized) {
-    if (assertionsEnabledInput) assertionsEnabledInput.checked = false;
-    if (assertionsStatusCodesInput) assertionsStatusCodesInput.value = "";
-    if (assertionsFollowRedirectsInput) assertionsFollowRedirectsInput.checked = true;
-    if (assertionsMaxRedirectsInput) assertionsMaxRedirectsInput.value = "5";
-    if (assertionsContentTypeInput) assertionsContentTypeInput.value = "";
-    if (assertionsBodyInput) assertionsBodyInput.value = "";
-    if (assertionsTimeoutInput) assertionsTimeoutInput.value = "0";
-    applyAssertionsEnabledState();
-    return;
-  }
-
-  if (assertionsEnabledInput) assertionsEnabledInput.checked = !!normalized.enabled;
-  if (assertionsStatusCodesInput) assertionsStatusCodesInput.value = String(normalized.expectedStatusCodes || "");
-  if (assertionsFollowRedirectsInput) assertionsFollowRedirectsInput.checked = normalized.followRedirects !== false;
-  if (assertionsMaxRedirectsInput) {
-    const maxRedirects = Number.isFinite(Number(normalized.maxRedirects)) ? Number(normalized.maxRedirects) : 5;
-    assertionsMaxRedirectsInput.value = String(maxRedirects);
-  }
-  if (assertionsContentTypeInput) assertionsContentTypeInput.value = String(normalized.contentTypeContains || "");
-  if (assertionsBodyInput) assertionsBodyInput.value = String(normalized.bodyContains || "");
-  if (assertionsTimeoutInput) {
-    const timeoutMs = Number.isFinite(Number(normalized.timeoutMs)) ? Number(normalized.timeoutMs) : 0;
-    assertionsTimeoutInput.value = String(timeoutMs);
-  }
-
-  applyAssertionsEnabledState();
+  assertionsSettingsController?.syncPanel(assertions, { ...options, activeMonitorId });
 }
 
 function readAssertionsPayload() {
+  if (assertionsSettingsController) return assertionsSettingsController.readPayload();
   return {
     enabled: !!assertionsEnabledInput?.checked,
     expectedStatusCodes: String(assertionsStatusCodesInput?.value || "").trim(),
@@ -838,6 +738,7 @@ function renderMaintenances(maintenances) {
 function resetMaintenanceForm(shouldFillDefaults = false) {
   setMaintenanceMessage("");
   hideMaintenanceVerifyLink();
+  maintenanceSettingsController?.setDirty(false);
   if (maintenanceTitleInput) maintenanceTitleInput.value = "";
   if (maintenanceNoteInput) maintenanceNoteInput.value = "";
 
@@ -855,9 +756,13 @@ function resetMaintenanceForm(shouldFillDefaults = false) {
 }
 
 function syncMaintenancePanel(maintenances) {
-  if (maintenanceBoundMonitorId !== activeMonitorId) {
-    maintenanceBoundMonitorId = activeMonitorId;
-    resetMaintenanceForm(true);
+  if (maintenanceSettingsController) {
+    maintenanceSettingsController.syncPanel(maintenances, {
+      activeMonitorId,
+      resetForm: resetMaintenanceForm,
+      renderMaintenances,
+    });
+    return;
   }
   renderMaintenances(maintenances);
 }
@@ -1032,6 +937,7 @@ async function createMaintenance() {
        return;
      }
 
+    maintenanceSettingsController?.setDirty(false);
     setMaintenanceMessage(t("app.maintenance.msg_scheduled", null, "Wartung geplant."), "success");
     if (maintenanceTitleInput) maintenanceTitleInput.value = "";
     if (maintenanceNoteInput) maintenanceNoteInput.value = "";
@@ -1728,13 +1634,14 @@ async function setActiveMonitor(monitorId, options = {}) {
   if (!monitor) return;
 
   activeMonitorId = String(monitor.id);
-  assertionsDirty = false;
-  assertionsBoundMonitorId = null;
-  setAssertionsMessage("");
-  sloDirty = false;
-  sloEnabled = false;
-  setSloMessage("");
+  assertionsSettingsController?.resetForMonitor();
+  sloSettingsController?.resetForMonitor();
+  maintenanceSettingsController?.resetForMonitor();
+  settingsModalManager?.clearStatus("slo");
+  settingsModalManager?.clearStatus("assertions");
+  settingsModalManager?.clearStatus("maintenance");
   applySloEnabledState(false);
+  applyAssertionsEnabledState();
   intervalPickerValue = null;
   if (intervalSelect) {
     intervalSelect.disabled = true;
@@ -2927,7 +2834,7 @@ async function init() {
     sloForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!activeMonitorId) return;
-      if (!sloEnabled) {
+      if (!(sloSettingsController?.isEnabled?.() || false)) {
         setSloMessage(t("app.slo.msg_enable_first", null, "Bitte zuerst SLO aktivieren."), "error");
         return;
       }
@@ -2955,7 +2862,7 @@ async function init() {
           return;
         }
 
-        sloDirty = false;
+        sloSettingsController?.setDirty(false);
         setSloMessage(t("app.slo.msg_saved", null, "Gespeichert."), "success");
         syncSloPanel(payload.data, { force: true });
         await loadMetrics();
@@ -3015,7 +2922,7 @@ async function init() {
           return;
         }
 
-        assertionsDirty = false;
+        assertionsSettingsController?.setDirty(false);
         setAssertionsMessage(t("app.assertions.msg_saved", null, "Gespeichert."), "success");
         syncAssertionsPanel(payload.data, { force: true });
       } catch (error) {
@@ -3026,6 +2933,7 @@ async function init() {
 
   for (const el of [maintenanceTitleInput, maintenanceStartInput, maintenanceEndInput, maintenanceNoteInput].filter(Boolean)) {
     el.addEventListener("input", () => {
+      maintenanceSettingsController?.markDirty();
       setMaintenanceMessage("");
       hideMaintenanceVerifyLink();
     });

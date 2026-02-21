@@ -438,6 +438,7 @@
       <div class="settings-modal-card">
         <div class="settings-modal-head">
           <h3 id="slo-settings-modal-title" class="response-help-title" data-i18n="app.advanced.modal.slo_title">SLO-Einstellungen</h3>
+          <span class="settings-modal-status" id="slo-settings-modal-status" hidden></span>
           <button id="slo-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
             Schließen
           </button>
@@ -487,6 +488,7 @@
           <h3 id="assertions-settings-modal-title" class="response-help-title" data-i18n="app.advanced.modal.assertions_title">
             HTTP-Assertions
           </h3>
+          <span class="settings-modal-status" id="assertions-settings-modal-status" hidden></span>
           <button id="assertions-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
             Schließen
           </button>
@@ -557,6 +559,7 @@
       <div class="settings-modal-card">
         <div class="settings-modal-head">
           <h3 id="maintenance-settings-modal-title" class="response-help-title" data-i18n="app.advanced.modal.maintenance_title">Wartungen</h3>
+          <span class="settings-modal-status" id="maintenance-settings-modal-status" hidden></span>
           <button id="maintenance-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
             Schließen
           </button>
@@ -626,6 +629,10 @@
     </dialog>
 
     <script src="/assets/i18n.js"></script>
+    <script src="/assets/app-settings-modals.js"></script>
+    <script src="/assets/app-settings-slo.js"></script>
+    <script src="/assets/app-settings-assertions.js"></script>
+    <script src="/assets/app-settings-maintenance.js"></script>
     <script src="/assets/app.js"></script>
   </body>
 </html>

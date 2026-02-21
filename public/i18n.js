@@ -640,6 +640,7 @@
         advanced: {
           title: "Mehr Einstellungen",
           meta: "SLO · HTTP-Assertions · Wartungen",
+          unsaved_confirm: "Es gibt ungespeicherte Änderungen. Wirklich schließen?",
           card: {
             slo_title: "SLO-Ziel.",
             slo_desc: "Uptime-Ziel, Error-Budget und Burn-Rate getrennt und fokussiert bearbeiten.",
@@ -655,6 +656,7 @@
             slo_title: "SLO-Einstellungen",
             assertions_title: "HTTP-Assertions",
             maintenance_title: "Wartungen",
+            saved_badge: "Gespeichert",
           },
         },
         assertions: {
@@ -2072,6 +2074,7 @@
         advanced: {
           title: "More settings",
           meta: "SLO · HTTP assertions · Maintenance",
+          unsaved_confirm: "You have unsaved changes. Close anyway?",
           card: {
             slo_title: "SLO target.",
             slo_desc: "Edit uptime target, error budget and burn rate in one focused place.",
@@ -2087,6 +2090,7 @@
             slo_title: "SLO settings",
             assertions_title: "HTTP assertions",
             maintenance_title: "Maintenance",
+            saved_badge: "Saved",
           },
         },
         assertions: {

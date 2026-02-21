@@ -635,6 +635,43 @@
   gap: 12px;
 }
 
+.settings-modal-status {
+  margin-left: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(214, 229, 250, 0.92);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-modal-status[hidden] {
+  display: none;
+}
+
+.settings-modal-status.success {
+  border-color: rgba(185, 242, 124, 0.45);
+  background: rgba(185, 242, 124, 0.16);
+  color: #dff8bc;
+}
+
+.settings-modal-status.error {
+  border-color: rgba(242, 107, 107, 0.52);
+  background: rgba(242, 107, 107, 0.18);
+  color: #ffd2d2;
+}
+
+.settings-modal-status.warn {
+  border-color: rgba(244, 180, 90, 0.5);
+  background: rgba(244, 180, 90, 0.16);
+  color: #ffdca4;
+}
+
 .settings-modal-section {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 12px;
