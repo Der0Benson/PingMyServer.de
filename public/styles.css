@@ -695,6 +695,50 @@ a[data-owner-link][hidden] {
   z-index: 1;
 }
 
+.chart-tooltip {
+  position: absolute;
+  z-index: 3;
+  min-width: 190px;
+  max-width: min(280px, calc(100% - 16px));
+  background: rgba(7, 12, 22, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  pointer-events: none;
+  font-size: 0.76rem;
+  color: rgba(232, 241, 255, 0.96);
+}
+
+.chart-tooltip-title {
+  font-size: 0.72rem;
+  color: rgba(173, 192, 221, 0.92);
+  margin-bottom: 6px;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: baseline;
+}
+
+.chart-tooltip-row + .chart-tooltip-row {
+  margin-top: 2px;
+}
+
+.chart-tooltip-row span {
+  color: rgba(174, 193, 221, 0.88);
+}
+
+.chart-tooltip-row strong {
+  color: rgba(238, 247, 255, 0.98);
+  font-weight: 600;
+  text-align: right;
+  max-width: 65%;
+  word-break: break-word;
+}
+
 .stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
