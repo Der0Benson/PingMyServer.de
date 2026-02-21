@@ -1,5 +1,35 @@
+.game-package {
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.008));
+  box-shadow: 0 16px 30px rgba(6, 10, 20, 0.42);
+  padding: 14px;
+}
+
 .game-dashboard {
   grid-template-columns: 2.2fr 1fr;
+  gap: 14px;
+}
+
+.game-package .card,
+.game-package .summary-card,
+.game-package .event-item {
+  border-radius: 8px;
+}
+
+.game-package .card {
+  box-shadow: none;
+}
+
+.game-package .card::after {
+  opacity: 0.28;
+}
+
+.game-package .chart,
+.game-package .latency-track,
+.game-package .plugin-table-wrap,
+.game-package .metrics-table-wrap {
+  border-radius: 8px;
 }
 
 .topbar-last-update {
@@ -345,6 +375,10 @@
 }
 
 @media (max-width: 980px) {
+  .game-package {
+    padding: 12px;
+  }
+
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -359,6 +393,11 @@
 }
 
 @media (max-width: 720px) {
+  .game-package {
+    padding: 10px;
+    border-radius: 7px;
+  }
+
   .summary-grid {
     grid-template-columns: 1fr;
   }
