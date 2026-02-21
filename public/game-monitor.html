@@ -6,7 +6,7 @@
     <meta
       name="description"
       data-i18n-content="meta.game_monitor.description"
-      content="Game Monitor für Minecraft: Serverstatus, Ping, Spielerzahlen und weitere Live-Metriken."
+      content="Game Monitor fuer Minecraft: Serverstatus, Ping, Spielerzahlen und weitere Live-Metriken."
     />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="googlebot" content="noindex, nofollow" />
@@ -35,7 +35,7 @@
         <nav class="side-nav">
           <a href="/app" data-i18n="common.monitoring">Monitoring</a>
           <a href="/monitors" data-i18n="common.monitors">Monitore</a>
-          <a href="/incidents" data-i18n="common.incidents">Vorfälle</a>
+          <a href="/incidents" data-i18n="common.incidents">Vorfaelle</a>
           <a href="/notifications" data-i18n="common.notifications">Benachrichtigungen</a>
           <a class="active" href="/game-monitor" data-i18n="common.game_monitor">Game Monitor</a>
           <a href="/connections" data-i18n="common.connections">Connections</a>
@@ -83,13 +83,13 @@
         class="mobile-nav-backdrop"
         id="mobile-nav-backdrop"
         type="button"
-        aria-label="Navigation schließen"
+        aria-label="Navigation schliessen"
         hidden
       ></button>
 
       <div class="content">
         <div class="page">
-          <div class="crumb" data-i18n="common.game_monitor">Game Monitor</div>
+          <div class="crumb" data-i18n="game_monitor.dashboard.crumb">Game Monitoring</div>
           <header class="topbar">
             <div class="title-block">
               <button
@@ -98,7 +98,7 @@
                 type="button"
                 aria-controls="dashboard-sidebar"
                 aria-expanded="false"
-                aria-label="Navigation öffnen"
+                aria-label="Navigation oeffnen"
               >
                 <span class="mobile-sidebar-toggle-line"></span>
                 <span class="mobile-sidebar-toggle-line"></span>
@@ -106,118 +106,168 @@
               </button>
               <img class="logo-mark" src="/assets/pingmyserverlogo.png" alt="" aria-hidden="true" />
               <div>
-                <div class="title" data-i18n="game_monitor.title">Game Monitor</div>
-                <div class="subtitle" data-i18n="game_monitor.sub">Game Server live tracken: Ping, Spieler und mehr</div>
+                <div class="title" id="server-name">Minecraft Game Monitor</div>
+                <div class="subtitle" data-i18n="game_monitor.dashboard.header_subtitle">
+                  Live Uebersicht fuer deine Minecraft Mod Verbindung
+                </div>
               </div>
             </div>
             <div class="top-actions">
-              <button class="btn primary" id="add-game-btn" type="button">Neues Spiel hinzufügen</button>
+              <span id="top-status-badge" class="status-pill loading">Loading</span>
+              <span class="muted topbar-last-update" id="top-last-update" data-i18n="game_monitor.dashboard.updated_fallback"
+                >Letztes Update: --</span
+              >
               <button class="btn ghost" id="refresh-btn" type="button" data-i18n="common.refresh">Aktualisieren</button>
+              <button class="btn primary" id="create-pairing-btn" type="button" data-i18n="game_monitor.dashboard.create_pairing">
+                Verifizierungscode erzeugen
+              </button>
             </div>
           </header>
 
           <main class="game-monitor-page">
-            <div class="game-monitor-layout">
-              <section class="card game-list-card">
-                <div class="card-title" data-i18n="game_monitor.games.title">Spiele</div>
-                <p class="muted game-list-copy">Wähle ein verbundenes Spiel oder füge ein neues über das Modal hinzu.</p>
-                <div class="game-list" id="game-list" aria-label="Spiele">
-                  <div class="empty-state">
-                    <div class="title">Keine Spiele konfiguriert.</div>
-                    <div class="muted">Starte mit "Neues Spiel hinzufügen".</div>
+            <section class="game-package">
+              <article class="card wide game-connection-card">
+                <div class="card-title" data-i18n="game_monitor.dashboard.connection.title">Minecraft Mod Connection</div>
+                <p class="muted game-connection-sub" data-i18n="game_monitor.dashboard.connection.sub">
+                  Nutze den Pairing-Code in deiner Mod. Sobald Heartbeats ankommen, erscheinen die Live-Metriken automatisch.
+                </p>
+                <div class="mod-pairing-box" id="mod-pairing-box">
+                  <div class="mod-pairing-row">
+                    <span class="mod-pairing-label" data-i18n="game_monitor.dashboard.connection.code_label">Aktueller Code</span>
+                    <code class="mod-pairing-code" id="mod-pairing-code">------</code>
+                  </div>
+                  <div class="mod-pairing-row">
+                    <span class="mod-pairing-label" data-i18n="game_monitor.dashboard.connection.expires_label">Gueltig bis</span>
+                    <span class="mod-pairing-expiry" id="mod-pairing-expiry">--</span>
                   </div>
                 </div>
-              </section>
+                <p class="panel-message" id="game-monitor-message"></p>
+              </article>
 
-              <section class="card wide game-overview-card">
-                <header class="overview-head">
-                  <div>
-                    <div class="card-title" id="overview-game-label">Ausgewähltes Spiel</div>
-                    <h2 class="overview-title" id="overview-title">Minecraft</h2>
-                    <p class="muted overview-sub" id="overview-sub">Verbindungsdaten und Live-Metriken.</p>
-                  </div>
-                  <div class="overview-head-actions">
-                    <span class="status-pill loading" id="overview-status-pill">Wird aktualisiert</span>
-                  </div>
-                </header>
+              <section class="dashboard game-dashboard">
+                <section class="main-col">
+                  <article class="card wide">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.kpis.title">Server KPIs</div>
+                    <div class="summary-grid" id="summary-grid"></div>
+                  </article>
 
-                <div class="overview-kpis">
-                  <article class="kpi-card">
-                    <div class="card-title">Verbindungsstatus</div>
-                    <div class="metric" id="kpi-health">-</div>
-                    <div class="muted" id="kpi-health-sub">Noch keine Daten</div>
-                  </article>
-                  <article class="kpi-card">
-                    <div class="card-title">Online Verbindungen</div>
-                    <div class="metric" id="kpi-online">0</div>
-                    <div class="muted">Direkt + Agent</div>
-                  </article>
-                  <article class="kpi-card">
-                    <div class="card-title">Gesamt Verbindungen</div>
-                    <div class="metric" id="kpi-total">0</div>
-                    <div class="muted">Targets + Sessions</div>
-                  </article>
-                  <article class="kpi-card">
-                    <div class="card-title">Letztes Update</div>
-                    <div class="metric" id="kpi-updated">-</div>
-                    <div class="muted">Auto Refresh alle 30s</div>
-                  </article>
-                </div>
+                  <div class="grid game-chart-grid">
+                    <article class="card">
+                      <div class="card-title" data-i18n="game_monitor.dashboard.charts.tps_title">TPS ueber Zeit</div>
+                      <div class="chart">
+                        <svg id="tps-chart" viewBox="0 0 960 240" preserveAspectRatio="none" aria-hidden="true"></svg>
+                      </div>
+                      <div class="stat-row">
+                        <div>
+                          <div class="stat-title" data-i18n="game_monitor.dashboard.chart_stats.minimum">Minimum</div>
+                          <div class="stat-value" id="tps-min">--</div>
+                        </div>
+                        <div>
+                          <div class="stat-title" data-i18n="game_monitor.dashboard.chart_stats.maximum">Maximum</div>
+                          <div class="stat-value" id="tps-max">--</div>
+                        </div>
+                        <div>
+                          <div class="stat-title" data-i18n="game_monitor.dashboard.chart_stats.current">Aktuell</div>
+                          <div class="stat-value" id="tps-current">--</div>
+                        </div>
+                      </div>
+                    </article>
 
-                <section class="direct-section" id="direct-probe-panel">
-                  <div class="section-head">
-                    <div class="card-title">Direkte Server (IP)</div>
-                    <button class="btn ghost" id="add-direct-server-btn" type="button">Server via IP hinzufügen</button>
+                    <article class="card">
+                      <div class="card-title" data-i18n="game_monitor.dashboard.charts.players_title">Spieler ueber Zeit</div>
+                      <div class="chart">
+                        <svg id="players-chart" viewBox="0 0 960 240" preserveAspectRatio="none" aria-hidden="true"></svg>
+                      </div>
+                      <div class="stat-row">
+                        <div>
+                          <div class="stat-title" data-i18n="game_monitor.dashboard.chart_stats.peak">Peak</div>
+                          <div class="stat-value" id="players-peak">--</div>
+                        </div>
+                        <div>
+                          <div class="stat-title" data-i18n="game_monitor.dashboard.chart_stats.average">Durchschnitt</div>
+                          <div class="stat-value" id="players-avg">--</div>
+                        </div>
+                        <div>
+                          <div class="stat-title" data-i18n="game_monitor.dashboard.chart_stats.current">Aktuell</div>
+                          <div class="stat-value" id="players-current">--</div>
+                        </div>
+                      </div>
+                    </article>
                   </div>
-                  <p class="panel-message" id="minecraft-message"></p>
-                  <div class="minecraft-servers" id="minecraft-servers-list">
-                    <div class="empty-state">
-                      <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
-                      <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
+
+                  <article class="card wide">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.live_metrics.title">Live Server Metrics</div>
+                    <div class="metrics-table-wrap">
+                      <table class="metrics-table">
+                        <tbody id="metrics-body"></tbody>
+                      </table>
                     </div>
-                  </div>
+                  </article>
+
+                  <article class="card wide">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.events.title">Events / Incidents</div>
+                    <div class="events-list" id="events-list"></div>
+                  </article>
                 </section>
 
-                <p class="panel-message" id="direct-probe-unavailable" hidden></p>
+                <aside class="side-col">
+                  <article class="card">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.sessions.title">Mod Sessions</div>
+                    <div class="mod-sessions" id="mod-sessions-list"></div>
+                  </article>
 
-                <section class="mod-panel">
-                  <div class="mod-panel-head">
-                    <div class="card-title" data-i18n="game_monitor.mod.title">Game Agent Verbindung</div>
-                    <button class="btn ghost" id="mod-create-pairing-btn" type="button" data-i18n="game_monitor.mod.create_pairing">
-                      Verifizierungscode erzeugen
-                    </button>
-                  </div>
-
-                  <p class="muted mod-panel-sub" data-i18n="game_monitor.mod.sub">
-                    Erstelle einen Pairing-Code im Web und nutze ihn in deinem Agent/Mod. Solange Heartbeats gesendet werden,
-                    bleibt die Verbindung online.
-                  </p>
-
-                  <div class="mod-pairing-box" id="mod-pairing-box" hidden>
-                    <div class="mod-pairing-row">
-                      <span class="mod-pairing-label" data-i18n="game_monitor.mod.code_label">Aktueller Code</span>
-                      <code class="mod-pairing-code" id="mod-pairing-code">------</code>
+                  <article class="card">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.plugins.title">Mods & Plugins</div>
+                    <div class="coming-soon-box">
+                      <span class="soon-pill" data-i18n="game_monitor.dashboard.soon">Bald / Soon</span>
+                      <p class="muted" data-i18n="game_monitor.dashboard.plugins.soon_desc">
+                        Plugin-Checks werden verknuepft, sobald die Mod diesen Kanal liefert.
+                      </p>
                     </div>
-                    <div class="mod-pairing-row">
-                      <span class="mod-pairing-label" data-i18n="game_monitor.mod.expires_label">Gültig bis</span>
-                      <span class="mod-pairing-expiry" id="mod-pairing-expiry">-</span>
-                    </div>
-                  </div>
+                  </article>
 
-                  <p class="panel-message" id="mod-message"></p>
-
-                  <div class="mod-sessions-head">
-                    <div class="card-title" data-i18n="game_monitor.mod.sessions_title">Verbundene Mod Sessions</div>
-                  </div>
-                  <div class="mod-sessions" id="mod-sessions-list">
-                    <div class="empty-state">
-                      <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
-                      <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
+                  <article class="card">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.latency.title">Latency by Region</div>
+                    <div class="coming-soon-box">
+                      <span class="soon-pill" data-i18n="game_monitor.dashboard.soon">Bald / Soon</span>
+                      <p class="muted" data-i18n="game_monitor.dashboard.latency.soon_desc">
+                        Regionale Latenzwerte folgen nach Multi-Region-Probe-Integration.
+                      </p>
                     </div>
-                  </div>
-                </section>
+                  </article>
+
+                  <article class="card">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.discord.title">Discord Integration</div>
+                    <div class="discord-card-copy">
+                      <div class="discord-head">
+                        <svg class="discord-icon" viewBox="0 0 127.14 96.36" role="img" aria-label="Discord">
+                          <path
+                            d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83 72.37 72.37 0 0 0 45.64 0 105.89 105.89 0 0 0 19.39 8.09C2.79 32.65-1.7 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.27 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.79-1.34 2.64-2.04 20.9 9.82 43.65 9.82 64.32 0 .85.7 1.73 1.38 2.64 2.04a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.26A105.25 105.25 0 0 0 126.6 80.2c2.63-27.38-4.49-51.11-18.9-72.13ZM42.45 65.69C36.18 65.69 31 59.96 31 52.91s5-12.78 11.43-12.78c6.48 0 11.57 5.78 11.46 12.78 0 7.05-5.04 12.78-11.44 12.78Zm42.24 0c-6.27 0-11.43-5.73-11.43-12.78s5-12.78 11.43-12.78c6.48 0 11.57 5.78 11.46 12.78 0 7.05-5.03 12.78-11.46 12.78Z"
+                          ></path>
+                        </svg>
+                        <span class="metric" data-i18n="game_monitor.dashboard.discord.channel">#server-status</span>
+                      </div>
+                      <div class="discord-row">
+                        <span class="muted" data-i18n="game_monitor.dashboard.discord.status_label">Status</span>
+                        <span class="soon-pill" data-i18n="game_monitor.dashboard.soon">Bald / Soon</span>
+                      </div>
+                      <button class="btn primary" type="button" disabled data-i18n="game_monitor.dashboard.discord.test_button">
+                        Send test alert
+                      </button>
+                      <p class="muted" data-i18n="game_monitor.dashboard.discord.soon_desc">
+                        Discord Alerts werden im naechsten Integrationsschritt aktiviert.
+                      </p>
+                    </div>
+                  </article>
+
+                  <article class="card">
+                    <div class="card-title" data-i18n="game_monitor.dashboard.insight.title">AI Insight</div>
+                    <p class="muted insight-line" id="insight-line-1"></p>
+                    <p class="muted insight-line" id="insight-line-2"></p>
+                  </article>
+                </aside>
               </section>
-            </div>
+            </section>
           </main>
 
           <footer class="site-footer">
@@ -229,80 +279,6 @@
             </nav>
           </footer>
         </div>
-      </div>
-    </div>
-
-    <div class="modal-backdrop" id="game-modal" hidden>
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="game-modal-title">
-        <div class="modal-head">
-          <h3 id="game-modal-title">Neues Spiel hinzufügen</h3>
-          <button class="btn ghost modal-close" id="game-modal-close" type="button">Schließen</button>
-        </div>
-        <p class="modal-subtitle">Lege ein neues Spiel an und entscheide, ob die Verbindung per IP oder per Connection Key läuft.</p>
-
-        <form id="game-modal-form" class="game-modal-form" novalidate autocomplete="off">
-          <label for="game-modal-name">
-            <span>Spielname</span>
-            <input id="game-modal-name" type="text" maxlength="60" placeholder="z. B. Minecraft, Rust, CS2" required />
-          </label>
-
-          <label for="game-modal-key">
-            <span>Spiel-Key (slug)</span>
-            <input id="game-modal-key" type="text" maxlength="24" placeholder="z. B. minecraft oder cs2" />
-          </label>
-
-          <fieldset class="method-switch">
-            <legend>Verbindungstyp</legend>
-            <label class="method-option" for="game-mode-ip">
-              <input id="game-mode-ip" type="radio" name="game-connection-mode" value="ip" checked />
-              <span class="method-indicator" aria-hidden="true"></span>
-              <span class="method-copy">
-                <strong>Direkt via IP/Host</strong>
-                <small>Sofortige Live-Abfrage für Minecraft-Server.</small>
-              </span>
-            </label>
-            <label class="method-option" for="game-mode-key">
-              <input id="game-mode-key" type="radio" name="game-connection-mode" value="key" />
-              <span class="method-indicator" aria-hidden="true"></span>
-              <span class="method-copy">
-                <strong>Agent/Mod mit Connection Key</strong>
-                <small>Empfohlen für neue Spiele und künftige Integrationen.</small>
-              </span>
-            </label>
-          </fieldset>
-
-          <div class="modal-fields" id="game-modal-ip-fields">
-            <label for="game-modal-server-name">
-              <span>Servername (optional)</span>
-              <input id="game-modal-server-name" type="text" maxlength="80" placeholder="Mein Survival Server" />
-            </label>
-            <label for="game-modal-host">
-              <span>Host oder IP</span>
-              <input id="game-modal-host" type="text" maxlength="255" placeholder="play.example.net:25565" />
-            </label>
-          </div>
-
-          <div class="modal-fields" id="game-modal-key-fields" hidden>
-            <p class="muted">Beim Speichern wird direkt ein Connection Key für dein ausgewähltes Spiel erzeugt.</p>
-            <div class="mod-pairing-box" id="game-modal-pairing-box" hidden>
-              <div class="mod-pairing-row">
-                <span class="mod-pairing-label">Connection Key</span>
-                <code class="mod-pairing-code" id="game-modal-pairing-code">------</code>
-              </div>
-              <div class="mod-pairing-row">
-                <span class="mod-pairing-label">Gültig bis</span>
-                <span class="mod-pairing-expiry" id="game-modal-pairing-expiry">-</span>
-              </div>
-            </div>
-          </div>
-
-          <p class="panel-message" id="game-modal-message"></p>
-
-          <div class="modal-actions">
-            <button class="btn ghost" id="game-modal-cancel" type="button">Abbrechen</button>
-            <button class="btn primary" id="game-modal-submit" type="submit">Spiel hinzufügen</button>
-          </div>
-        </form>
       </div>
     </div>
 
