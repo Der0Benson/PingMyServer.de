@@ -215,8 +215,8 @@
                       id="response-help-btn"
                       class="response-help-btn"
                       type="button"
-                      aria-controls="response-help-popover"
-                      aria-haspopup="true"
+                      aria-controls="response-help-modal"
+                      aria-haspopup="dialog"
                       aria-expanded="false"
                       data-i18n-aria-label="app.response.help_button_aria"
                       data-i18n-title="app.response.help_button_title"
@@ -224,23 +224,6 @@
                     >
                       ?
                     </button>
-                    <div id="response-help-popover" class="response-help-popover" hidden>
-                      <div class="response-help-title" data-i18n="app.response.help_title">So liest du den Chart</div>
-                      <ul class="response-help-list">
-                        <li data-i18n="app.response.help_p50">
-                          P50 (Median): 50% aller Checks sind schneller als dieser Wert.
-                        </li>
-                        <li data-i18n="app.response.help_p95">
-                          P95: 95% aller Checks sind schneller. Das zeigt Lastspitzen besser als der Durchschnitt.
-                        </li>
-                        <li data-i18n="app.response.help_chart">
-                          Linie = Antwortzeit pro Check. Farbbereiche: gr&uuml;n &lt; 100 ms, gelb 100-250 ms, rot &gt; 250 ms.
-                        </li>
-                        <li data-i18n="app.response.help_tooltip">
-                          Mit der Maus &uuml;ber die Linie fahren f&uuml;r Zeitstempel, Statuscode und Fehler je Messpunkt.
-                        </li>
-                      </ul>
-                    </div>
                   </div>
                 </div>
                 <div class="chart">
@@ -444,6 +427,31 @@
         </div>
       </div>
     </div>
+
+    <dialog id="response-help-modal" class="response-help-modal" aria-labelledby="response-help-modal-title">
+      <div class="response-help-modal-card">
+        <div class="response-help-modal-head">
+          <h3 id="response-help-modal-title" class="response-help-title" data-i18n="app.response.help_title">So liest du den Chart</h3>
+          <button id="response-help-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
+            Schlie&szlig;en
+          </button>
+        </div>
+        <ul class="response-help-list">
+          <li data-i18n="app.response.help_p50">
+            P50 (Median): 50% aller Checks sind schneller als dieser Wert.
+          </li>
+          <li data-i18n="app.response.help_p95">
+            P95: 95% aller Checks sind schneller. Das zeigt Lastspitzen besser als der Durchschnitt.
+          </li>
+          <li data-i18n="app.response.help_chart">
+            Linie = Antwortzeit pro Check. Farbbereiche: gr&uuml;n &lt; 100 ms, gelb 100-250 ms, rot &gt; 250 ms.
+          </li>
+          <li data-i18n="app.response.help_tooltip">
+            Mit der Maus &uuml;ber die Linie fahren f&uuml;r Zeitstempel, Statuscode und Fehler je Messpunkt.
+          </li>
+        </ul>
+      </div>
+    </dialog>
 
     <script src="/assets/i18n.js"></script>
     <script src="/assets/app.js"></script>
