@@ -133,7 +133,7 @@
                 </span>
                 <span class="overview-chip">
                   <span class="overview-chip-icon" aria-hidden="true">$</span>
-                  <span>Billing (Stripe)</span>
+                  <span data-i18n="notifications.billing.title">Billing (Stripe)</span>
                 </span>
               </div>
             </section>
@@ -229,6 +229,7 @@
                     id="discord-webhook-url"
                     type="url"
                     autocomplete="off"
+                    data-i18n-placeholder="notifications.discord.placeholder_url"
                     placeholder="https://discord.com/api/webhooks/..."
                   />
                 </label>
@@ -268,7 +269,13 @@
               <form id="slack-form" class="notification-form" novalidate>
                 <label class="field span-8" for="slack-webhook-url">
                   <span data-i18n="notifications.slack.label_url">Webhook URL</span>
-                  <input id="slack-webhook-url" type="url" autocomplete="off" placeholder="https://hooks.slack.com/services/..." />
+                  <input
+                    id="slack-webhook-url"
+                    type="url"
+                    autocomplete="off"
+                    data-i18n-placeholder="notifications.slack.placeholder_url"
+                    placeholder="https://hooks.slack.com/services/..."
+                  />
                 </label>
                 <label class="check-row field span-12" for="slack-enabled">
                   <input id="slack-enabled" type="checkbox" />
@@ -308,11 +315,23 @@
               <form id="webhook-form" class="notification-form" novalidate>
                 <label class="field span-8" for="webhook-url">
                   <span data-i18n="notifications.webhook.label_url">Webhook URL (https)</span>
-                  <input id="webhook-url" type="url" autocomplete="off" placeholder="https://example.com/pingmyserver-webhook" />
+                  <input
+                    id="webhook-url"
+                    type="url"
+                    autocomplete="off"
+                    data-i18n-placeholder="notifications.webhook.placeholder_url"
+                    placeholder="https://example.com/pingmyserver-webhook"
+                  />
                 </label>
                 <label class="field span-4" for="webhook-secret">
                   <span data-i18n="notifications.webhook.label_secret">Secret (optional)</span>
-                  <input id="webhook-secret" type="password" autocomplete="off" placeholder="optional" />
+                  <input
+                    id="webhook-secret"
+                    type="password"
+                    autocomplete="off"
+                    data-i18n-placeholder="notifications.webhook.placeholder_secret"
+                    placeholder="optional"
+                  />
                 </label>
                 <label class="check-row field span-12" for="webhook-enabled">
                   <input id="webhook-enabled" type="checkbox" />
@@ -338,7 +357,7 @@
                   </svg>
                 </span>
                 <div class="channel-copy">
-                  <div class="card-title">Billing (Stripe)</div>
+                  <div class="card-title" data-i18n="notifications.billing.title">Billing (Stripe)</div>
                   <p class="muted card-copy" data-i18n="notifications.billing.copy">
                     Upgrade auf einen bezahlten Plan und verwalte dein Abo im Stripe Customer Portal.
                   </p>

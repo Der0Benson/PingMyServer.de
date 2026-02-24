@@ -1348,7 +1348,7 @@ function renderLocationPicker() {
 
   const aggregateOption = document.createElement("option");
   aggregateOption.value = "aggregate";
-  aggregateOption.textContent = "Gesamt";
+  aggregateOption.textContent = t("common.aggregate", null, "Gesamt");
   locationSelect.appendChild(aggregateOption);
 
   for (const probe of availableProbes) {

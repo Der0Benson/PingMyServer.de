@@ -43,7 +43,7 @@ let lastCheckTime = null;
 let latestMetrics = null;
 
 function parseMonitorIdFromPath(pathname = window.location.pathname) {
-  const match = pathname.match(/^\/status\/([A-Za-z0-9]{6,64})\/?$/);
+  const match = pathname.match(/^\/status\/([A-Za-z0-9]{6,64}|\d+)\/?$/);
   if (!match) return "";
   return String(match[1] || "").trim();
 }
