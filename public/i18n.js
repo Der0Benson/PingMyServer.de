@@ -761,8 +761,27 @@
         empty_title: "Keine Vorfälle gefunden.",
         empty_body: "Passe Filter oder Zeitraum an.",
         no_data_body: "Vorfälle konnten nicht geladen werden.",
-        summary: "Zeitraum: {days} Tage · Angezeigt: {shown} · Gesamt: {total}",
+        summary: "Zeitraum: {days} Tage | Angezeigt: {shown} | Gesamt: {total} | Ausgeblendet: {hidden}",
         all_monitors: "Alle Monitore",
+        actions: {
+          hide: "Fehler ausblenden",
+          hiding: "Fehler wird ausgeblendet...",
+          hide_success: "Fehler wurde ausgeblendet.",
+          hide_failed: "Fehler konnte nicht ausgeblendet werden.",
+          hide_reason_prompt: "Bitte eine Begruendung eingeben, warum dieser Fehler ausgeblendet werden soll:",
+          hide_reason_required: "Eine Begruendung ist erforderlich.",
+        },
+        history: {
+          title: "Ausgeblendete Fehler (History)",
+          sub: "Ausgeblendete Vorfaelle bleiben hier mit Begruendung sichtbar.",
+          loading: "Lade ausgeblendete Fehler...",
+          empty_title: "Keine ausgeblendeten Fehler.",
+          empty_body: "Sobald Fehler ausgeblendet werden, erscheinen sie hier.",
+          no_data_body: "History konnte nicht geladen werden.",
+          hidden_at: "Ausgeblendet am",
+          reason: "Begruendung",
+          badge_hidden: "ausgeblendet",
+        },
         badge: {
           aggregated: "aggregiert",
           raw: "roh",
@@ -2350,8 +2369,27 @@
         empty_title: "No incidents found.",
         empty_body: "Adjust filters or the time range.",
         no_data_body: "Incidents could not be loaded.",
-        summary: "Range: {days} days · Showing: {shown} · Total: {total}",
+        summary: "Range: {days} days | Showing: {shown} | Total: {total} | Hidden: {hidden}",
         all_monitors: "All monitors",
+        actions: {
+          hide: "Hide incident",
+          hiding: "Hiding incident...",
+          hide_success: "Incident hidden.",
+          hide_failed: "Incident could not be hidden.",
+          hide_reason_prompt: "Please enter a reason for hiding this incident:",
+          hide_reason_required: "A reason is required.",
+        },
+        history: {
+          title: "Hidden incidents (history)",
+          sub: "Hidden incidents remain visible here with their reason.",
+          loading: "Loading hidden incidents...",
+          empty_title: "No hidden incidents.",
+          empty_body: "Hidden incidents will appear here.",
+          no_data_body: "History could not be loaded.",
+          hidden_at: "Hidden at",
+          reason: "Reason",
+          badge_hidden: "hidden",
+        },
         badge: {
           aggregated: "aggregated",
           raw: "raw",
@@ -3393,4 +3431,3 @@
     rtf: getRtf,
   };
 })();
-

@@ -84,6 +84,25 @@ async function handleMonitorApiRoutes(context) {
     return true;
   }
 
+  if (method === "POST" && pathname === "/api/incidents/hide") {
+    await handlers.handleIncidentHide(req, res);
+    return true;
+  }
+
+  if (method === "GET" && pathname === "/api/incidents/hidden") {
+    const user = await utilities.requireAuth(req, res);
+    if (!user) return true;
+
+    const hiddenIncidents = await utilities.getHiddenIncidentsForUser(user.id, {
+      monitor: url.searchParams.get("monitor") || "all",
+      lookbackDays: Number(url.searchParams.get("lookbackDays") || constants.INCIDENT_LOOKBACK_DAYS),
+      limit: Number(url.searchParams.get("limit") || 100),
+    });
+
+    utilities.sendJson(res, 200, { ok: true, data: hiddenIncidents });
+    return true;
+  }
+
   if (method === "GET" && pathname === "/api/incidents") {
     const user = await utilities.requireAuth(req, res);
     if (!user) return true;

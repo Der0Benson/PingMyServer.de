@@ -121,6 +121,7 @@ async function handleDispatchedRoutes(context) {
     url,
     handlers: {
       handleCreateMonitor: handlers.handleCreateMonitor,
+      handleIncidentHide: handlers.handleIncidentHide,
       handleGameMonitorMinecraftStatus: handlers.handleGameMonitorMinecraftStatus,
       handleMonitorFavicon: handlers.handleMonitorFavicon,
       handleMonitorHttpAssertionsGet: handlers.handleMonitorHttpAssertionsGet,
@@ -143,6 +144,7 @@ async function handleDispatchedRoutes(context) {
       hasMonitorCreateRequestHeader: utilities.hasMonitorCreateRequestHeader,
       isValidOrigin: utilities.isValidOrigin,
       getIncidentsForUser: utilities.getIncidentsForUser,
+      getHiddenIncidentsForUser: utilities.getHiddenIncidentsForUser,
       getMonitorByIdForUser: utilities.getMonitorByIdForUser,
       getMetricsForMonitorAtLocation: utilities.getMetricsForMonitorAtLocation,
       serializeMonitorRow: utilities.serializeMonitorRow,

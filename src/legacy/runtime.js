@@ -6167,6 +6167,28 @@ async function initDb() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitor_incident_hides (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT NOT NULL,
+      monitor_id BIGINT NOT NULL,
+      incident_key VARCHAR(160) NOT NULL,
+      incident_kind ENUM('raw','aggregated') NOT NULL DEFAULT 'raw',
+      incident_start_ts BIGINT NOT NULL,
+      incident_day_key CHAR(10) NULL,
+      reason VARCHAR(500) NOT NULL,
+      hidden_by_user_id BIGINT NOT NULL,
+      hidden_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      incident_payload JSON NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_monitor_incident_hides_key (incident_key),
+      INDEX idx_monitor_incident_hides_user_hidden_at (user_id, hidden_at),
+      INDEX idx_monitor_incident_hides_monitor_hidden_at (monitor_id, hidden_at),
+      INDEX idx_monitor_incident_hides_start_ts (incident_start_ts)
+    )
+  `);
+
   await ensureSchemaCompatibility();
 }
 
@@ -9412,6 +9434,7 @@ async function handleAccountDelete(req, res) {
       "DELETE FROM monitor_checks WHERE monitor_id IN (SELECT id FROM monitors WHERE user_id = ?)",
       [user.id]
     );
+    await connection.query("DELETE FROM monitor_incident_hides WHERE user_id = ?", [user.id]);
     await connection.query("DELETE FROM monitors WHERE user_id = ?", [user.id]);
     await deleteSessionsByUserId(user.id, connection);
     await connection.query("DELETE FROM auth_failures WHERE email = ?", [account.email]);
@@ -11405,6 +11428,173 @@ function normalizeIncidentOrder(order) {
   return value === "asc" ? "asc" : "desc";
 }
 
+function normalizeIncidentDayKey(value) {
+  const normalized = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
+function normalizeIncidentHideReason(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
+}
+
+function parseIncidentIncludeHidden(value) {
+  if (value === true) return true;
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function normalizeIncidentTimestamp(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return Math.round(numeric);
+}
+
+function normalizeIncidentStatusCodeList(values, limit = 20) {
+  if (!Array.isArray(values)) return [];
+  const deduped = new Set();
+  for (const value of values) {
+    const normalized = parseHttpStatusCodeForIncident(value);
+    if (normalized === null) continue;
+    deduped.add(normalized);
+    if (deduped.size >= limit) break;
+  }
+  return Array.from(deduped).sort((a, b) => a - b);
+}
+
+function normalizeIncidentErrorCodeList(values, limit = 20) {
+  if (!Array.isArray(values)) return [];
+
+  const buckets = new Map();
+  for (const entry of values) {
+    const rawCode = typeof entry === "object" && entry !== null ? entry.code : entry;
+    const code = normalizeIncidentErrorCode(rawCode);
+    const rawHits = typeof entry === "object" && entry !== null ? Number(entry.hits || 0) : 0;
+    const hits = Number.isFinite(rawHits) ? Math.max(0, Math.min(1000000, Math.round(rawHits))) : 0;
+    buckets.set(code, (buckets.get(code) || 0) + hits);
+    if (buckets.size >= limit) break;
+  }
+
+  return Array.from(buckets.entries()).map(([code, hits]) => ({ code, hits }));
+}
+
+function buildIncidentKey(monitorId, incident = {}) {
+  const monitorNumericId = Number(monitorId || 0);
+  if (!Number.isInteger(monitorNumericId) || monitorNumericId <= 0) return "";
+
+  if (incident?.aggregated) {
+    const dayKey = normalizeIncidentDayKey(incident.dateKey || formatUtcDateKey(incident.startTs));
+    if (!dayKey) return "";
+    return `m${monitorNumericId}:d:${dayKey}`;
+  }
+
+  const startTs = normalizeIncidentTimestamp(incident.startTs);
+  if (!startTs) return "";
+  return `m${monitorNumericId}:r:${startTs}`;
+}
+
+function parseIncidentHidePayload(rawPayload) {
+  if (!rawPayload) return null;
+  if (typeof rawPayload === "object") return rawPayload;
+  const text = String(rawPayload || "").trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return null;
+  }
+}
+
+function toIncidentHiddenMeta(row) {
+  return {
+    reason: String(row?.reason || "").trim(),
+    hiddenAt: toMs(row?.hidden_at),
+    hiddenByUserId: Number(row?.hidden_by_user_id || 0) || null,
+  };
+}
+
+async function listIncidentHideRowsByKeysForUser(userId, incidentKeys) {
+  const normalizedKeys = Array.from(
+    new Set(
+      (Array.isArray(incidentKeys) ? incidentKeys : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!normalizedKeys.length) return new Map();
+
+  const rowsByKey = new Map();
+  const chunkSize = 250;
+
+  for (let start = 0; start < normalizedKeys.length; start += chunkSize) {
+    const chunk = normalizedKeys.slice(start, start + chunkSize);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const [rows] = await pool.query(
+      `
+        SELECT incident_key, reason, hidden_at, hidden_by_user_id
+        FROM monitor_incident_hides
+        WHERE user_id = ?
+          AND incident_key IN (${placeholders})
+      `,
+      [userId, ...chunk]
+    );
+
+    for (const row of rows) {
+      const key = String(row.incident_key || "").trim();
+      if (!key) continue;
+      rowsByKey.set(key, toIncidentHiddenMeta(row));
+    }
+  }
+
+  return rowsByKey;
+}
+
+async function applyIncidentHideStateForMonitorUser(items, monitorId, userId, options = {}) {
+  const includeHidden = parseIncidentIncludeHidden(options.includeHidden);
+  const sourceItems = Array.isArray(items) ? items : [];
+  if (!sourceItems.length) return { items: [], hiddenCount: 0 };
+
+  const monitorNumericId = Number(monitorId || 0);
+  const userNumericId = Number(userId || 0);
+  if (!Number.isInteger(monitorNumericId) || monitorNumericId <= 0) {
+    return { items: sourceItems, hiddenCount: 0 };
+  }
+  if (!Number.isInteger(userNumericId) || userNumericId <= 0) {
+    return { items: sourceItems, hiddenCount: 0 };
+  }
+
+  const keyedItems = sourceItems.map((item) => {
+    const incidentKey = buildIncidentKey(monitorNumericId, item);
+    return incidentKey ? { ...item, incidentKey } : item;
+  });
+  const hideRowsByKey = await listIncidentHideRowsByKeysForUser(
+    userNumericId,
+    keyedItems.map((item) => item.incidentKey)
+  );
+
+  let hiddenCount = 0;
+  const resolvedItems = [];
+  for (const item of keyedItems) {
+    const hiddenMeta = item.incidentKey ? hideRowsByKey.get(item.incidentKey) : null;
+    if (hiddenMeta) {
+      hiddenCount += 1;
+      const hiddenItem = { ...item, hidden: hiddenMeta };
+      if (includeHidden) {
+        resolvedItems.push(hiddenItem);
+      }
+      continue;
+    }
+    resolvedItems.push(item);
+  }
+
+  return { items: resolvedItems, hiddenCount };
+}
+
 async function listMonitorRowsForUser(userId) {
   const [rows] = await pool.query(
     `
@@ -11790,6 +11980,8 @@ async function getIncidentsForUser(userId, options = {}) {
       sort: normalizeIncidentSort(options.sort),
       order: normalizeIncidentOrder(options.order),
       total: 0,
+      hiddenCount: 0,
+      includeHidden: parseIncidentIncludeHidden(options.includeHidden),
     };
   }
 
@@ -11808,35 +12000,63 @@ async function getIncidentsForUser(userId, options = {}) {
         sort: normalizeIncidentSort(options.sort),
         order: normalizeIncidentOrder(options.order),
         total: 0,
+        hiddenCount: 0,
+        includeHidden: parseIncidentIncludeHidden(options.includeHidden),
       };
     }
   }
 
   const sort = normalizeIncidentSort(options.sort);
   const order = normalizeIncidentOrder(options.order);
+  const includeHidden = parseIncidentIncludeHidden(options.includeHidden);
   const lookbackDays = Math.max(1, Math.min(3650, Number(options.lookbackDays) || INCIDENT_LOOKBACK_DAYS));
   const limit = Math.max(1, Math.min(2000, Number(options.limit) || 200));
   const perMonitorLimit = Math.max(100, Math.min(1000, Math.ceil(limit * 1.5)));
 
   const incidentLists = await Promise.all(
     selectedRows.map(async (monitorRow) => {
-      const result = await getIncidents(Number(monitorRow.id), {
+      const monitorNumericId = Number(monitorRow.id);
+      const result = await getIncidents(monitorNumericId, {
         lookbackDays,
         limit: perMonitorLimit,
       });
       const monitorPublicId = toPublicMonitorId(monitorRow);
-      return result.items.map((item) => ({
-        ...item,
-        monitorId: monitorPublicId,
-        monitorName: monitorRow.name || getDefaultMonitorName(getMonitorUrl(monitorRow)),
-        monitorUrl: getMonitorUrl(monitorRow),
-      }));
+      return result.items.map((item) => {
+        const baseItem = {
+          ...item,
+          monitorId: monitorPublicId,
+          monitorName: monitorRow.name || getDefaultMonitorName(getMonitorUrl(monitorRow)),
+          monitorUrl: getMonitorUrl(monitorRow),
+          monitorNumericId,
+        };
+        const incidentKey = buildIncidentKey(monitorNumericId, baseItem);
+        return incidentKey ? { ...baseItem, incidentKey } : baseItem;
+      });
     })
   );
 
   const allItems = incidentLists.flat();
+  const hideRowsByKey = await listIncidentHideRowsByKeysForUser(
+    userId,
+    allItems.map((item) => item.incidentKey)
+  );
 
-  const sorted = allItems.sort((a, b) => {
+  let hiddenCount = 0;
+  const filteredItems = [];
+  for (const item of allItems) {
+    const hiddenMeta = item.incidentKey ? hideRowsByKey.get(item.incidentKey) : null;
+    if (hiddenMeta) {
+      hiddenCount += 1;
+      const hiddenItem = { ...item, hidden: hiddenMeta };
+      if (includeHidden) {
+        filteredItems.push(hiddenItem);
+      }
+      continue;
+    }
+    filteredItems.push(item);
+  }
+
+  const sorted = filteredItems.sort((a, b) => {
     let cmp = 0;
 
     if (sort === "duration") {
@@ -11856,13 +12076,289 @@ async function getIncidentsForUser(userId, options = {}) {
     return order === "asc" ? cmp : -cmp;
   });
 
+  const items = sorted.slice(0, limit).map((item) => {
+    const { monitorNumericId, ...rest } = item;
+    return rest;
+  });
+
   return {
-    items: sorted.slice(0, limit),
+    items,
     lookbackDays,
     sort,
     order,
     total: sorted.length,
+    hiddenCount,
+    includeHidden,
   };
+}
+
+async function getHiddenIncidentsForUser(userId, options = {}) {
+  const monitorRows = await listMonitorRowsForUser(userId);
+  const lookbackDays = Math.max(1, Math.min(3650, Number(options.lookbackDays) || INCIDENT_LOOKBACK_DAYS));
+  const limit = Math.max(1, Math.min(500, Number(options.limit) || 100));
+
+  if (!monitorRows.length) {
+    return {
+      items: [],
+      lookbackDays,
+      total: 0,
+      limit,
+    };
+  }
+
+  const monitorFilter = String(options.monitor || "").trim();
+  let selectedRows = monitorRows;
+  if (monitorFilter && monitorFilter !== "all") {
+    selectedRows = monitorRows.filter((row) => {
+      const publicId = toPublicMonitorId(row);
+      return publicId === monitorFilter || String(row.id) === monitorFilter;
+    });
+    if (!selectedRows.length) {
+      return {
+        items: [],
+        lookbackDays,
+        total: 0,
+        limit,
+      };
+    }
+  }
+
+  const selectedMonitorIds = selectedRows.map((row) => Number(row.id)).filter((value) => Number.isInteger(value) && value > 0);
+  if (!selectedMonitorIds.length) {
+    return {
+      items: [],
+      lookbackDays,
+      total: 0,
+      limit,
+    };
+  }
+
+  const monitorRowsById = new Map(selectedRows.map((row) => [Number(row.id), row]));
+  const placeholders = selectedMonitorIds.map(() => "?").join(", ");
+  const hiddenSince = new Date(Date.now() - lookbackDays * DAY_MS);
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        monitor_id,
+        incident_key,
+        incident_kind,
+        incident_start_ts,
+        incident_day_key,
+        reason,
+        hidden_by_user_id,
+        hidden_at,
+        incident_payload
+      FROM monitor_incident_hides
+      WHERE user_id = ?
+        AND monitor_id IN (${placeholders})
+        AND hidden_at >= ?
+      ORDER BY hidden_at DESC, id DESC
+      LIMIT ?
+    `,
+    [userId, ...selectedMonitorIds, hiddenSince, limit]
+  );
+
+  const items = rows.map((row) => {
+    const monitorNumericId = Number(row.monitor_id || 0);
+    const monitorRow = monitorRowsById.get(monitorNumericId) || null;
+    const payload = parseIncidentHidePayload(row.incident_payload);
+    const payloadMonitor = payload && typeof payload.monitor === "object" ? payload.monitor : null;
+    const payloadIncident = payload && typeof payload.incident === "object" ? payload.incident : null;
+
+    const aggregated = String(row.incident_kind || "").trim().toLowerCase() === "aggregated" || !!payloadIncident?.aggregated;
+    const startTs = normalizeIncidentTimestamp(payloadIncident?.startTs || row.incident_start_ts);
+    const dateKey = aggregated
+      ? normalizeIncidentDayKey(payloadIncident?.dateKey || row.incident_day_key || formatUtcDateKey(startTs))
+      : null;
+    const endTsNormalized = normalizeIncidentTimestamp(payloadIncident?.endTs);
+    const durationRaw = Number(payloadIncident?.durationMs);
+    const durationMs = Number.isFinite(durationRaw)
+      ? Math.max(0, Math.round(durationRaw))
+      : endTsNormalized && startTs
+        ? Math.max(0, endTsNormalized - startTs)
+        : 0;
+    const monitorPublicId = payloadMonitor?.id || (monitorRow ? toPublicMonitorId(monitorRow) : String(monitorNumericId));
+    const monitorUrl =
+      String(payloadMonitor?.url || "").trim() ||
+      (monitorRow ? getMonitorUrl(monitorRow) : "");
+    const monitorName =
+      String(payloadMonitor?.name || "").trim() ||
+      (monitorRow ? monitorRow.name || getDefaultMonitorName(monitorUrl) : getDefaultMonitorName(monitorUrl));
+    const incidentKey = String(row.incident_key || "").trim() || buildIncidentKey(monitorNumericId, { aggregated, dateKey, startTs });
+
+    return {
+      aggregated,
+      dateKey,
+      startTs,
+      endTs: endTsNormalized || null,
+      durationMs,
+      statusCodes: normalizeIncidentStatusCodeList(payloadIncident?.statusCodes),
+      errorCodes: normalizeIncidentErrorCodeList(payloadIncident?.errorCodes),
+      lastStatusCode: parseHttpStatusCodeForIncident(payloadIncident?.lastStatusCode),
+      lastErrorMessage: String(payloadIncident?.lastErrorMessage || "").trim() || null,
+      samples: Math.max(0, Math.min(1000000, Math.round(Number(payloadIncident?.samples || 0)))),
+      ongoing: !!payloadIncident?.ongoing,
+      monitorId: String(monitorPublicId || monitorNumericId),
+      monitorName,
+      monitorUrl,
+      incidentKey,
+      hidden: toIncidentHiddenMeta(row),
+    };
+  });
+
+  return {
+    items,
+    lookbackDays,
+    total: items.length,
+    limit,
+  };
+}
+
+async function handleIncidentHide(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = null;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const reason = normalizeIncidentHideReason(body?.reason);
+  if (reason.length < 3) {
+    sendJson(res, 400, { ok: false, error: "reason required" });
+    return;
+  }
+
+  const monitorIdentifier = String(body?.monitorId || body?.incident?.monitorId || "").trim();
+  if (!monitorIdentifier) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const monitor = await getMonitorByIdForUser(user.id, monitorIdentifier);
+  if (!monitor) {
+    sendJson(res, 404, { ok: false, error: "not found" });
+    return;
+  }
+
+  const incidentInput = body?.incident && typeof body.incident === "object" ? body.incident : {};
+  const aggregated = !!incidentInput.aggregated;
+  const startTs = normalizeIncidentTimestamp(incidentInput.startTs);
+  if (!startTs) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const dateKey = aggregated ? normalizeIncidentDayKey(incidentInput.dateKey || formatUtcDateKey(startTs)) : null;
+  if (aggregated && !dateKey) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const incidentKey = buildIncidentKey(Number(monitor.id), {
+    aggregated,
+    dateKey,
+    startTs,
+  });
+  if (!incidentKey) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const endTsNormalized = normalizeIncidentTimestamp(incidentInput.endTs);
+  const durationRaw = Number(incidentInput.durationMs);
+  const durationMs = Number.isFinite(durationRaw)
+    ? Math.max(0, Math.round(durationRaw))
+    : endTsNormalized && startTs
+      ? Math.max(0, endTsNormalized - startTs)
+      : 0;
+
+  const monitorUrl = String(incidentInput.monitorUrl || "").trim() || getMonitorUrl(monitor);
+  const monitorName =
+    String(incidentInput.monitorName || "").trim() ||
+    monitor.name ||
+    getDefaultMonitorName(monitorUrl);
+
+  const payload = {
+    monitor: {
+      id: toPublicMonitorId(monitor),
+      numericId: Number(monitor.id),
+      name: String(monitorName).slice(0, 255),
+      url: String(monitorUrl).slice(0, 2048),
+    },
+    incident: {
+      aggregated,
+      dateKey,
+      startTs,
+      endTs: endTsNormalized || null,
+      durationMs,
+      statusCodes: normalizeIncidentStatusCodeList(incidentInput.statusCodes),
+      errorCodes: normalizeIncidentErrorCodeList(incidentInput.errorCodes),
+      lastStatusCode: parseHttpStatusCodeForIncident(incidentInput.lastStatusCode),
+      lastErrorMessage: String(incidentInput.lastErrorMessage || "")
+        .trim()
+        .slice(0, 255),
+      samples: Math.max(0, Math.min(1000000, Math.round(Number(incidentInput.samples || 0)))),
+      ongoing: !!incidentInput.ongoing,
+    },
+  };
+
+  try {
+    await pool.query(
+      `
+        INSERT INTO monitor_incident_hides (
+          user_id,
+          monitor_id,
+          incident_key,
+          incident_kind,
+          incident_start_ts,
+          incident_day_key,
+          reason,
+          hidden_by_user_id,
+          hidden_at,
+          incident_payload
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), ?)
+        ON DUPLICATE KEY UPDATE
+          user_id = VALUES(user_id),
+          monitor_id = VALUES(monitor_id),
+          incident_kind = VALUES(incident_kind),
+          incident_start_ts = VALUES(incident_start_ts),
+          incident_day_key = VALUES(incident_day_key),
+          reason = VALUES(reason),
+          hidden_by_user_id = VALUES(hidden_by_user_id),
+          hidden_at = UTC_TIMESTAMP(3),
+          incident_payload = VALUES(incident_payload)
+      `,
+      [
+        user.id,
+        monitor.id,
+        incidentKey,
+        aggregated ? "aggregated" : "raw",
+        startTs,
+        dateKey,
+        reason,
+        user.id,
+        JSON.stringify(payload),
+      ]
+    );
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        incidentKey,
+        reason,
+        hiddenAt: Date.now(),
+      },
+    });
+  } catch (error) {
+    runtimeLogger.error("incident_hide_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
 }
 
 async function getRangeSummary(monitorId, days) {
@@ -12360,6 +12856,16 @@ async function getMetricsForMonitor(monitor) {
     [monitorId]
   );
 
+  const rawIncidents = await getIncidents(monitorId);
+  const incidentVisibility = await applyIncidentHideStateForMonitorUser(rawIncidents.items, monitorId, monitor.user_id, {
+    includeHidden: false,
+  });
+  const incidents = {
+    ...rawIncidents,
+    items: incidentVisibility.items,
+    hiddenCount: incidentVisibility.hiddenCount,
+  };
+
   const statusSince = toMs(monitor.status_since) || Date.now();
   const lastCheckAt = toMs(monitor.last_checked_at) || toMs(monitor.last_check_at);
 
@@ -12381,7 +12887,7 @@ async function getMetricsForMonitor(monitor) {
     last24h: await getLast24h(monitorId),
     ranges: { range7, range30, range365 },
     slo,
-    incidents: await getIncidents(monitorId),
+    incidents,
     heatmap: await getHeatmap(monitorId, new Date().getFullYear()),
     location: targetMeta.location,
     network: targetMeta.network,
@@ -12429,6 +12935,15 @@ async function getMetricsForMonitorProbe(monitor, probeId) {
     getRangeSummaryForProbe(monitorId, probe, 365),
   ]);
   const slo = await buildSloSnapshotForMonitor(monitor, { probeId: probe, objectiveSummary: range30 });
+  const rawIncidents = await getIncidentsForProbe(monitorId, probe);
+  const incidentVisibility = await applyIncidentHideStateForMonitorUser(rawIncidents.items, monitorId, monitor.user_id, {
+    includeHidden: false,
+  });
+  const incidents = {
+    ...rawIncidents,
+    items: incidentVisibility.items,
+    hiddenCount: incidentVisibility.hiddenCount,
+  };
 
   const statusSince = toMs(state?.status_since) || Date.now();
   const lastCheckAt = toMs(state?.last_checked_at);
@@ -12454,7 +12969,7 @@ async function getMetricsForMonitorProbe(monitor, probeId) {
     last24h: await getLast24hForProbe(monitorId, probe),
     ranges: { range7, range30, range365 },
     slo,
-    incidents: await getIncidentsForProbe(monitorId, probe),
+    incidents,
     heatmap: await getHeatmapForProbe(monitorId, probe, new Date().getFullYear()),
     location: targetMeta.location,
     network: targetMeta.network,
@@ -12522,6 +13037,7 @@ const runtimeHandlers = {
   handleOwnerDbStorage,
   handleOwnerEmailTest,
   handleCreateMonitor,
+  handleIncidentHide,
   handleGameMonitorMinecraftStatus,
   handleMonitorFavicon,
   handleMonitorHttpAssertionsGet,
@@ -12551,6 +13067,7 @@ const runtimeUtilities = {
   hasMonitorCreateRequestHeader,
   isValidOrigin,
   getIncidentsForUser,
+  getHiddenIncidentsForUser,
   getMonitorByIdForUser,
   getMetricsForMonitorAtLocation,
   serializeMonitorRow,

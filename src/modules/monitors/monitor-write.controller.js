@@ -162,6 +162,7 @@ function createMonitorWriteController(dependencies = {}) {
       await connection.query("DELETE FROM monitor_probe_checks WHERE monitor_id = ?", [monitor.id]);
       await connection.query("DELETE FROM monitor_probe_state WHERE monitor_id = ?", [monitor.id]);
       await connection.query("DELETE FROM monitor_checks WHERE monitor_id = ?", [monitor.id]);
+      await connection.query("DELETE FROM monitor_incident_hides WHERE monitor_id = ?", [monitor.id]);
       const [deleteMonitorResult] = await connection.query("DELETE FROM monitors WHERE id = ? AND user_id = ? LIMIT 1", [
         monitor.id,
         user.id,
