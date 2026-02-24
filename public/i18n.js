@@ -1332,8 +1332,8 @@
         },
         incidents: {
           title: "Letzte Vorfälle",
-          empty_title: "👍 Gute Arbeit, keine Vorfälle.",
-          empty_body: "Bisher gab es keine Vorfälle. Weiter so!",
+          empty_title: "Diese Statusseite hat bisher keine Vorfälle verzeichnet.",
+          empty_body: "Sobald ein Vorfall erkannt wird, erscheint er hier.",
           footnote: "Zeigt Vorfälle der letzten {days} Tage.",
         },
         updated_at: "Zuletzt aktualisiert: –",
@@ -2939,8 +2939,8 @@
         },
         incidents: {
           title: "Recent incidents",
-          empty_title: "👍 Nice work, no incidents.",
-          empty_body: "No incidents so far. Keep it up!",
+          empty_title: "This status page has not recorded any incidents yet.",
+          empty_body: "Incidents will appear here once one is detected.",
           footnote: "Shows incidents from the last {days} days.",
         },
         updated_at: "Last updated: –",

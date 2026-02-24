@@ -290,8 +290,12 @@ function updateIncidents(incidents) {
   const items = incidents?.items || [];
 
   if (!items.length) {
-    const emptyTitle = escapeHtml(t("status.incidents.empty_title", null, "Good job, no incidents."));
-    const emptyBody = escapeHtml(t("status.incidents.empty_body", null, "No incidents yet. Keep it up!"));
+    const emptyTitle = escapeHtml(
+      t("status.incidents.empty_title", null, "This status page has not recorded any incidents yet.")
+    );
+    const emptyBody = escapeHtml(
+      t("status.incidents.empty_body", null, "Incidents will appear here once one is detected.")
+    );
     incidentsList.innerHTML = `
       <div class="incidents-inner">
         <div class="incidents-title">${emptyTitle}</div>
