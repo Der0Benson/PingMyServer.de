@@ -590,7 +590,6 @@
   }
 
   initRevealAnimations();
-  initInteractiveSurfaces();
   loadPreviewData();
   setInterval(loadPreviewData, previewPollIntervalMs);
 })();
