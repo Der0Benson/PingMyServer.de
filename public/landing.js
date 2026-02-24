@@ -1,6 +1,8 @@
 (() => {
   const previewPollIntervalMs = 30000;
   const previewBarCount = 8;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const supportsFinePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
   const I18N = window.PMS_I18N || null;
   const t = (key, vars, fallback) =>
@@ -93,6 +95,129 @@
 
     window.addEventListener("resize", () => {
       if (window.innerWidth >= 768) closeMobileMenu();
+    });
+  }
+
+  function initRevealAnimations() {
+    if (prefersReducedMotion) return;
+    if (!(document.body instanceof HTMLElement)) return;
+
+    const revealTargets = [];
+    const seenTargets = new Set();
+
+    function registerTargets(selector, options = {}) {
+      const nodes = document.querySelectorAll(selector);
+      const step = Number.isFinite(options.step) ? options.step : 70;
+      const baseDelay = Number.isFinite(options.baseDelay) ? options.baseDelay : 0;
+      const variant = typeof options.variant === "string" ? options.variant : "";
+
+      nodes.forEach((node, index) => {
+        if (!(node instanceof HTMLElement)) return;
+        if (seenTargets.has(node)) return;
+        seenTargets.add(node);
+        node.classList.add("reveal-item");
+        if (variant) node.classList.add(variant);
+        node.style.setProperty("--reveal-delay", `${baseDelay + index * step}ms`);
+        revealTargets.push(node);
+      });
+    }
+
+    registerTargets(".landing-nav-main > *", { step: 45, baseDelay: 20, variant: "reveal-slide-down" });
+    registerTargets(".landing-hero .max-w-7xl > .grid > div:first-child > *", { step: 75, baseDelay: 60 });
+    registerTargets(".landing-hero .floating > .glass-effect", { baseDelay: 250, variant: "reveal-pop" });
+    registerTargets(".landing-social-proof .text-center", { baseDelay: 30, variant: "reveal-pop" });
+    registerTargets(".landing-social-proof .grid > div", { step: 85, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-features .text-center", { baseDelay: 20 });
+    registerTargets(".landing-features .feature-card", { step: 75, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-about .text-center", { baseDelay: 20 });
+    registerTargets(".landing-about .glass-effect", { baseDelay: 70 });
+    registerTargets(".landing-about .mt-12 > *", { step: 75, baseDelay: 70, variant: "reveal-pop" });
+    registerTargets(".landing-pricing .text-center", { baseDelay: 20 });
+    registerTargets(".landing-pricing .grid > .glass-effect", { step: 80, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-faq .text-center", { baseDelay: 20 });
+    registerTargets(".landing-faq .faq-item", { step: 65, baseDelay: 60 });
+    registerTargets(".landing-final-cta .max-w-4xl > *", { step: 80, baseDelay: 45 });
+    registerTargets(".landing-footer .grid > div", { step: 85, baseDelay: 30 });
+    registerTargets(".landing-footer .border-t", { baseDelay: 80 });
+
+    if (!revealTargets.length) return;
+    document.body.classList.add("landing-motion-enabled");
+
+    if (typeof window.IntersectionObserver !== "function") {
+      revealTargets.forEach((target) => target.classList.add("is-revealed"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-revealed");
+          observer.unobserve(entry.target);
+        });
+      },
+      { root: null, threshold: 0.16, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    revealTargets.forEach((target) => observer.observe(target));
+  }
+
+  function initInteractiveSurfaces() {
+    if (prefersReducedMotion || !supportsFinePointer) return;
+
+    const surfaces = document.querySelectorAll(
+      ".landing-features .feature-card, .landing-pricing .grid > .glass-effect, .landing-about .glass-effect"
+    );
+
+    surfaces.forEach((surface) => {
+      if (!(surface instanceof HTMLElement)) return;
+      surface.classList.add("interactive-surface");
+
+      let frame = null;
+      let pointerEvent = null;
+
+      const renderSurface = () => {
+        frame = null;
+        if (!pointerEvent) return;
+
+        const rect = surface.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        const localX = pointerEvent.clientX - rect.left;
+        const localY = pointerEvent.clientY - rect.top;
+        const normalizedX = Math.min(Math.max(localX / rect.width, 0), 1);
+        const normalizedY = Math.min(Math.max(localY / rect.height, 0), 1);
+        const rotateX = (0.5 - normalizedY) * 8;
+        const rotateY = (normalizedX - 0.5) * 10;
+
+        surface.style.setProperty("--mx", `${Math.round(normalizedX * 100)}%`);
+        surface.style.setProperty("--my", `${Math.round(normalizedY * 100)}%`);
+        surface.style.transform = `perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px)`;
+        surface.classList.add("is-pointer-active");
+      };
+
+      function scheduleRender(event) {
+        pointerEvent = event;
+        if (frame !== null) return;
+        frame = window.requestAnimationFrame(renderSurface);
+      }
+
+      function resetSurface() {
+        pointerEvent = null;
+        if (frame !== null) {
+          window.cancelAnimationFrame(frame);
+          frame = null;
+        }
+        surface.style.removeProperty("transform");
+        surface.style.setProperty("--mx", "50%");
+        surface.style.setProperty("--my", "50%");
+        surface.classList.remove("is-pointer-active");
+      }
+
+      surface.addEventListener("pointermove", scheduleRender);
+      surface.addEventListener("pointerleave", resetSurface);
+      surface.addEventListener("pointercancel", resetSurface);
+      surface.addEventListener("blur", resetSurface);
     });
   }
 
@@ -464,6 +589,8 @@
     renderLatestAlert(normalizedMetrics);
   }
 
+  initRevealAnimations();
+  initInteractiveSurfaces();
   loadPreviewData();
   setInterval(loadPreviewData, previewPollIntervalMs);
 })();
