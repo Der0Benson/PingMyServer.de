@@ -12,10 +12,12 @@ const limitSelectEl = document.getElementById("limit-select");
 
 const incidentsSummaryEl = document.getElementById("incidents-summary");
 const incidentHistoryListEl = document.getElementById("incident-history-list");
+const incidentHiddenHistoryListEl = document.getElementById("incident-hidden-history-list");
 
 let user = null;
 let monitors = [];
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
+const HIDDEN_HISTORY_LIMIT = 50;
 
 const I18N = window.PMS_I18N || null;
 const t = (key, vars, fallback) =>
@@ -202,6 +204,94 @@ function buildCodePills(errorCodes = [], statusCodes = []) {
   return [t("app.errors.no_response_label", null, "no response")];
 }
 
+function buildIncidentRangeLabel(incident) {
+  if (incident?.aggregated) {
+    return formatDateOnly(incident.dateKey || incident.startTs);
+  }
+  return `${formatDateTime(incident?.startTs)} - ${
+    incident?.endTs ? formatDateTime(incident.endTs) : t("app.incidents.open", null, "open")
+  }`;
+}
+
+function buildIncidentHidePayload(incident, reason) {
+  return {
+    monitorId: String(incident?.monitorId || ""),
+    reason,
+    incident: {
+      monitorId: String(incident?.monitorId || ""),
+      monitorName: String(incident?.monitorName || ""),
+      monitorUrl: String(incident?.monitorUrl || ""),
+      aggregated: !!incident?.aggregated,
+      dateKey: incident?.dateKey || null,
+      startTs: Number(incident?.startTs || 0),
+      endTs: incident?.endTs ? Number(incident.endTs) : null,
+      durationMs: Number(incident?.durationMs || 0),
+      statusCodes: Array.isArray(incident?.statusCodes) ? incident.statusCodes.slice(0, 20) : [],
+      errorCodes: Array.isArray(incident?.errorCodes) ? incident.errorCodes.slice(0, 20) : [],
+      lastStatusCode: incident?.lastStatusCode ?? null,
+      lastErrorMessage: String(incident?.lastErrorMessage || ""),
+      samples: Number(incident?.samples || 0),
+      ongoing: !!incident?.ongoing,
+    },
+  };
+}
+
+function requestIncidentHideReason() {
+  const promptText = t(
+    "incidents.actions.hide_reason_prompt",
+    null,
+    "Bitte eine Begruendung eingeben, warum dieser Fehler ausgeblendet werden soll:"
+  );
+  const raw = window.prompt(promptText, "");
+  if (raw === null) return null;
+  const normalized = String(raw || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    window.alert(t("incidents.actions.hide_reason_required", null, "Eine Begruendung ist erforderlich."));
+    return null;
+  }
+  return normalized.slice(0, 500);
+}
+
+async function hideIncident(incident) {
+  const reason = requestIncidentHideReason();
+  if (!reason) return;
+
+  setSummary(t("incidents.actions.hiding", null, "Fehler wird ausgeblendet..."));
+
+  try {
+    const response = await fetch("/api/incidents/hide", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildIncidentHidePayload(incident, reason)),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      const isReasonError = payload?.error === "reason required";
+      setSummary(
+        isReasonError
+          ? t("incidents.actions.hide_reason_required", null, "Eine Begruendung ist erforderlich.")
+          : t("incidents.actions.hide_failed", null, "Fehler konnte nicht ausgeblendet werden.")
+      );
+      return;
+    }
+
+    setSummary(t("incidents.actions.hide_success", null, "Fehler wurde ausgeblendet."));
+    await loadIncidents();
+  } catch (error) {
+    setSummary(t("incidents.actions.hide_failed", null, "Fehler konnte nicht ausgeblendet werden."));
+  }
+}
+
 function renderEmptyState(title, text) {
   if (!incidentHistoryListEl) return;
   incidentHistoryListEl.innerHTML = `
@@ -236,11 +326,7 @@ function renderIncidents(payload) {
     const stateBadge = incident.ongoing
       ? t("app.incidents.badge.ongoing", null, "ongoing")
       : t("app.incidents.badge.ended", null, "ended");
-    const rangeLabel = incident.aggregated
-      ? formatDateOnly(incident.dateKey || incident.startTs)
-      : `${formatDateTime(incident.startTs)} – ${
-          incident.endTs ? formatDateTime(incident.endTs) : t("app.incidents.open", null, "open")
-        }`;
+    const rangeLabel = buildIncidentRangeLabel(incident);
     const codePills = buildCodePills(incident.errorCodes, incident.statusCodes);
     const lastErrorMessage = String(incident.lastErrorMessage || "").trim();
 
@@ -248,11 +334,16 @@ function renderIncidents(payload) {
       <div class="incident-history-head">
         <div class="incident-history-title">
           <div class="monitor-name">${escapeHtml(incident.monitorName || t("common.monitor", null, "Monitor"))}</div>
-          <div class="monitor-url">${escapeHtml(incident.monitorUrl || "–")}</div>
+          <div class="monitor-url">${escapeHtml(incident.monitorUrl || "-")}</div>
         </div>
-        <div class="incident-badges">
-          <span class="incident-badge">${typeBadge}</span>
-          <span class="incident-badge">${stateBadge}</span>
+        <div class="incident-head-actions">
+          <div class="incident-badges">
+            <span class="incident-badge">${typeBadge}</span>
+            <span class="incident-badge">${stateBadge}</span>
+          </div>
+          <button class="btn ghost incident-hide-btn" type="button" data-action="hide-incident">
+            ${escapeHtml(t("incidents.actions.hide", null, "Fehler ausblenden"))}
+          </button>
         </div>
       </div>
       <div class="incident-details">
@@ -270,7 +361,7 @@ function renderIncidents(payload) {
         </div>
         <div class="detail-item">
           <div class="detail-key">${escapeHtml(t("incidents.detail.monitor_id", null, "Monitor ID"))}</div>
-          <div class="detail-value">${escapeHtml(String(incident.monitorId || "–"))}</div>
+          <div class="detail-value">${escapeHtml(String(incident.monitorId || "-"))}</div>
         </div>
         <div class="detail-item">
           <div class="detail-key">${escapeHtml(t("incidents.detail.status_codes", null, "Status codes"))}</div>
@@ -292,7 +383,123 @@ function renderIncidents(payload) {
       </div>
     `;
 
+    const hideButton = card.querySelector('[data-action="hide-incident"]');
+    if (hideButton) {
+      hideButton.addEventListener("click", () => {
+        hideIncident(incident).catch(() => {
+          setSummary(t("incidents.actions.hide_failed", null, "Fehler konnte nicht ausgeblendet werden."));
+        });
+      });
+    }
+
     incidentHistoryListEl.appendChild(card);
+  }
+}
+
+function renderHiddenHistory(payload) {
+  if (!incidentHiddenHistoryListEl) return;
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+
+  if (!items.length) {
+    incidentHiddenHistoryListEl.innerHTML = `
+      <div class="empty-state">
+        <div class="title">${escapeHtml(t("incidents.history.empty_title", null, "Keine ausgeblendeten Fehler."))}</div>
+        <div class="muted">${escapeHtml(t("incidents.history.empty_body", null, "Sobald Fehler ausgeblendet werden, erscheinen sie hier."))}</div>
+      </div>
+    `;
+    return;
+  }
+
+  incidentHiddenHistoryListEl.innerHTML = "";
+  for (const entry of items) {
+    const reason = String(entry?.hidden?.reason || "").trim();
+    const hiddenAt = Number(entry?.hidden?.hiddenAt || 0);
+    const rangeLabel = buildIncidentRangeLabel(entry);
+
+    const card = document.createElement("article");
+    card.className = "incident-hidden-item";
+    card.innerHTML = `
+      <div class="incident-hidden-head">
+        <div class="incident-history-title">
+          <div class="monitor-name">${escapeHtml(entry.monitorName || t("common.monitor", null, "Monitor"))}</div>
+          <div class="monitor-url">${escapeHtml(entry.monitorUrl || "-")}</div>
+        </div>
+        <span class="incident-badge">${escapeHtml(t("incidents.history.badge_hidden", null, "ausgeblendet"))}</span>
+      </div>
+      <div class="incident-hidden-grid">
+        <div class="detail-item">
+          <div class="detail-key">${escapeHtml(t("incidents.history.hidden_at", null, "Ausgeblendet am"))}</div>
+          <div class="detail-value">${escapeHtml(hiddenAt > 0 ? formatDateTime(hiddenAt) : "-")}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-key">${escapeHtml(t("incidents.history.reason", null, "Begruendung"))}</div>
+          <div class="detail-value">${escapeHtml(reason || t("common.not_available", null, "n/a"))}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-key">${escapeHtml(t("incidents.detail.range", null, "Range"))}</div>
+          <div class="detail-value">${escapeHtml(rangeLabel)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-key">${escapeHtml(t("incidents.detail.monitor_id", null, "Monitor ID"))}</div>
+          <div class="detail-value">${escapeHtml(String(entry.monitorId || "-"))}</div>
+        </div>
+      </div>
+    `;
+
+    incidentHiddenHistoryListEl.appendChild(card);
+  }
+}
+
+async function loadHiddenHistory() {
+  if (!incidentHiddenHistoryListEl) return;
+  incidentHiddenHistoryListEl.innerHTML = `
+    <div class="empty-state">
+      <div class="title">${escapeHtml(t("incidents.history.loading", null, "Lade ausgeblendete Fehler..."))}</div>
+    </div>
+  `;
+
+  const state = readStateFromInputs();
+  const params = new URLSearchParams({
+    monitor: state.monitor,
+    lookbackDays: state.lookbackDays,
+    limit: String(HIDDEN_HISTORY_LIMIT),
+  });
+
+  try {
+    const response = await fetch(`/api/incidents/hidden?${params.toString()}`, { cache: "no-store" });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok) {
+      incidentHiddenHistoryListEl.innerHTML = `
+        <div class="empty-state">
+          <div class="title">${escapeHtml(t("common.error_loading", null, "Error while loading."))}</div>
+          <div class="muted">${escapeHtml(t("common.try_again", null, "Please try again."))}</div>
+        </div>
+      `;
+      return;
+    }
+
+    const payload = await response.json();
+    if (!payload?.ok || !payload.data) {
+      incidentHiddenHistoryListEl.innerHTML = `
+        <div class="empty-state">
+          <div class="title">${escapeHtml(t("common.no_data", null, "No data."))}</div>
+          <div class="muted">${escapeHtml(t("incidents.history.no_data_body", null, "History could not be loaded."))}</div>
+        </div>
+      `;
+      return;
+    }
+
+    renderHiddenHistory(payload.data);
+  } catch (error) {
+    incidentHiddenHistoryListEl.innerHTML = `
+      <div class="empty-state">
+        <div class="title">${escapeHtml(t("common.connection_failed", null, "Connection failed."))}</div>
+        <div class="muted">${escapeHtml(t("common.try_again_later", null, "Please try again later."))}</div>
+      </div>
+    `;
   }
 }
 
@@ -402,18 +609,19 @@ async function loadIncidents() {
       setSummary(t("common.no_data", null, "No data."));
       return;
     }
-
     renderIncidents(payload.data);
     const shown = Array.isArray(payload.data.items) ? payload.data.items.length : 0;
     const total = Number(payload.data.total || shown);
+    const hidden = Number(payload.data.hiddenCount || 0);
     const lookbackDays = Number(payload.data.lookbackDays || state.lookbackDays);
     setSummary(
       t(
         "incidents.summary",
-        { days: lookbackDays, shown, total },
-        `Range: ${lookbackDays} days · Showing: ${shown} · Total: ${total}`
+        { days: lookbackDays, shown, total, hidden },
+        `Range: ${lookbackDays} days | Showing: ${shown} | Total: ${total} | Hidden: ${hidden}`
       )
     );
+    await loadHiddenHistory();
   } catch (error) {
     renderEmptyState(
       t("common.connection_failed", null, "Connection failed."),
