@@ -838,6 +838,9 @@ const MYSQL_SSL_MIN_VERSION = parseTlsMinVersion(readEnvString("MYSQL_SSL_MIN_VE
 const MYSQL_SSL_CA = readEnvString("MYSQL_SSL_CA", "", { trim: false });
 const MYSQL_SSL_CERT = readEnvString("MYSQL_SSL_CERT", "", { trim: false });
 const MYSQL_SSL_KEY = readEnvString("MYSQL_SSL_KEY", "", { trim: false });
+if (APP_MODE === "web" && !MYSQL_SSL_ENABLED) {
+  failConfig("MYSQL_SSL_ENABLED must be true when APP_MODE=web");
+}
 const MYSQL_SSL_OPTIONS = buildMySqlTlsOptions();
 const GITHUB_AUTH_ENABLED = requireEnvBoolean("GITHUB_AUTH_ENABLED");
 const GITHUB_CLIENT_ID = GITHUB_AUTH_ENABLED
