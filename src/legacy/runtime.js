@@ -2837,20 +2837,20 @@ function buildTeamInvitationVerificationEmail(options = {}) {
   const year = new Date().getUTCFullYear();
 
   const textBodyLines = [
-    "PingMyServer - Team Einladung",
+    "PingMyServer - Team-Einladung",
     "",
     `Du wurdest in ein Team eingeladen.`,
-    `Empfaenger: ${invitedEmail}`,
+    `Empfänger: ${invitedEmail}`,
     `Einlader: ${inviterEmail}`,
     "",
     `Dein Verifizierungscode: ${codeDisplay}`,
-    `Gueltig bis: ${expiresLabel} (Europe/Berlin)`,
+    `Gültig bis: ${expiresLabel} (Europe/Berlin)`,
     "",
     "Wichtig: Zum Beitritt musst du in PingMyServer mit dieser E-Mail angemeldet sein.",
     "Bitte teile den Code nicht mit anderen.",
   ];
   if (inviteUrl) {
-    textBodyLines.push("", `Einladung oeffnen: ${inviteUrl}`);
+    textBodyLines.push("", `Einladung öffnen: ${inviteUrl}`);
   }
   textBodyLines.push("", `Erstellt am: ${generatedAtLabel}`);
 
@@ -2861,7 +2861,7 @@ function buildTeamInvitationVerificationEmail(options = {}) {
          <a
            href="${escapeSmtpHtml(inviteUrl)}"
            style="display:inline-block;padding:10px 16px;border-radius:8px;background:#123356;color:#ffffff;text-decoration:none;border:1px solid #355f8b;"
-         >Einladung in PingMyServer oeffnen</a>
+         >Einladung in PingMyServer öffnen</a>
        </p>`
     : "";
 
@@ -2872,7 +2872,7 @@ function buildTeamInvitationVerificationEmail(options = {}) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light only" />
     <meta name="supported-color-schemes" content="light" />
-    <title>PingMyServer Team Einladung</title>
+    <title>PingMyServer Team-Einladung</title>
   </head>
   <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
@@ -2881,7 +2881,7 @@ function buildTeamInvitationVerificationEmail(options = {}) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e3ef;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:18px 22px;background:#0f2036;color:#ffffff;">
-                <div style="font-size:20px;font-weight:800;">Team Einladung bestaetigen</div>
+                <div style="font-size:20px;font-weight:800;">Team-Einladung bestätigen</div>
                 <div style="margin-top:6px;font-size:12px;color:#c8d8ec;">PingMyServer Sicherheitsnachricht</div>
               </td>
             </tr>
@@ -2889,13 +2889,13 @@ function buildTeamInvitationVerificationEmail(options = {}) {
               <td style="padding:16px 22px;">
                 <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
                   Du wurdest von <strong>${escapeSmtpHtml(inviterEmail)}</strong> eingeladen.
-                  Melde dich mit <strong>${escapeSmtpHtml(invitedEmail)}</strong> an und bestaetige diesen Code:
+                  Melde dich mit <strong>${escapeSmtpHtml(invitedEmail)}</strong> an und bestätige diesen Code:
                 </p>
                 <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
                   ${escapeSmtpHtml(codeDisplay)}
                 </p>
                 <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
-                  Gueltig bis: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
+                  Gültig bis: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
                   Erstellt am: ${escapeSmtpHtml(generatedAtLabel)}
                 </p>
                 ${linkHtml}
@@ -2903,7 +2903,7 @@ function buildTeamInvitationVerificationEmail(options = {}) {
             </tr>
             <tr>
               <td style="padding:12px 22px;background:#f5f8fc;border-top:1px solid #e6edf5;font-size:11px;line-height:1.6;color:#6d8298;">
-                PingMyServer.de - Team Einladung - (c) ${year}
+                PingMyServer.de - Team-Einladung - (c) ${year}
               </td>
             </tr>
           </table>
@@ -2914,7 +2914,7 @@ function buildTeamInvitationVerificationEmail(options = {}) {
 </html>`;
 
   return {
-    subject: "Deine PingMyServer Team Einladung",
+    subject: "Deine PingMyServer Team-Einladung",
     textBody,
     htmlBody,
     code: normalizedCode,
