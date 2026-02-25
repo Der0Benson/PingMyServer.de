@@ -316,6 +316,8 @@ function updateIncidents(incidents) {
     const range = formatIncidentRange(incident.startTs, incident.endTs, incident.ongoing);
     const duration = formatDuration(incident.durationMs || 0);
     const codeLabel = formatErrorCodeSummary(incident.errorCodes, incident.statusCodes);
+    const causeHint = formatIncidentCauseHint(incident);
+    const causeLabel = t("app.incidents.cause_label", null, "Likely cause");
     const checks = Number.isFinite(Number(incident.samples)) ? Number(incident.samples) : 0;
 
     item.innerHTML = `
@@ -333,6 +335,7 @@ function updateIncidents(incidents) {
         <span class="incident-code">${escapeHtml(codeLabel)}</span>
       </div>
       <div class="incident-note">${escapeHtml(t("app.incidents.checks", { n: checks }, `Checks: ${checks}`))}</div>
+      <div class="incident-note">${escapeHtml(`${causeLabel}: ${causeHint}`)}</div>
     `;
 
     list.appendChild(item);
@@ -359,6 +362,113 @@ function formatErrorCodeLabel(value) {
   }
   if (/^\d{3}$/.test(code)) return code;
   return code.replaceAll("_", " ").toLowerCase();
+}
+
+function causeFromStatusCode(value) {
+  const code = Number(value);
+  if (!Number.isFinite(code)) return null;
+  if (code >= 500 && code <= 599) return "http_5xx";
+  if (code >= 400 && code <= 499) return "http_4xx";
+  return null;
+}
+
+function causeFromErrorCode(value) {
+  const code = String(value || "").trim().toUpperCase();
+  if (!code) return null;
+
+  if (/^\d{3}$/.test(code)) {
+    return causeFromStatusCode(Number(code));
+  }
+
+  if (code.includes("DNS") || code.includes("ENOTFOUND") || code.includes("EAI_AGAIN")) {
+    return "dns";
+  }
+  if (code.includes("TLS") || code.includes("SSL") || code.includes("CERT")) {
+    return "tls";
+  }
+  if (code.includes("TIMEOUT") || code.includes("ETIMEDOUT")) {
+    return "timeout";
+  }
+  if (
+    code.includes("ECONNREFUSED") ||
+    code.includes("CONNECTION_REFUSED") ||
+    code.includes("ECONNRESET") ||
+    code.includes("CONNECTION_RESET") ||
+    code.includes("UNREACHABLE") ||
+    code.includes("EHOSTUNREACH") ||
+    code.includes("ENETUNREACH") ||
+    code.includes("NO_RESPONSE") ||
+    code.includes("REQUEST_FAILED") ||
+    code.includes("RESPONSE_ERROR")
+  ) {
+    return "network";
+  }
+
+  return null;
+}
+
+function causeFromMessage(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (normalized.includes("dns") || normalized.includes("enotfound") || normalized.includes("eai_again")) {
+    return "dns";
+  }
+  if (normalized.includes("tls") || normalized.includes("ssl") || normalized.includes("certificate")) {
+    return "tls";
+  }
+  if (normalized.includes("timeout") || normalized.includes("timed out") || normalized.includes("request_timeout")) {
+    return "timeout";
+  }
+  if (
+    normalized.includes("econnrefused") ||
+    normalized.includes("connection refused") ||
+    normalized.includes("econnreset") ||
+    normalized.includes("socket hang up") ||
+    normalized.includes("unreachable") ||
+    normalized.includes("no response")
+  ) {
+    return "network";
+  }
+
+  const statusMatch = normalized.match(/(?:http|status|unexpected_status)[^\d]*(\d{3})/);
+  if (statusMatch) {
+    return causeFromStatusCode(Number(statusMatch[1]));
+  }
+
+  return null;
+}
+
+function getIncidentCauseKey(incident) {
+  const errorCodes = Array.isArray(incident?.errorCodes) ? incident.errorCodes : [];
+  for (const entry of errorCodes) {
+    const code = typeof entry === "string" ? entry : entry?.code;
+    const fromCode = causeFromErrorCode(code);
+    if (fromCode) return fromCode;
+  }
+
+  const statusCodes = Array.isArray(incident?.statusCodes) ? incident.statusCodes : [];
+  for (const statusCode of statusCodes) {
+    const fromStatus = causeFromStatusCode(statusCode);
+    if (fromStatus) return fromStatus;
+  }
+
+  const fromLastStatus = causeFromStatusCode(incident?.lastStatusCode);
+  if (fromLastStatus) return fromLastStatus;
+
+  const fromMessage = causeFromMessage(incident?.lastErrorMessage);
+  if (fromMessage) return fromMessage;
+
+  return "unknown";
+}
+
+function formatIncidentCauseHint(incident) {
+  const causeKey = getIncidentCauseKey(incident);
+  return t(
+    `app.incidents.cause.${causeKey}`,
+    null,
+    t("app.incidents.cause.unknown", null, "Cause could not be identified.")
+  );
 }
 
 function formatErrorCodeSummary(errorCodes, statusCodes = []) {
