@@ -38,14 +38,19 @@
   const ratingAverageEl = document.getElementById("landing-rating-average");
   const ratingAverageMetaEl = document.getElementById("landing-rating-average-meta");
   const ratingDistributionEl = document.getElementById("landing-rating-distribution");
+  const ratingRecentShellEl = document.getElementById("landing-rating-recent-shell");
   const ratingRecentListEl = document.getElementById("landing-rating-recent-list");
+  const ratingEmptyEl = document.getElementById("landing-rating-empty");
   const ratingMessageEl = document.getElementById("landing-rating-message");
   const ratingCommentEl = document.getElementById("landing-rating-comment");
   const ratingSubmitEl = document.getElementById("landing-rating-submit");
+  const ratingLoginNoteEl = document.getElementById("landing-rating-login-note");
+  const ratingLoginLinkEl = document.getElementById("landing-rating-login-link");
   const ratingStarButtons = Array.from(document.querySelectorAll("#landing-rating-stars .landing-star-btn"));
 
   let selectedLandingRating = 0;
   let isSubmittingLandingRating = false;
+  let landingRatingAuthState = false;
 
   const stateTextClasses = ["text-green-400", "text-orange-400", "text-slate-400"];
   const liveDotClasses = ["bg-green-400", "bg-yellow-500", "bg-slate-700"];
@@ -543,7 +548,7 @@
       const active = current > 0 && current <= normalized;
       const selected = current > 0 && current === normalized;
       button.classList.toggle("is-active", active);
-      button.textContent = active ? "★" : "☆";
+      button.textContent = active ? "\u2605" : "\u2606";
       button.setAttribute("aria-checked", String(selected));
     });
   }
@@ -568,8 +573,8 @@
 
   function buildRatingStarsLabel(rating) {
     const safeRating = Number.isFinite(Number(rating)) ? Math.max(1, Math.min(5, Math.trunc(Number(rating)))) : 0;
-    if (!safeRating) return "☆☆☆☆☆";
-    return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`;
+    if (!safeRating) return "\u2606\u2606\u2606\u2606\u2606";
+    return `${"\u2605".repeat(safeRating)}${"\u2606".repeat(5 - safeRating)}`;
   }
 
   function renderLandingRatingDistribution(distribution, total) {
@@ -606,46 +611,86 @@
     }
   }
 
+  function normalizeRatingAuthorLabel(value) {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+    if (normalized) return normalized.slice(0, 48);
+    return t("landing.rating.author_unknown", null, "User");
+  }
+
+  function buildLandingRatingRecentCard(entry) {
+    const item = document.createElement("article");
+    item.className = "landing-rating-recent-item";
+
+    const head = document.createElement("div");
+    head.className = "landing-rating-recent-head";
+
+    const author = document.createElement("span");
+    author.className = "landing-rating-recent-author";
+    author.textContent = t(
+      "landing.rating.by_author",
+      { author: normalizeRatingAuthorLabel(entry?.author) },
+      "von " + normalizeRatingAuthorLabel(entry?.author)
+    );
+
+    const meta = document.createElement("span");
+    meta.className = "landing-rating-recent-meta";
+
+    const stars = document.createElement("span");
+    stars.className = "landing-rating-recent-stars";
+    stars.textContent = buildRatingStarsLabel(entry?.rating);
+
+    const time = document.createElement("span");
+    time.className = "landing-rating-recent-time";
+    const createdAt = Number(entry?.createdAt || 0);
+    time.textContent =
+      createdAt > 0
+        ? formatTimeAgo(Math.max(0, Date.now() - createdAt))
+        : t("common.not_available", null, "n/a");
+
+    const comment = document.createElement("p");
+    comment.className = "landing-rating-recent-comment";
+    const cleanedComment = String(entry?.comment || "").replace(/\s+/g, " ").trim();
+    comment.textContent = cleanedComment || t("landing.rating.comment_empty", null, "Ohne Kommentar");
+
+    meta.appendChild(stars);
+    meta.appendChild(time);
+    head.appendChild(author);
+    head.appendChild(meta);
+    item.appendChild(head);
+    item.appendChild(comment);
+    return item;
+  }
+
   function renderLandingRatingRecent(recentItems) {
     if (!ratingRecentListEl) return;
     const items = Array.isArray(recentItems) ? recentItems : [];
     ratingRecentListEl.innerHTML = "";
 
     if (!items.length) {
-      const empty = document.createElement("div");
-      empty.className = "landing-rating-empty";
-      empty.textContent = t("landing.rating.recent_empty", null, "Noch keine Rückmeldungen.");
-      ratingRecentListEl.appendChild(empty);
+      if (ratingRecentShellEl) ratingRecentShellEl.setAttribute("hidden", "");
+      if (ratingEmptyEl) ratingEmptyEl.removeAttribute("hidden");
+      ratingRecentListEl.classList.add("no-animate");
       return;
     }
 
-    items.slice(0, 10).forEach((entry) => {
-      const item = document.createElement("article");
-      item.className = "landing-rating-recent-item";
+    if (ratingRecentShellEl) ratingRecentShellEl.removeAttribute("hidden");
+    if (ratingEmptyEl) ratingEmptyEl.setAttribute("hidden", "");
 
-      const head = document.createElement("div");
-      head.className = "landing-rating-recent-head";
+    const baseItems = items
+      .slice(0, 10)
+      .map((entry) => buildLandingRatingRecentCard(entry))
+      .filter(Boolean);
 
-      const stars = document.createElement("span");
-      stars.className = "landing-rating-recent-stars";
-      stars.textContent = buildRatingStarsLabel(entry?.rating);
+    baseItems.forEach((node) => ratingRecentListEl.appendChild(node));
 
-      const time = document.createElement("span");
-      const createdAt = Number(entry?.createdAt || 0);
-      time.textContent =
-        createdAt > 0
-          ? formatTimeAgo(Math.max(0, Date.now() - createdAt))
-          : t("common.not_available", null, "n/a");
+    const shouldAnimate = !prefersReducedMotion && baseItems.length > 1;
+    ratingRecentListEl.classList.toggle("no-animate", !shouldAnimate);
+    if (!shouldAnimate) return;
 
-      const comment = document.createElement("p");
-      comment.className = "landing-rating-recent-comment";
-      comment.textContent = String(entry?.comment || "").trim();
-
-      head.appendChild(stars);
-      head.appendChild(time);
-      item.appendChild(head);
-      item.appendChild(comment);
-      ratingRecentListEl.appendChild(item);
+    baseItems.forEach((node) => {
+      const clone = node.cloneNode(true);
+      clone.setAttribute("aria-hidden", "true");
+      ratingRecentListEl.appendChild(clone);
     });
   }
 
@@ -678,9 +723,27 @@
     return false;
   }
 
+  function setLandingRatingAuthState(isAuthenticated) {
+    landingRatingAuthState = !!isAuthenticated;
+
+    ratingStarButtons.forEach((button) => {
+      button.disabled = !landingRatingAuthState;
+    });
+    if (ratingCommentEl) {
+      ratingCommentEl.disabled = !landingRatingAuthState;
+    }
+    if (ratingLoginNoteEl) {
+      ratingLoginNoteEl.hidden = landingRatingAuthState;
+    }
+    if (ratingLoginLinkEl) {
+      ratingLoginLinkEl.setAttribute("href", "/login");
+    }
+    updateLandingSubmitState(isSubmittingLandingRating);
+  }
+
   function updateLandingSubmitState(isSubmitting) {
     if (!ratingSubmitEl) return;
-    ratingSubmitEl.disabled = isSubmitting;
+    ratingSubmitEl.disabled = isSubmitting || !landingRatingAuthState;
     ratingSubmitEl.textContent = isSubmitting
       ? t("landing.rating.form.submitting", null, "Wird gesendet ...")
       : t("landing.rating.form.submit", null, "Bewertung senden");
@@ -690,12 +753,17 @@
     if (!ratingForm || !ratingStarButtons.length) return;
 
     renderLandingRatingStars(0);
+    setLandingRatingAuthState(false);
     loadLandingRatings();
 
     ratingStarButtons.forEach((button) => {
       button.setAttribute("role", "radio");
       button.setAttribute("aria-checked", "false");
       button.addEventListener("click", () => {
+        if (!landingRatingAuthState) {
+          setLandingRatingMessage("error", t("landing.rating.msg.login_required", null, "Bitte zuerst anmelden."));
+          return;
+        }
         const value = Number(button.dataset.value || 0);
         selectedLandingRating = Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : 0;
         renderLandingRatingStars(selectedLandingRating);
@@ -707,8 +775,13 @@
       event.preventDefault();
       if (isSubmittingLandingRating) return;
 
+      if (!landingRatingAuthState) {
+        setLandingRatingMessage("error", t("landing.rating.msg.login_required", null, "Bitte zuerst anmelden."));
+        return;
+      }
+
       if (!selectedLandingRating) {
-        setLandingRatingMessage("error", t("landing.rating.msg.select_rating", null, "Bitte zuerst Sterne auswählen."));
+        setLandingRatingMessage("error", t("landing.rating.msg.select_rating", null, "Bitte zuerst Sterne ausw\u00E4hlen."));
         return;
       }
 
@@ -734,14 +807,17 @@
         if (ratingCommentEl) ratingCommentEl.value = "";
         renderLandingRatingStars(0);
         renderLandingRatingSummary(response.payload.data);
-        setLandingRatingMessage("success", t("landing.rating.msg.saved", null, "Danke für deine Bewertung!"));
+        setLandingRatingMessage("success", t("landing.rating.msg.saved", null, "Danke f\u00FCr deine Bewertung!"));
+      } else if (response.status === 401 || response.payload?.error === "unauthorized") {
+        setLandingRatingAuthState(false);
+        setLandingRatingMessage("error", t("landing.rating.msg.login_required", null, "Bitte zuerst anmelden."));
       } else if (response.status === 429 || response.payload?.error === "cooldown") {
         const retryAfterSeconds =
           Number(response.payload?.retryAfterSeconds || 0) || Number(response.retryAfter || 0) || 0;
         const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
         setLandingRatingMessage(
           "error",
-          t("landing.rating.msg.cooldown", { minutes }, `Du hast bereits bewertet. Bitte in ${minutes} Minuten erneut versuchen.`)
+          t("landing.rating.msg.cooldown", { minutes }, "Du hast bereits bewertet. Bitte in " + minutes + " Minuten erneut versuchen.")
         );
       } else {
         setLandingRatingMessage("error", t("landing.rating.msg.failed", null, "Bewertung konnte nicht gesendet werden."));
@@ -824,6 +900,7 @@
     let metricsList = [];
     const isAuthenticated = await hasAuthenticatedSession();
     renderNavigationAuthState(isAuthenticated);
+    setLandingRatingAuthState(isAuthenticated);
 
     if (isAuthenticated) {
       metricsList = await loadAuthenticatedPreviewMetrics();

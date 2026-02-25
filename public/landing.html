@@ -344,15 +344,25 @@
                             Bewertung senden
                         </button>
                         <div class="landing-rating-message" id="landing-rating-message" aria-live="polite"></div>
+                        <div class="landing-rating-login-note" id="landing-rating-login-note" hidden>
+                            <span data-i18n="landing.rating.form.login_required">Zum Bewerten bitte anmelden.</span>
+                            <a
+                                id="landing-rating-login-link"
+                                class="landing-rating-login-link"
+                                href="/login"
+                                data-i18n="landing.rating.form.login_cta"
+                            >Jetzt anmelden</a>
+                        </div>
                     </div>
                 </form>
             </div>
 
             <section class="glass-effect rounded-xl p-8 landing-rating-recent">
                 <h3 class="text-2xl font-bold mb-4" data-i18n="landing.rating.recent_title">Neueste Rückmeldungen</h3>
-                <div class="landing-rating-recent-list" id="landing-rating-recent-list">
-                    <div class="landing-rating-empty" data-i18n="landing.rating.recent_empty">Noch keine Rückmeldungen.</div>
+                <div class="landing-rating-recent-shell" id="landing-rating-recent-shell">
+                    <div class="landing-rating-recent-list" id="landing-rating-recent-list"></div>
                 </div>
+                <div class="landing-rating-empty" id="landing-rating-empty" data-i18n="landing.rating.recent_empty">Noch keine Rückmeldungen.</div>
             </section>
         </div>
     </section>

@@ -5631,6 +5631,40 @@ async function ensureSchemaCompatibility() {
     await pool.query("CREATE INDEX idx_daily_error_day ON monitor_daily_error_codes(day_date)");
   }
 
+  if (!(await hasColumn("landing_ratings", "user_id"))) {
+    await pool.query("ALTER TABLE landing_ratings ADD COLUMN user_id BIGINT NULL AFTER id");
+  }
+  if (!(await hasColumn("landing_ratings", "author_name"))) {
+    await pool.query("ALTER TABLE landing_ratings ADD COLUMN author_name VARCHAR(120) NULL AFTER user_id");
+  }
+  if (!(await hasIndex("landing_ratings", "idx_landing_ratings_created_at"))) {
+    await pool.query("CREATE INDEX idx_landing_ratings_created_at ON landing_ratings(created_at)");
+  }
+  if (!(await hasIndex("landing_ratings", "idx_landing_ratings_ip_created_at"))) {
+    await pool.query("CREATE INDEX idx_landing_ratings_ip_created_at ON landing_ratings(ip_hash, created_at)");
+  }
+  if (!(await hasIndex("landing_ratings", "idx_landing_ratings_user_created_at"))) {
+    await pool.query("CREATE INDEX idx_landing_ratings_user_created_at ON landing_ratings(user_id, created_at)");
+  }
+
+  await pool.query(`
+    UPDATE landing_ratings lr
+    LEFT JOIN users u ON u.id = lr.user_id
+    SET lr.user_id = NULL
+    WHERE lr.user_id IS NOT NULL
+      AND u.id IS NULL
+  `);
+
+  if (!(await hasForeignKeyReference("landing_ratings", "user_id", "users", "id"))) {
+    try {
+      await pool.query(
+        "ALTER TABLE landing_ratings ADD CONSTRAINT fk_landing_ratings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL"
+      );
+    } catch (error) {
+      console.warn("Could not add fk_landing_ratings_user automatically:", error.code || error.message);
+    }
+  }
+
   await pool.query(
     "UPDATE monitors SET url = target_url WHERE (url IS NULL OR url = '') AND target_url IS NOT NULL"
   );
@@ -6083,6 +6117,8 @@ async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS landing_ratings (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT NULL,
+      author_name VARCHAR(120) NULL,
       rating TINYINT UNSIGNED NOT NULL,
       comment VARCHAR(2000) NULL,
       language VARCHAR(8) NOT NULL DEFAULT 'de',
@@ -6090,7 +6126,8 @@ async function initDb() {
       user_agent VARCHAR(255) NULL,
       created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
       INDEX idx_landing_ratings_created_at (created_at),
-      INDEX idx_landing_ratings_ip_created_at (ip_hash, created_at)
+      INDEX idx_landing_ratings_ip_created_at (ip_hash, created_at),
+      INDEX idx_landing_ratings_user_created_at (user_id, created_at)
     )
   `);
 
@@ -13032,6 +13069,21 @@ function normalizeLandingRatingComment(value) {
   return normalized.slice(0, LANDING_RATING_COMMENT_MAX_LENGTH);
 }
 
+function normalizeLandingRatingAuthorName(value) {
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.slice(0, 120);
+}
+
+function deriveLandingRatingAuthorName(user) {
+  const numericUserId = Number(user?.id || 0);
+  const normalizedEmail = normalizeEmail(user?.email);
+  const localPart = normalizedEmail && normalizedEmail.includes("@") ? String(normalizedEmail.split("@")[0] || "").trim() : "";
+  const fallback = numericUserId > 0 ? `user-${numericUserId}` : "user";
+  const normalized = normalizeLandingRatingAuthorName(localPart || fallback);
+  return normalized || fallback;
+}
+
 function hashLandingRatingIp(ip) {
   return crypto
     .createHash("sha256")
@@ -13055,10 +13107,16 @@ function serializeLandingRatingEntry(row) {
   const rating = normalizeLandingRatingValue(row?.rating) || 0;
   const comment = String(row?.comment || "").trim();
   const language = normalizeNotificationLanguage(row?.language || "de", "de");
+  const rowAuthorName = normalizeLandingRatingAuthorName(row?.author_name);
+  const rowEmail = normalizeEmail(row?.user_email);
+  const rowEmailLocalPart = rowEmail && rowEmail.includes("@") ? String(rowEmail.split("@")[0] || "").trim() : "";
+  const fallbackAuthor = Number(row?.user_id || 0) > 0 ? `user-${Math.trunc(Number(row?.user_id || 0))}` : "user";
+  const author = normalizeLandingRatingAuthorName(rowAuthorName || rowEmailLocalPart || fallbackAuthor) || "user";
   const createdAt = toMs(row?.created_at);
   return {
     rating,
     comment: comment || null,
+    author,
     language,
     createdAt: Number.isFinite(createdAt) ? createdAt : null,
   };
@@ -13088,13 +13146,16 @@ async function getLandingRatingsSnapshot(options = {}) {
   const [recentRows] = await pool.query(
     `
       SELECT
-        rating,
-        comment,
-        language,
-        created_at
-      FROM landing_ratings
-      WHERE comment IS NOT NULL AND comment <> ''
-      ORDER BY created_at DESC
+        lr.rating,
+        lr.comment,
+        lr.author_name,
+        lr.language,
+        lr.user_id,
+        lr.created_at,
+        u.email AS user_email
+      FROM landing_ratings lr
+      LEFT JOIN users u ON u.id = lr.user_id
+      ORDER BY lr.created_at DESC
       LIMIT ?
     `,
     [recentLimit]
@@ -13111,7 +13172,7 @@ async function getLandingRatingsSnapshot(options = {}) {
     distribution[rating] = Math.max(0, Number(row?.hits || 0));
   }
 
-  const recent = Array.isArray(recentRows) ? recentRows.map(serializeLandingRatingEntry).filter((entry) => !!entry.comment) : [];
+  const recent = Array.isArray(recentRows) ? recentRows.map(serializeLandingRatingEntry) : [];
 
   return {
     average,
@@ -13131,6 +13192,9 @@ async function handleLandingRatingsGet(req, res) {
 }
 
 async function handleLandingRatingsCreate(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
   let body;
   try {
     body = await readJsonBody(req);
@@ -13147,6 +13211,12 @@ async function handleLandingRatingsCreate(req, res) {
 
   const comment = normalizeLandingRatingComment(body?.comment);
   const language = normalizeNotificationLanguage(body?.language || body?.lang || "de", "de");
+  const userId = Number(user?.id || 0);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    sendJson(res, 401, { ok: false, error: "unauthorized" });
+    return;
+  }
+  const authorName = deriveLandingRatingAuthorName(user);
   const clientIp = getClientIp(req);
   const ipHash = hashLandingRatingIp(clientIp);
   const userAgentRaw = String(req?.headers?.["user-agent"] || "").trim();
@@ -13157,11 +13227,11 @@ async function handleLandingRatingsCreate(req, res) {
       `
         SELECT created_at
         FROM landing_ratings
-        WHERE ip_hash = ?
+        WHERE user_id = ?
         ORDER BY created_at DESC
         LIMIT 1
       `,
-      [ipHash]
+      [userId]
     );
 
     const latest = latestRows && latestRows.length ? latestRows[0] : null;
@@ -13181,6 +13251,8 @@ async function handleLandingRatingsCreate(req, res) {
     await pool.query(
       `
         INSERT INTO landing_ratings (
+          user_id,
+          author_name,
           rating,
           comment,
           language,
@@ -13188,9 +13260,9 @@ async function handleLandingRatingsCreate(req, res) {
           user_agent,
           created_at
         )
-        VALUES (?, ?, ?, ?, ?, NOW(3))
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(3))
       `,
-      [rating, comment || null, language, ipHash, userAgent]
+      [userId, authorName, rating, comment || null, language, ipHash, userAgent]
     );
 
     const data = await getLandingRatingsSnapshot({ recentLimit: LANDING_RATING_RECENT_LIMIT });
