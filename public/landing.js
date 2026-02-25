@@ -44,13 +44,15 @@
   const ratingMessageEl = document.getElementById("landing-rating-message");
   const ratingCommentEl = document.getElementById("landing-rating-comment");
   const ratingSubmitEl = document.getElementById("landing-rating-submit");
-  const ratingLoginNoteEl = document.getElementById("landing-rating-login-note");
-  const ratingLoginLinkEl = document.getElementById("landing-rating-login-link");
+  const ratingToggleEl = document.getElementById("landing-rating-toggle");
+  const ratingGuestNoteEl = document.getElementById("landing-rating-guest-note");
+  const ratingGuestLoginLinkEl = document.getElementById("landing-rating-guest-login-link");
   const ratingStarButtons = Array.from(document.querySelectorAll("#landing-rating-stars .landing-star-btn"));
 
   let selectedLandingRating = 0;
   let isSubmittingLandingRating = false;
   let landingRatingAuthState = false;
+  let landingRatingFormExpanded = false;
 
   const stateTextClasses = ["text-green-400", "text-orange-400", "text-slate-400"];
   const liveDotClasses = ["bg-green-400", "bg-yellow-500", "bg-slate-700"];
@@ -723,27 +725,65 @@
     return false;
   }
 
+  function setLandingRatingFormExpanded(isExpanded) {
+    landingRatingFormExpanded = !!isExpanded && landingRatingAuthState;
+
+    if (ratingForm) {
+      if (landingRatingFormExpanded) {
+        ratingForm.removeAttribute("hidden");
+      } else {
+        ratingForm.setAttribute("hidden", "");
+      }
+    }
+
+    if (ratingToggleEl) {
+      ratingToggleEl.textContent = landingRatingFormExpanded
+        ? t("landing.rating.form.hide", null, "Formular ausblenden")
+        : t("landing.rating.form.open", null, "Bewertung schreiben");
+    }
+
+    ratingStarButtons.forEach((button) => {
+      button.disabled = !landingRatingAuthState || !landingRatingFormExpanded;
+    });
+    if (ratingCommentEl) {
+      ratingCommentEl.disabled = !landingRatingAuthState || !landingRatingFormExpanded;
+    }
+
+    updateLandingSubmitState(isSubmittingLandingRating);
+  }
+
   function setLandingRatingAuthState(isAuthenticated) {
     landingRatingAuthState = !!isAuthenticated;
 
-    ratingStarButtons.forEach((button) => {
-      button.disabled = !landingRatingAuthState;
-    });
-    if (ratingCommentEl) {
-      ratingCommentEl.disabled = !landingRatingAuthState;
+    if (ratingToggleEl) {
+      if (landingRatingAuthState) {
+        ratingToggleEl.removeAttribute("hidden");
+      } else {
+        ratingToggleEl.setAttribute("hidden", "");
+      }
     }
-    if (ratingLoginNoteEl) {
-      ratingLoginNoteEl.hidden = landingRatingAuthState;
+    if (ratingGuestNoteEl) {
+      ratingGuestNoteEl.hidden = landingRatingAuthState;
     }
-    if (ratingLoginLinkEl) {
-      ratingLoginLinkEl.setAttribute("href", "/login");
+    if (ratingGuestLoginLinkEl) {
+      ratingGuestLoginLinkEl.setAttribute("href", "/login");
     }
-    updateLandingSubmitState(isSubmittingLandingRating);
+
+    if (!landingRatingAuthState) {
+      selectedLandingRating = 0;
+      renderLandingRatingStars(0);
+      if (ratingCommentEl) ratingCommentEl.value = "";
+      setLandingRatingMessage("", "");
+      setLandingRatingFormExpanded(false);
+      return;
+    }
+
+    setLandingRatingFormExpanded(landingRatingFormExpanded);
   }
 
   function updateLandingSubmitState(isSubmitting) {
     if (!ratingSubmitEl) return;
-    ratingSubmitEl.disabled = isSubmitting || !landingRatingAuthState;
+    ratingSubmitEl.disabled = isSubmitting || !landingRatingAuthState || !landingRatingFormExpanded;
     ratingSubmitEl.textContent = isSubmitting
       ? t("landing.rating.form.submitting", null, "Wird gesendet ...")
       : t("landing.rating.form.submit", null, "Bewertung senden");
@@ -753,17 +793,22 @@
     if (!ratingForm || !ratingStarButtons.length) return;
 
     renderLandingRatingStars(0);
+    setLandingRatingFormExpanded(false);
     setLandingRatingAuthState(false);
     loadLandingRatings();
+
+    if (ratingToggleEl) {
+      ratingToggleEl.addEventListener("click", () => {
+        if (!landingRatingAuthState) return;
+        setLandingRatingFormExpanded(!landingRatingFormExpanded);
+      });
+    }
 
     ratingStarButtons.forEach((button) => {
       button.setAttribute("role", "radio");
       button.setAttribute("aria-checked", "false");
       button.addEventListener("click", () => {
-        if (!landingRatingAuthState) {
-          setLandingRatingMessage("error", t("landing.rating.msg.login_required", null, "Bitte zuerst anmelden."));
-          return;
-        }
+        if (!landingRatingAuthState || !landingRatingFormExpanded) return;
         const value = Number(button.dataset.value || 0);
         selectedLandingRating = Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : 0;
         renderLandingRatingStars(selectedLandingRating);
@@ -775,7 +820,7 @@
       event.preventDefault();
       if (isSubmittingLandingRating) return;
 
-      if (!landingRatingAuthState) {
+      if (!landingRatingAuthState || !landingRatingFormExpanded) {
         setLandingRatingMessage("error", t("landing.rating.msg.login_required", null, "Bitte zuerst anmelden."));
         return;
       }
@@ -808,6 +853,7 @@
         renderLandingRatingStars(0);
         renderLandingRatingSummary(response.payload.data);
         setLandingRatingMessage("success", t("landing.rating.msg.saved", null, "Danke f\u00FCr deine Bewertung!"));
+        setLandingRatingFormExpanded(false);
       } else if (response.status === 401 || response.payload?.error === "unauthorized") {
         setLandingRatingAuthState(false);
         setLandingRatingMessage("error", t("landing.rating.msg.login_required", null, "Bitte zuerst anmelden."));
