@@ -31,6 +31,11 @@ async function handleAccountRoutes(context) {
     return true;
   }
 
+  if (method === "POST" && pathname === "/api/account/team/create") {
+    await handlers.handleAccountTeamCreate(req, res);
+    return true;
+  }
+
   if (method === "POST" && pathname === "/api/account/team/invitations") {
     await handlers.handleAccountTeamInvitationCreate(req, res);
     return true;
@@ -108,6 +113,11 @@ async function handleAccountRoutes(context) {
 
   if (method === "DELETE" && pathname === "/api/account/notifications/webhook") {
     await handlers.handleAccountWebhookNotificationDelete(req, res);
+    return true;
+  }
+
+  if (method === "DELETE" && pathname === "/api/account/team") {
+    await handlers.handleAccountTeamLeaveOrDisband(req, res);
     return true;
   }
 

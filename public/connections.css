@@ -77,6 +77,19 @@
   margin: 0 0 14px;
 }
 
+.team-setup-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.team-locked-copy {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+}
+
 .team-form label {
   display: grid;
   gap: 6px;
@@ -118,6 +131,11 @@
 
 .team-verify-copy {
   margin: 4px 0 12px;
+}
+
+.team-manage-actions {
+  justify-content: flex-start;
+  margin: 0 0 14px;
 }
 
 .team-columns {

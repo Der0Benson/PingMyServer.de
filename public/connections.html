@@ -135,6 +135,19 @@
               <p class="muted sessions-summary" id="team-summary" data-i18n="connections.team.loading">Lade Team...</p>
               <p class="panel-message" id="team-message"></p>
 
+              <section class="team-setup-block" id="team-setup-block" hidden>
+                <div class="team-verify-title" data-i18n="connections.team.setup.title">Noch kein Team erstellt</div>
+                <p class="muted team-verify-copy" data-i18n="connections.team.setup.copy">
+                  Gruende ein Team oder tritt mit einer Einladung bei.
+                </p>
+                <div class="password-actions team-form-actions">
+                  <button class="btn primary" id="team-create-btn" type="button" data-i18n="connections.team.setup.create_button">
+                    Team gruenden
+                  </button>
+                </div>
+                <p class="muted team-locked-copy" id="team-locked-copy" hidden></p>
+              </section>
+
               <form id="team-invite-form" class="team-form" novalidate autocomplete="off">
                 <label for="team-invite-email">
                   <span data-i18n="connections.team.invite.label">E-Mail Einladung</span>
@@ -177,7 +190,13 @@
                 </form>
               </section>
 
-              <div class="team-columns">
+              <div class="password-actions team-manage-actions" id="team-manage-actions" hidden>
+                <button class="btn ghost danger-btn" id="team-leave-btn" type="button" data-team-action="" data-i18n="connections.team.actions.leave_button">
+                  Team verlassen
+                </button>
+              </div>
+
+              <div class="team-columns" id="team-columns">
                 <div class="team-column">
                   <div class="team-column-title" data-i18n="connections.team.members.title">Mitglieder</div>
                   <div class="team-list" id="team-members-list">
@@ -187,7 +206,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="team-column">
+                <div class="team-column" id="team-invitations-column">
                   <div class="team-column-title" data-i18n="connections.team.invites.title">Offene Einladungen</div>
                   <div class="team-list" id="team-invitations-list">
                     <div class="empty-state">

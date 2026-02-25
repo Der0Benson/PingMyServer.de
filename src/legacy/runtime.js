@@ -736,6 +736,17 @@ const TEAM_INVITATION_RETENTION_DAYS = readEnvNumber("TEAM_INVITATION_RETENTION_
   min: 1,
   max: 365,
 });
+const TEAM_FEATURE_MONTHLY_PRICE_EUR = readEnvNumber("TEAM_FEATURE_MONTHLY_PRICE_EUR", 20, {
+  min: 0,
+  max: 10000,
+});
+const TEAM_FEATURE_FOUNDER_ADMIN_ONLY = readEnvBoolean("TEAM_FEATURE_FOUNDER_ADMIN_ONLY", true);
+const TEAM_FEATURE_ALLOWED_PRICE_IDS = new Set(
+  readEnvString("TEAM_FEATURE_ALLOWED_PRICE_IDS", "")
+    .split(",")
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean)
+);
 const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN = 1;
 const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX = 1440;
 const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT = readEnvNumber("EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT", 15, {
@@ -7416,6 +7427,157 @@ async function ensureTeamOwnerMembership(ownerUserId, queryable = pool) {
   );
 }
 
+function toTeamFeaturePayload(founderAccess = null) {
+  return {
+    founderEligible: founderAccess?.allowed === true,
+    founderReason: String(founderAccess?.reason || "").trim().toLowerCase() || "unknown",
+    adminOnly: TEAM_FEATURE_FOUNDER_ADMIN_ONLY,
+    monthlyPriceEur: TEAM_FEATURE_MONTHLY_PRICE_EUR,
+    requiredPlans: ["pro", "team"],
+  };
+}
+
+async function resolveTeamFounderAccessForUserId(userId) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
+    return { allowed: false, reason: "unauthorized" };
+  }
+  if (isOwnerUserId(numericUserId)) {
+    return { allowed: true, reason: "admin_override" };
+  }
+  if (TEAM_FEATURE_FOUNDER_ADMIN_ONLY) {
+    return { allowed: false, reason: "admin_only" };
+  }
+
+  const account = await getUserBillingSettingsById(numericUserId);
+  if (!account) {
+    return { allowed: false, reason: "unauthorized" };
+  }
+
+  const subscriptionStatus = normalizeStripeSubscriptionStatus(account?.stripe_subscription_status);
+  if (!isStripeSubscriptionActive(subscriptionStatus)) {
+    return { allowed: false, reason: "subscription_required" };
+  }
+
+  const priceId = normalizeStripePriceId(account?.stripe_price_id);
+  if (TEAM_FEATURE_ALLOWED_PRICE_IDS.size && !TEAM_FEATURE_ALLOWED_PRICE_IDS.has(priceId)) {
+    return { allowed: false, reason: "plan_required" };
+  }
+
+  return {
+    allowed: true,
+    reason: TEAM_FEATURE_ALLOWED_PRICE_IDS.size ? "plan_allowed" : "subscription_active",
+  };
+}
+
+async function hasOwnedTeam(ownerUserId, queryable = pool) {
+  const numericOwnerUserId = Number(ownerUserId);
+  if (!Number.isInteger(numericOwnerUserId) || numericOwnerUserId <= 0) return false;
+  const [rows] = await queryable.query(
+    `
+      SELECT id
+      FROM team_memberships
+      WHERE owner_user_id = ?
+        AND member_user_id = ?
+        AND role = 'owner'
+      LIMIT 1
+    `,
+    [numericOwnerUserId, numericOwnerUserId]
+  );
+  return rows.length > 0;
+}
+
+async function getPrimaryJoinedTeamForMember(memberUserId, queryable = pool) {
+  const numericMemberUserId = Number(memberUserId);
+  if (!Number.isInteger(numericMemberUserId) || numericMemberUserId <= 0) return null;
+  const [rows] = await queryable.query(
+    `
+      SELECT
+        tm.owner_user_id,
+        tm.member_user_id,
+        tm.role,
+        tm.joined_at,
+        tm.created_at,
+        owner.email AS owner_email
+      FROM team_memberships tm
+      JOIN users owner
+        ON owner.id = tm.owner_user_id
+      WHERE tm.member_user_id = ?
+        AND tm.owner_user_id <> ?
+      ORDER BY tm.joined_at DESC, tm.id DESC
+      LIMIT 1
+    `,
+    [numericMemberUserId, numericMemberUserId]
+  );
+  return serializeJoinedTeamRow(rows[0] || null);
+}
+
+async function resolveTeamModeForUser(userId, queryable = pool) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
+    return { mode: "none", ownerUserId: null, joinedTeam: null };
+  }
+
+  const ownsTeam = await hasOwnedTeam(numericUserId, queryable);
+  if (ownsTeam) {
+    return { mode: "owner", ownerUserId: numericUserId, joinedTeam: null };
+  }
+
+  const joinedTeam = await getPrimaryJoinedTeamForMember(numericUserId, queryable);
+  if (joinedTeam) {
+    return { mode: "member", ownerUserId: Number(joinedTeam.ownerUserId), joinedTeam };
+  }
+
+  return { mode: "none", ownerUserId: null, joinedTeam: null };
+}
+
+async function createOwnedTeam(ownerUserId) {
+  const numericOwnerUserId = Number(ownerUserId);
+  if (!Number.isInteger(numericOwnerUserId) || numericOwnerUserId <= 0) {
+    const error = new Error("invalid_input");
+    error.code = "invalid_input";
+    throw error;
+  }
+
+  let connection = null;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const ownsTeam = await hasOwnedTeam(numericOwnerUserId, connection);
+    if (ownsTeam) {
+      await connection.rollback();
+      const error = new Error("team_exists");
+      error.code = "team_exists";
+      throw error;
+    }
+
+    const joinedTeam = await getPrimaryJoinedTeamForMember(numericOwnerUserId, connection);
+    if (joinedTeam) {
+      await connection.rollback();
+      const error = new Error("already_member");
+      error.code = "already_member";
+      throw error;
+    }
+
+    await ensureTeamOwnerMembership(numericOwnerUserId, connection);
+    await connection.commit();
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        // ignore rollback errors
+      }
+    }
+    throw error;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
 function serializeTeamMemberRow(row = {}) {
   const userId = Number(row.member_user_id || row.user_id || 0);
   const email = normalizeEmail(row.member_email || row.email);
@@ -7599,8 +7761,27 @@ async function createTeamInvitation(ownerAccount, inviteEmail) {
     throw error;
   }
 
+  const teamMode = await resolveTeamModeForUser(ownerUserId);
+  if (teamMode.mode !== "owner") {
+    const error = new Error("team_not_created");
+    error.code = "team_not_created";
+    throw error;
+  }
+
   const invitedUser = await findUserByEmail(normalizedInviteEmail);
   if (invitedUser) {
+    const invitedTeamState = await resolveTeamModeForUser(invitedUser.id);
+    if (invitedTeamState.mode === "owner") {
+      const error = new Error("already_in_other_team");
+      error.code = "already_in_other_team";
+      throw error;
+    }
+    if (invitedTeamState.mode === "member" && Number(invitedTeamState.ownerUserId || 0) !== ownerUserId) {
+      const error = new Error("already_in_other_team");
+      error.code = "already_in_other_team";
+      throw error;
+    }
+
     const [membershipRows] = await pool.query(
       `
         SELECT id
@@ -7619,7 +7800,6 @@ async function createTeamInvitation(ownerAccount, inviteEmail) {
   }
 
   await cleanupStaleTeamInvitations();
-  await ensureTeamOwnerMembership(ownerUserId);
 
   const invitationToken = crypto.randomBytes(32).toString("hex");
   const verificationCode = createAuthEmailVerificationCode();
@@ -7750,50 +7930,62 @@ async function handleAccountTeamGet(req, res) {
 
   try {
     await cleanupStaleTeamInvitations();
-    await ensureTeamOwnerMembership(user.id);
+    const founderAccess = await resolveTeamFounderAccessForUserId(user.id);
+    const teamState = await resolveTeamModeForUser(user.id);
+    const teamMode = teamState.mode;
+    const activeOwnerUserId = Number(teamState.ownerUserId || 0) || null;
 
-    const ownerAccount = await getTeamOwnerAccountById(user.id);
-    if (!ownerAccount) {
-      sendJson(res, 401, { ok: false, error: "unauthorized" });
-      return;
+    let owner = null;
+    let members = [];
+    let invitations = [];
+    let joinedTeams = [];
+
+    if (teamMode === "owner" && activeOwnerUserId) {
+      const ownerAccount = await getTeamOwnerAccountById(activeOwnerUserId);
+      if (!ownerAccount) {
+        sendJson(res, 401, { ok: false, error: "unauthorized" });
+        return;
+      }
+      owner = {
+        userId: Number(ownerAccount.id),
+        email: normalizeEmail(ownerAccount.email),
+      };
+      [members, invitations] = await Promise.all([
+        listOwnedTeamMembers(activeOwnerUserId),
+        listOwnedTeamInvitations(activeOwnerUserId),
+      ]);
+    } else if (teamMode === "member" && activeOwnerUserId) {
+      const ownerAccount = await getTeamOwnerAccountById(activeOwnerUserId);
+      if (ownerAccount) {
+        owner = {
+          userId: Number(ownerAccount.id),
+          email: normalizeEmail(ownerAccount.email),
+        };
+      }
+      members = await listOwnedTeamMembers(activeOwnerUserId);
+      invitations = [];
+      if (teamState.joinedTeam) {
+        joinedTeams = [teamState.joinedTeam];
+      }
     }
-
-    const [members, invitations, joinedRows] = await Promise.all([
-      listOwnedTeamMembers(user.id),
-      listOwnedTeamInvitations(user.id),
-      pool.query(
-        `
-          SELECT
-            tm.owner_user_id,
-            tm.member_user_id,
-            tm.role,
-            tm.joined_at,
-            tm.created_at,
-            owner.email AS owner_email
-          FROM team_memberships tm
-          JOIN users owner
-            ON owner.id = tm.owner_user_id
-          WHERE tm.member_user_id = ?
-            AND tm.owner_user_id <> ?
-          ORDER BY tm.joined_at DESC, tm.id DESC
-          LIMIT 100
-        `,
-        [user.id, user.id]
-      ).then((result) => result?.[0] || []),
-    ]);
-
-    const joinedTeams = Array.isArray(joinedRows) ? joinedRows.map((row) => serializeJoinedTeamRow(row)).filter(Boolean) : [];
 
     sendJson(res, 200, {
       ok: true,
       data: {
-        owner: {
-          userId: Number(ownerAccount.id),
-          email: normalizeEmail(ownerAccount.email),
-        },
+        mode: teamMode,
+        owner,
         members,
         invitations,
         joinedTeams,
+        permissions: {
+          canCreate: teamMode === "none" && founderAccess.allowed === true,
+          canInvite: teamMode === "owner" && founderAccess.allowed === true,
+          canManageMembers: teamMode === "owner" && founderAccess.allowed === true,
+          canManageInvitations: teamMode === "owner" && founderAccess.allowed === true,
+          canLeave: teamMode === "member",
+          canDisband: teamMode === "owner",
+        },
+        feature: toTeamFeaturePayload(founderAccess),
         limits: {
           codeLength: AUTH_EMAIL_VERIFICATION_CODE_LENGTH,
           maxAttempts: TEAM_INVITATION_MAX_ATTEMPTS,
@@ -7810,6 +8002,12 @@ async function handleAccountTeamGet(req, res) {
 async function handleAccountTeamInvitationCreate(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
+
+  const founderAccess = await resolveTeamFounderAccessForUserId(user.id);
+  if (!founderAccess.allowed) {
+    sendJson(res, 403, { ok: false, error: "feature locked", feature: toTeamFeaturePayload(founderAccess) });
+    return;
+  }
 
   if (!isOwnerSmtpConfigured()) {
     sendJson(res, 503, { ok: false, error: "verification unavailable" });
@@ -7854,6 +8052,14 @@ async function handleAccountTeamInvitationCreate(req, res) {
       sendJson(res, 409, { ok: false, error: "already member" });
       return;
     }
+    if (error?.code === "already_in_other_team") {
+      sendJson(res, 409, { ok: false, error: "already in other team" });
+      return;
+    }
+    if (error?.code === "team_not_created") {
+      sendJson(res, 409, { ok: false, error: "team not created" });
+      return;
+    }
     if (error?.code === "self_invite_forbidden") {
       sendJson(res, 400, { ok: false, error: "self invite forbidden" });
       return;
@@ -7891,6 +8097,11 @@ async function handleAccountTeamInvitationVerify(req, res) {
     const invitation = await findTeamInvitationByToken(invitationToken);
     if (!invitation) {
       sendJson(res, 404, { ok: false, error: "invalid invitation" });
+      return;
+    }
+    const ownerFounderAccess = await resolveTeamFounderAccessForUserId(invitation.owner_user_id);
+    if (!ownerFounderAccess.allowed) {
+      sendJson(res, 403, { ok: false, error: "feature locked", feature: toTeamFeaturePayload(ownerFounderAccess) });
       return;
     }
 
@@ -8049,6 +8260,35 @@ async function handleAccountTeamInvitationVerify(req, res) {
         return;
       }
 
+      const [existingMembershipRows] = await connection.query(
+        `
+          SELECT owner_user_id, role
+          FROM team_memberships
+          WHERE member_user_id = ?
+          FOR UPDATE
+        `,
+        [user.id]
+      );
+      const hasOwnerMembership = existingMembershipRows.some((row) => {
+        const rowOwnerUserId = Number(row?.owner_user_id || 0);
+        const role = String(row?.role || "").trim().toLowerCase();
+        return rowOwnerUserId === Number(user.id) && role === "owner";
+      });
+      if (hasOwnerMembership) {
+        await connection.rollback();
+        sendJson(res, 409, { ok: false, error: "team membership conflict" });
+        return;
+      }
+      const hasMembershipInAnotherTeam = existingMembershipRows.some((row) => {
+        const rowOwnerUserId = Number(row?.owner_user_id || 0);
+        return Number.isInteger(rowOwnerUserId) && rowOwnerUserId > 0 && rowOwnerUserId !== ownerUserId;
+      });
+      if (hasMembershipInAnotherTeam) {
+        await connection.rollback();
+        sendJson(res, 409, { ok: false, error: "team membership conflict" });
+        return;
+      }
+
       await ensureTeamOwnerMembership(ownerUserId, connection);
       await connection.query(
         `
@@ -8105,9 +8345,128 @@ async function handleAccountTeamInvitationVerify(req, res) {
   }
 }
 
+async function handleAccountTeamCreate(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const founderAccess = await resolveTeamFounderAccessForUserId(user.id);
+  if (!founderAccess.allowed) {
+    sendJson(res, 403, { ok: false, error: "feature locked", feature: toTeamFeaturePayload(founderAccess) });
+    return;
+  }
+
+  try {
+    await createOwnedTeam(user.id);
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    if (error?.code === "team_exists" || error?.code === "already_member") {
+      sendJson(res, 409, { ok: false, error: "already in team" });
+      return;
+    }
+    if (error?.code === "invalid_input") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    runtimeLogger.error("account_team_create_failed", error?.code || error?.message || error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountTeamLeaveOrDisband(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const numericUserId = Number(user.id);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  let connection = null;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const ownsTeam = await hasOwnedTeam(numericUserId, connection);
+    if (ownsTeam) {
+      await connection.query(
+        `
+          UPDATE team_invitations
+          SET status = 'revoked', updated_at = UTC_TIMESTAMP()
+          WHERE owner_user_id = ?
+            AND status = 'pending'
+        `,
+        [numericUserId]
+      );
+      await connection.query(
+        `
+          DELETE FROM team_memberships
+          WHERE owner_user_id = ?
+        `,
+        [numericUserId]
+      );
+      await connection.commit();
+      sendJson(res, 200, { ok: true, data: { action: "disbanded" } });
+      return;
+    }
+
+    const [memberRows] = await connection.query(
+      `
+        SELECT owner_user_id
+        FROM team_memberships
+        WHERE member_user_id = ?
+          AND owner_user_id <> ?
+        ORDER BY joined_at DESC, id DESC
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [numericUserId, numericUserId]
+    );
+    const memberRow = memberRows[0] || null;
+    if (!memberRow) {
+      await connection.rollback();
+      sendJson(res, 409, { ok: false, error: "not in team" });
+      return;
+    }
+
+    await connection.query(
+      `
+        DELETE FROM team_memberships
+        WHERE owner_user_id = ?
+          AND member_user_id = ?
+          AND role = 'member'
+        LIMIT 1
+      `,
+      [memberRow.owner_user_id, numericUserId]
+    );
+    await connection.commit();
+    sendJson(res, 200, { ok: true, data: { action: "left" } });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        // ignore rollback errors
+      }
+    }
+    runtimeLogger.error("account_team_leave_or_disband_failed", error?.code || error?.message || error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
 async function handleAccountTeamInvitationRevoke(req, res, invitationId) {
   const user = await requireAuth(req, res);
   if (!user) return;
+
+  const founderAccess = await resolveTeamFounderAccessForUserId(user.id);
+  if (!founderAccess.allowed) {
+    sendJson(res, 403, { ok: false, error: "feature locked", feature: toTeamFeaturePayload(founderAccess) });
+    return;
+  }
 
   const numericInvitationId = Number(invitationId);
   if (!Number.isInteger(numericInvitationId) || numericInvitationId <= 0) {
@@ -8141,6 +8500,12 @@ async function handleAccountTeamInvitationRevoke(req, res, invitationId) {
 async function handleAccountTeamMemberDelete(req, res, memberUserId) {
   const user = await requireAuth(req, res);
   if (!user) return;
+
+  const founderAccess = await resolveTeamFounderAccessForUserId(user.id);
+  if (!founderAccess.allowed) {
+    sendJson(res, 403, { ok: false, error: "feature locked", feature: toTeamFeaturePayload(founderAccess) });
+    return;
+  }
 
   const numericMemberUserId = Number(memberUserId);
   if (!Number.isInteger(numericMemberUserId) || numericMemberUserId <= 0) {
@@ -14346,6 +14711,8 @@ const runtimeHandlers = {
   handleAccountConnectionsList,
   handleAccountDomainsList,
   handleAccountTeamGet,
+  handleAccountTeamCreate,
+  handleAccountTeamLeaveOrDisband,
   handleAccountTeamInvitationCreate,
   handleAccountTeamInvitationVerify,
   handleAccountDomainChallengeCreate,

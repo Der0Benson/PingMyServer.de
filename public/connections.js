@@ -20,12 +20,19 @@ const teamSummaryEl = document.getElementById("team-summary");
 const teamMessageEl = document.getElementById("team-message");
 const teamMembersListEl = document.getElementById("team-members-list");
 const teamInvitationsListEl = document.getElementById("team-invitations-list");
+const teamSetupBlockEl = document.getElementById("team-setup-block");
+const teamCreateButton = document.getElementById("team-create-btn");
+const teamLockedCopyEl = document.getElementById("team-locked-copy");
 const teamInviteForm = document.getElementById("team-invite-form");
 const teamInviteEmailEl = document.getElementById("team-invite-email");
 const teamInviteVerifyBlockEl = document.getElementById("team-invite-verify-block");
 const teamInviteVerifyForm = document.getElementById("team-invite-verify-form");
 const teamInviteTokenEl = document.getElementById("team-invite-token");
 const teamInviteCodeEl = document.getElementById("team-invite-code");
+const teamManageActionsEl = document.getElementById("team-manage-actions");
+const teamLeaveButton = document.getElementById("team-leave-btn");
+const teamColumnsEl = document.getElementById("team-columns");
+const teamInvitationsColumnEl = document.getElementById("team-invitations-column");
 
 const passwordForm = document.getElementById("password-form");
 const currentPasswordEl = document.getElementById("current-password");
@@ -45,7 +52,16 @@ const PASSWORD_MAX_LENGTH = 72;
 let sessions = [];
 let appConnections = [];
 let domains = [];
-let teamData = { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+let teamData = {
+  mode: "none",
+  owner: null,
+  members: [],
+  invitations: [],
+  joinedTeams: [],
+  permissions: {},
+  feature: {},
+  limits: {},
+};
 let user = null;
 let loadingSessions = false;
 let loadingAppConnections = false;
@@ -418,6 +434,36 @@ function ensureTeamInviteVerifyVisible(token) {
   teamInviteTokenEl.value = safeToken;
 }
 
+function normalizeTeamMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "owner" || normalized === "member" || normalized === "none") return normalized;
+  return "none";
+}
+
+function toTeamPriceLabel(value, fallback = "20") {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return fallback;
+  if (Number.isInteger(numeric)) return String(numeric);
+  return String(Math.round(numeric * 100) / 100);
+}
+
+function getTeamFeatureLockedMessage(feature) {
+  const reason = String(feature?.founderReason || "").trim().toLowerCase();
+  const price = toTeamPriceLabel(feature?.monthlyPriceEur, "20");
+  if (reason === "admin_only") {
+    return t(
+      "connections.team.feature.owner_only",
+      null,
+      "Team gruenden ist aktuell nur fuer den Seiten-Admin freigeschaltet."
+    );
+  }
+  return t(
+    "connections.team.feature.plan_required",
+    { price },
+    `Team gruenden ist im Pro/Team Abo enthalten (ca. ${price} EUR pro Monat).`
+  );
+}
+
 function formatTeamInvitationExpiresAt(ts) {
   if (!Number.isFinite(ts)) return t("common.unknown", null, "unknown");
   const diffMs = ts - Date.now();
@@ -427,7 +473,18 @@ function formatTeamInvitationExpiresAt(ts) {
 
 function renderTeamMembers() {
   if (!teamMembersListEl) return;
+  const mode = normalizeTeamMode(teamData?.mode);
+  const permissions = teamData?.permissions && typeof teamData.permissions === "object" ? teamData.permissions : {};
+  const canManageMembers = permissions.canManageMembers === true;
   const members = Array.isArray(teamData?.members) ? teamData.members : [];
+
+  if (mode === "none") {
+    renderEmptyTeamMembers(
+      t("connections.team.members.empty_title", null, "No team members."),
+      t("connections.team.members.empty_body", null, "Create a team first to invite members.")
+    );
+    return;
+  }
 
   if (!members.length) {
     renderEmptyTeamMembers(
@@ -444,7 +501,7 @@ function renderTeamMembers() {
     if (!Number.isInteger(userId) || userId <= 0 || !email) continue;
 
     const role = String(member?.role || "member").trim().toLowerCase() === "owner" ? "owner" : "member";
-    const canRemove = role !== "owner";
+    const canRemove = canManageMembers && role !== "owner";
     const row = document.createElement("article");
     row.className = "team-item";
     row.innerHTML = `
@@ -486,6 +543,15 @@ function renderTeamMembers() {
 
 function renderTeamInvitations() {
   if (!teamInvitationsListEl) return;
+  const mode = normalizeTeamMode(teamData?.mode);
+  const permissions = teamData?.permissions && typeof teamData.permissions === "object" ? teamData.permissions : {};
+  if (mode !== "owner" || permissions.canManageInvitations !== true) {
+    renderEmptyTeamInvitations(
+      t("connections.team.invites.empty_title", null, "No open invitations."),
+      t("connections.team.invites.owner_only_body", null, "Only team owners can manage invitations.")
+    );
+    return;
+  }
   const invitations = Array.isArray(teamData?.invitations) ? teamData.invitations : [];
 
   if (!invitations.length) {
@@ -540,22 +606,85 @@ function renderTeamInvitations() {
 }
 
 function renderTeamSection() {
+  const mode = normalizeTeamMode(teamData?.mode);
+  const permissions = teamData?.permissions && typeof teamData.permissions === "object" ? teamData.permissions : {};
+  const feature = teamData?.feature && typeof teamData.feature === "object" ? teamData.feature : {};
   const members = Array.isArray(teamData?.members) ? teamData.members : [];
   const invitations = Array.isArray(teamData?.invitations) ? teamData.invitations : [];
   const owner = teamData?.owner && typeof teamData.owner === "object" ? teamData.owner : null;
   const ownerEmail = String(owner?.email || "").trim();
 
-  setTeamSummary(
-    t(
-      "connections.team.summary",
-      {
-        members: members.length,
-        invitations: invitations.length,
-        owner: ownerEmail || t("common.unknown", null, "unknown"),
-      },
-      `Owner ${ownerEmail || "unknown"} | ${members.length} members | ${invitations.length} open invitations`
-    )
-  );
+  if (mode === "owner") {
+    setTeamSummary(
+      t(
+        "connections.team.summary_owner",
+        {
+          members: members.length,
+          invitations: invitations.length,
+          owner: ownerEmail || t("common.unknown", null, "unknown"),
+        },
+        `Owner ${ownerEmail || "unknown"} | ${members.length} members | ${invitations.length} open invitations`
+      )
+    );
+  } else if (mode === "member") {
+    setTeamSummary(
+      t(
+        "connections.team.summary_member",
+        {
+          members: members.length,
+          owner: ownerEmail || t("common.unknown", null, "unknown"),
+        },
+        `Member in team of ${ownerEmail || "unknown"} | ${members.length} members`
+      )
+    );
+  } else {
+    setTeamSummary(t("connections.team.summary_none", null, "No active team."));
+  }
+
+  if (teamSetupBlockEl) {
+    teamSetupBlockEl.hidden = mode !== "none";
+  }
+  if (teamCreateButton) {
+    const canCreate = mode === "none" && permissions.canCreate === true;
+    teamCreateButton.hidden = mode !== "none" || !canCreate;
+    teamCreateButton.disabled = !canCreate;
+  }
+  if (teamLockedCopyEl) {
+    const showLocked = mode === "none" && permissions.canCreate !== true;
+    teamLockedCopyEl.hidden = !showLocked;
+    if (showLocked) {
+      teamLockedCopyEl.textContent = getTeamFeatureLockedMessage(feature);
+    } else {
+      teamLockedCopyEl.textContent = "";
+    }
+  }
+
+  if (teamInviteForm) {
+    teamInviteForm.hidden = mode !== "owner" || permissions.canInvite !== true;
+  }
+  if (teamColumnsEl) {
+    teamColumnsEl.hidden = mode === "none";
+  }
+  if (teamInvitationsColumnEl) {
+    teamInvitationsColumnEl.hidden = mode !== "owner" || permissions.canManageInvitations !== true;
+  }
+
+  const canLeave = permissions.canLeave === true;
+  const canDisband = permissions.canDisband === true;
+  if (teamManageActionsEl) {
+    teamManageActionsEl.hidden = !(canLeave || canDisband);
+  }
+  if (teamLeaveButton) {
+    const action = canDisband ? "disband" : canLeave ? "leave" : "";
+    teamLeaveButton.setAttribute("data-team-action", action);
+    if (action === "disband") {
+      teamLeaveButton.textContent = t("connections.team.actions.disband_button", null, "Disband team");
+    } else if (action === "leave") {
+      teamLeaveButton.textContent = t("connections.team.actions.leave_button", null, "Leave team");
+    } else {
+      teamLeaveButton.textContent = "";
+    }
+  }
 
   renderTeamMembers();
   renderTeamInvitations();
@@ -909,7 +1038,7 @@ async function loadTeam() {
       return;
     }
     if (!response.ok || !payload?.ok) {
-      teamData = { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+      teamData = { mode: "none", owner: null, members: [], invitations: [], joinedTeams: [], permissions: {}, feature: {}, limits: {} };
       renderEmptyTeamMembers(
         t("common.error_loading", null, "Error while loading."),
         t("common.try_again_later", null, "Please try again later.")
@@ -924,10 +1053,10 @@ async function loadTeam() {
 
     teamData = payload?.data && typeof payload.data === "object"
       ? payload.data
-      : { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+      : { mode: "none", owner: null, members: [], invitations: [], joinedTeams: [], permissions: {}, feature: {}, limits: {} };
     renderTeamSection();
   } catch (error) {
-    teamData = { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+    teamData = { mode: "none", owner: null, members: [], invitations: [], joinedTeams: [], permissions: {}, feature: {}, limits: {} };
     renderEmptyTeamMembers(
       t("common.connection_failed", null, "Connection failed."),
       t("common.try_again_later", null, "Please try again later.")
@@ -939,6 +1068,83 @@ async function loadTeam() {
     setTeamSummary(t("common.connection_failed", null, "Connection failed."));
   } finally {
     loadingTeam = false;
+  }
+}
+
+async function createTeamRequest() {
+  setPanelMessage(teamMessageEl, t("connections.team.msg.creating_team", null, "Creating team..."));
+  if (teamCreateButton) teamCreateButton.disabled = true;
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/team/create", {
+      method: "POST",
+    });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      const errorCode = String(payload?.error || "").toLowerCase();
+      if (errorCode === "feature locked") {
+        setPanelMessage(teamMessageEl, getTeamFeatureLockedMessage(payload?.feature || teamData?.feature), "error");
+      } else if (errorCode === "already in team") {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.already_in_team", null, "You are already in a team."), "error");
+      } else {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.create_failed", null, "Team could not be created."), "error");
+      }
+      return;
+    }
+
+    setPanelMessage(teamMessageEl, t("connections.team.msg.create_success", null, "Team created."), "success");
+    await loadTeam();
+  } catch (error) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.create_failed", null, "Team could not be created."), "error");
+  } finally {
+    if (teamCreateButton) teamCreateButton.disabled = false;
+  }
+}
+
+async function leaveOrDisbandTeamRequest() {
+  const action = String(teamLeaveButton?.getAttribute("data-team-action") || "").trim().toLowerCase();
+  const isDisband = action === "disband";
+  const confirmText = isDisband
+    ? t("connections.team.actions.confirm_disband", null, "Disband your team? Members and open invitations will be removed.")
+    : t("connections.team.actions.confirm_leave", null, "Leave this team?");
+  if (!window.confirm(confirmText)) return;
+
+  setPanelMessage(
+    teamMessageEl,
+    isDisband
+      ? t("connections.team.msg.disbanding", null, "Disbanding team...")
+      : t("connections.team.msg.leaving", null, "Leaving team...")
+  );
+  if (teamLeaveButton) teamLeaveButton.disabled = true;
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/team", {
+      method: "DELETE",
+    });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(teamMessageEl, t("connections.team.msg.leave_failed", null, "Team action failed."), "error");
+      await loadTeam();
+      return;
+    }
+
+    const resultAction = String(payload?.data?.action || "").trim().toLowerCase();
+    if (resultAction === "disbanded") {
+      setPanelMessage(teamMessageEl, t("connections.team.msg.disband_success", null, "Team disbanded."), "success");
+    } else {
+      setPanelMessage(teamMessageEl, t("connections.team.msg.leave_success", null, "You left the team."), "success");
+    }
+    await loadTeam();
+  } catch (error) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.leave_failed", null, "Team action failed."), "error");
+  } finally {
+    if (teamLeaveButton) teamLeaveButton.disabled = false;
   }
 }
 
@@ -963,8 +1169,18 @@ async function createTeamInvitationRequest(email) {
 
     if (!response.ok || !payload?.ok) {
       const errorCode = String(payload?.error || "").toLowerCase();
-      if (errorCode === "already member") {
+      if (errorCode === "feature locked") {
+        setPanelMessage(teamMessageEl, getTeamFeatureLockedMessage(payload?.feature || teamData?.feature), "error");
+      } else if (errorCode === "already member") {
         setPanelMessage(teamMessageEl, t("connections.team.msg.already_member", null, "This user is already in your team."), "error");
+      } else if (errorCode === "already in other team") {
+        setPanelMessage(
+          teamMessageEl,
+          t("connections.team.msg.already_in_other_team", null, "This user is already in another team."),
+          "error"
+        );
+      } else if (errorCode === "team not created") {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.team_not_created", null, "Create a team first."), "error");
       } else if (errorCode === "self invite forbidden") {
         setPanelMessage(teamMessageEl, t("connections.team.msg.self_invite", null, "You cannot invite your own email."), "error");
       } else if (errorCode === "verification unavailable") {
@@ -1029,7 +1245,9 @@ async function verifyTeamInvitation() {
 
     if (!response.ok || !payload?.ok) {
       const errorCode = String(payload?.error || "").toLowerCase();
-      if (errorCode === "invitation email mismatch") {
+      if (errorCode === "feature locked") {
+        setPanelMessage(teamMessageEl, getTeamFeatureLockedMessage(payload?.feature || teamData?.feature), "error");
+      } else if (errorCode === "invitation email mismatch") {
         setPanelMessage(
           teamMessageEl,
           t(
@@ -1037,6 +1255,12 @@ async function verifyTeamInvitation() {
             null,
             "You must sign in with the invited email address before confirming."
           ),
+          "error"
+        );
+      } else if (errorCode === "team membership conflict") {
+        setPanelMessage(
+          teamMessageEl,
+          t("connections.team.msg.team_membership_conflict", null, "Leave your current team before joining another one."),
           "error"
         );
       } else if (errorCode === "invalid code") {
@@ -1099,7 +1323,11 @@ async function revokeTeamInvitation(invitationId) {
       return;
     }
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_failed", null, "Invitation could not be revoked."), "error");
+      if (String(payload?.error || "").toLowerCase() === "feature locked") {
+        setPanelMessage(teamMessageEl, getTeamFeatureLockedMessage(payload?.feature || teamData?.feature), "error");
+      } else {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_failed", null, "Invitation could not be revoked."), "error");
+      }
       return;
     }
     setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_success", null, "Invitation revoked."), "success");
@@ -1129,7 +1357,11 @@ async function removeTeamMember(memberUserId) {
       return;
     }
     if (!response.ok || !payload?.ok) {
-      setPanelMessage(teamMessageEl, t("connections.team.msg.member_remove_failed", null, "Team member could not be removed."), "error");
+      if (String(payload?.error || "").toLowerCase() === "feature locked") {
+        setPanelMessage(teamMessageEl, getTeamFeatureLockedMessage(payload?.feature || teamData?.feature), "error");
+      } else {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.member_remove_failed", null, "Team member could not be removed."), "error");
+      }
       return;
     }
     setPanelMessage(teamMessageEl, t("connections.team.msg.member_removed", null, "Team member removed."), "success");
@@ -1656,6 +1888,22 @@ function bindEvents() {
 
   if (teamInviteVerifyForm) {
     teamInviteVerifyForm.addEventListener("submit", handleTeamInviteVerifySubmit);
+  }
+
+  if (teamCreateButton) {
+    teamCreateButton.addEventListener("click", () => {
+      createTeamRequest().catch(() => {
+        // ignore
+      });
+    });
+  }
+
+  if (teamLeaveButton) {
+    teamLeaveButton.addEventListener("click", () => {
+      leaveOrDisbandTeamRequest().catch(() => {
+        // ignore
+      });
+    });
   }
 
   if (teamMembersListEl) {

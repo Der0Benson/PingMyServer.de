@@ -46,6 +46,8 @@ async function handleDispatchedRoutes(context) {
       handleAccountConnectionsList: handlers.handleAccountConnectionsList,
       handleAccountDomainsList: handlers.handleAccountDomainsList,
       handleAccountTeamGet: handlers.handleAccountTeamGet,
+      handleAccountTeamCreate: handlers.handleAccountTeamCreate,
+      handleAccountTeamLeaveOrDisband: handlers.handleAccountTeamLeaveOrDisband,
       handleAccountTeamInvitationCreate: handlers.handleAccountTeamInvitationCreate,
       handleAccountTeamInvitationVerify: handlers.handleAccountTeamInvitationVerify,
       handleAccountDomainChallengeCreate: handlers.handleAccountDomainChallengeCreate,
