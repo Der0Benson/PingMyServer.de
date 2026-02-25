@@ -11,6 +11,16 @@ async function handleSystemRoutes(context) {
     return true;
   }
 
+  if (method === "GET" && pathname === "/api/landing/ratings") {
+    await handlers.handleLandingRatingsGet(req, res, url);
+    return true;
+  }
+
+  if (method === "POST" && pathname === "/api/landing/ratings") {
+    await handlers.handleLandingRatingsCreate(req, res, url);
+    return true;
+  }
+
   if (method === "POST" && pathname === "/stripe/webhook") {
     await handlers.handleStripeWebhook(req, res);
     return true;

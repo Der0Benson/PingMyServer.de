@@ -788,6 +788,26 @@ const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
 const SESSION_TOKEN_HASH_SECRET = readEnvString("SESSION_TOKEN_HASH_SECRET", MYSQL_PASSWORD, { trim: false });
+const LANDING_RATING_HASH_SECRET = readEnvString("LANDING_RATING_HASH_SECRET", SESSION_TOKEN_HASH_SECRET, { trim: false });
+const LANDING_RATING_COMMENT_MAX_LENGTH = readEnvNumber("LANDING_RATING_COMMENT_MAX_LENGTH", 300, {
+  integer: true,
+  min: 0,
+  max: 2000,
+});
+const LANDING_RATING_RECENT_LIMIT = readEnvNumber("LANDING_RATING_RECENT_LIMIT", 8, {
+  integer: true,
+  min: 1,
+  max: 50,
+});
+const LANDING_RATING_IP_COOLDOWN_MS = readEnvNumber(
+  "LANDING_RATING_IP_COOLDOWN_MS",
+  12 * 60 * 60 * 1000,
+  {
+    integer: true,
+    min: 60 * 1000,
+    max: 30 * 24 * 60 * 60 * 1000,
+  }
+);
 const SESSION_TOKEN_HASH_PBKDF2_ITERATIONS = 120000;
 const SESSION_TOKEN_HASH_PBKDF2_KEYLEN = 32;
 const SESSION_TOKEN_HASH_PBKDF2_DIGEST = "sha256";
@@ -6057,6 +6077,20 @@ async function initDb() {
       fs_free_bytes BIGINT UNSIGNED NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_owner_db_storage_sampled_at (sampled_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS landing_ratings (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      rating TINYINT UNSIGNED NOT NULL,
+      comment VARCHAR(2000) NULL,
+      language VARCHAR(8) NOT NULL DEFAULT 'de',
+      ip_hash CHAR(64) NOT NULL,
+      user_agent VARCHAR(255) NULL,
+      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      INDEX idx_landing_ratings_created_at (created_at),
+      INDEX idx_landing_ratings_ip_created_at (ip_hash, created_at)
     )
   `);
 
@@ -12984,7 +13018,191 @@ async function getMetricsForMonitorAtLocation(monitor, location) {
   return getMetricsForMonitor(monitor);
 }
 
+function normalizeLandingRatingValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  const normalized = Math.trunc(numeric);
+  if (normalized < 1 || normalized > 5) return null;
+  return normalized;
+}
+
+function normalizeLandingRatingComment(value) {
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.slice(0, LANDING_RATING_COMMENT_MAX_LENGTH);
+}
+
+function hashLandingRatingIp(ip) {
+  return crypto
+    .createHash("sha256")
+    .update(String(LANDING_RATING_HASH_SECRET || ""))
+    .update(":")
+    .update(String(ip || "unknown"))
+    .digest("hex");
+}
+
+function buildLandingRatingDistributionMap() {
+  return {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  };
+}
+
+function serializeLandingRatingEntry(row) {
+  const rating = normalizeLandingRatingValue(row?.rating) || 0;
+  const comment = String(row?.comment || "").trim();
+  const language = normalizeNotificationLanguage(row?.language || "de", "de");
+  const createdAt = toMs(row?.created_at);
+  return {
+    rating,
+    comment: comment || null,
+    language,
+    createdAt: Number.isFinite(createdAt) ? createdAt : null,
+  };
+}
+
+async function getLandingRatingsSnapshot(options = {}) {
+  const recentLimitRaw = Number(options?.recentLimit);
+  const recentLimit = Number.isFinite(recentLimitRaw)
+    ? Math.max(1, Math.min(LANDING_RATING_RECENT_LIMIT, Math.trunc(recentLimitRaw)))
+    : LANDING_RATING_RECENT_LIMIT;
+
+  const [[summaryRow]] = await pool.query(`
+    SELECT
+      COUNT(*) AS total,
+      AVG(rating) AS avg_rating
+    FROM landing_ratings
+  `);
+
+  const [distributionRows] = await pool.query(`
+    SELECT
+      rating,
+      COUNT(*) AS hits
+    FROM landing_ratings
+    GROUP BY rating
+  `);
+
+  const [recentRows] = await pool.query(
+    `
+      SELECT
+        rating,
+        comment,
+        language,
+        created_at
+      FROM landing_ratings
+      WHERE comment IS NOT NULL AND comment <> ''
+      ORDER BY created_at DESC
+      LIMIT ?
+    `,
+    [recentLimit]
+  );
+
+  const total = Math.max(0, Number(summaryRow?.total || 0));
+  const avgRaw = Number(summaryRow?.avg_rating);
+  const average = Number.isFinite(avgRaw) ? Math.round(avgRaw * 100) / 100 : null;
+
+  const distribution = buildLandingRatingDistributionMap();
+  for (const row of distributionRows || []) {
+    const rating = normalizeLandingRatingValue(row?.rating);
+    if (!rating) continue;
+    distribution[rating] = Math.max(0, Number(row?.hits || 0));
+  }
+
+  const recent = Array.isArray(recentRows) ? recentRows.map(serializeLandingRatingEntry).filter((entry) => !!entry.comment) : [];
+
+  return {
+    average,
+    total,
+    distribution,
+    recent,
+  };
+}
+
+async function handleLandingRatingsGet(req, res) {
+  try {
+    const data = await getLandingRatingsSnapshot({ recentLimit: LANDING_RATING_RECENT_LIMIT });
+    sendJson(res, 200, { ok: true, data });
+  } catch (error) {
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleLandingRatingsCreate(req, res) {
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error?.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const rating = normalizeLandingRatingValue(body?.rating);
+  if (!rating) {
+    sendJson(res, 400, { ok: false, error: "invalid rating" });
+    return;
+  }
+
+  const comment = normalizeLandingRatingComment(body?.comment);
+  const language = normalizeNotificationLanguage(body?.language || body?.lang || "de", "de");
+  const clientIp = getClientIp(req);
+  const ipHash = hashLandingRatingIp(clientIp);
+  const userAgentRaw = String(req?.headers?.["user-agent"] || "").trim();
+  const userAgent = userAgentRaw ? userAgentRaw.slice(0, 255) : null;
+
+  try {
+    const [latestRows] = await pool.query(
+      `
+        SELECT created_at
+        FROM landing_ratings
+        WHERE ip_hash = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [ipHash]
+    );
+
+    const latest = latestRows && latestRows.length ? latestRows[0] : null;
+    const now = Date.now();
+    const latestAt = toMs(latest?.created_at);
+    if (Number.isFinite(latestAt) && now - latestAt < LANDING_RATING_IP_COOLDOWN_MS) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((LANDING_RATING_IP_COOLDOWN_MS - (now - latestAt)) / 1000));
+      sendJson(
+        res,
+        429,
+        { ok: false, error: "cooldown", retryAfterSeconds },
+        { "Retry-After": String(retryAfterSeconds) }
+      );
+      return;
+    }
+
+    await pool.query(
+      `
+        INSERT INTO landing_ratings (
+          rating,
+          comment,
+          language,
+          ip_hash,
+          user_agent,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, ?, NOW(3))
+      `,
+      [rating, comment || null, language, ipHash, userAgent]
+    );
+
+    const data = await getLandingRatingsSnapshot({ recentLimit: LANDING_RATING_RECENT_LIMIT });
+    sendJson(res, 201, { ok: true, data });
+  } catch (error) {
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
 const runtimeHandlers = {
+  handleLandingRatingsGet,
+  handleLandingRatingsCreate,
   handleAuthDiscordStart,
   handleAuthDiscordCallback,
   handleAuthGithubStart,
