@@ -34,6 +34,18 @@
   const mobileMenuToggle = document.getElementById("landing-mobile-menu-toggle");
   const mobileMenu = document.getElementById("landing-mobile-menu");
   const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
+  const ratingForm = document.getElementById("landing-rating-form");
+  const ratingAverageEl = document.getElementById("landing-rating-average");
+  const ratingAverageMetaEl = document.getElementById("landing-rating-average-meta");
+  const ratingDistributionEl = document.getElementById("landing-rating-distribution");
+  const ratingRecentListEl = document.getElementById("landing-rating-recent-list");
+  const ratingMessageEl = document.getElementById("landing-rating-message");
+  const ratingCommentEl = document.getElementById("landing-rating-comment");
+  const ratingSubmitEl = document.getElementById("landing-rating-submit");
+  const ratingStarButtons = Array.from(document.querySelectorAll("#landing-rating-stars .landing-star-btn"));
+
+  let selectedLandingRating = 0;
+  let isSubmittingLandingRating = false;
 
   const stateTextClasses = ["text-green-400", "text-orange-400", "text-slate-400"];
   const liveDotClasses = ["bg-green-400", "bg-yellow-500", "bg-slate-700"];
@@ -127,6 +139,9 @@
     registerTargets(".landing-hero .floating > .glass-effect", { baseDelay: 250, variant: "reveal-pop" });
     registerTargets(".landing-social-proof .text-center", { baseDelay: 30, variant: "reveal-pop" });
     registerTargets(".landing-social-proof .grid > div", { step: 85, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-rating .text-center", { baseDelay: 30, variant: "reveal-pop" });
+    registerTargets(".landing-rating-grid > *", { step: 90, baseDelay: 70, variant: "reveal-pop" });
+    registerTargets(".landing-rating-recent", { baseDelay: 110, variant: "reveal-pop" });
     registerTargets(".landing-features .text-center", { baseDelay: 20 });
     registerTargets(".landing-features .feature-card", { step: 75, baseDelay: 60, variant: "reveal-pop" });
     registerTargets(".landing-about .text-center", { baseDelay: 20 });
@@ -501,6 +516,242 @@
     }
   }
 
+  async function fetchJsonResponse(url, options = {}) {
+    try {
+      const response = await fetch(url, { cache: "no-store", ...options });
+      const payload = await response.json().catch(() => null);
+      return {
+        ok: response.ok,
+        status: response.status,
+        retryAfter: Number(response.headers.get("Retry-After") || 0) || 0,
+        payload,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 0,
+        retryAfter: 0,
+        payload: null,
+      };
+    }
+  }
+
+  function renderLandingRatingStars(value) {
+    const normalized = Number.isFinite(Number(value)) ? Math.max(0, Math.min(5, Number(value))) : 0;
+    ratingStarButtons.forEach((button) => {
+      const current = Number(button.dataset.value || 0);
+      const active = current > 0 && current <= normalized;
+      const selected = current > 0 && current === normalized;
+      button.classList.toggle("is-active", active);
+      button.textContent = active ? "★" : "☆";
+      button.setAttribute("aria-checked", String(selected));
+    });
+  }
+
+  function setLandingRatingMessage(kind, text) {
+    if (!ratingMessageEl) return;
+    ratingMessageEl.classList.remove("is-success", "is-error");
+    if (kind === "success") ratingMessageEl.classList.add("is-success");
+    if (kind === "error") ratingMessageEl.classList.add("is-error");
+    ratingMessageEl.textContent = text || "";
+  }
+
+  function totalRatingsLabel(total) {
+    const safeTotal = Math.max(0, Number(total || 0));
+    if (safeTotal <= 0) return t("landing.rating.no_votes", null, "Noch keine Bewertungen");
+    return t(
+      safeTotal === 1 ? "landing.rating.total_one" : "landing.rating.total_many",
+      { n: safeTotal },
+      `${safeTotal} Bewertungen`
+    );
+  }
+
+  function buildRatingStarsLabel(rating) {
+    const safeRating = Number.isFinite(Number(rating)) ? Math.max(1, Math.min(5, Math.trunc(Number(rating)))) : 0;
+    if (!safeRating) return "☆☆☆☆☆";
+    return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`;
+  }
+
+  function renderLandingRatingDistribution(distribution, total) {
+    if (!ratingDistributionEl) return;
+    ratingDistributionEl.innerHTML = "";
+
+    const totalVotes = Math.max(0, Number(total || 0));
+    for (let rating = 5; rating >= 1; rating -= 1) {
+      const hits = Math.max(0, Number(distribution?.[rating] || 0));
+      const ratio = totalVotes > 0 ? hits / totalVotes : 0;
+      const row = document.createElement("div");
+      row.className = "landing-rating-dist-row";
+
+      const label = document.createElement("span");
+      label.className = "landing-rating-dist-label";
+      label.textContent = `${rating}★`;
+
+      const track = document.createElement("div");
+      track.className = "landing-rating-dist-track";
+
+      const fill = document.createElement("div");
+      fill.className = "landing-rating-dist-fill";
+      fill.style.width = `${Math.round(ratio * 100)}%`;
+      track.appendChild(fill);
+
+      const count = document.createElement("span");
+      count.className = "landing-rating-dist-count";
+      count.textContent = String(hits);
+
+      row.appendChild(label);
+      row.appendChild(track);
+      row.appendChild(count);
+      ratingDistributionEl.appendChild(row);
+    }
+  }
+
+  function renderLandingRatingRecent(recentItems) {
+    if (!ratingRecentListEl) return;
+    const items = Array.isArray(recentItems) ? recentItems : [];
+    ratingRecentListEl.innerHTML = "";
+
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "landing-rating-empty";
+      empty.textContent = t("landing.rating.recent_empty", null, "Noch keine Rückmeldungen.");
+      ratingRecentListEl.appendChild(empty);
+      return;
+    }
+
+    items.slice(0, 10).forEach((entry) => {
+      const item = document.createElement("article");
+      item.className = "landing-rating-recent-item";
+
+      const head = document.createElement("div");
+      head.className = "landing-rating-recent-head";
+
+      const stars = document.createElement("span");
+      stars.className = "landing-rating-recent-stars";
+      stars.textContent = buildRatingStarsLabel(entry?.rating);
+
+      const time = document.createElement("span");
+      const createdAt = Number(entry?.createdAt || 0);
+      time.textContent =
+        createdAt > 0
+          ? formatTimeAgo(Math.max(0, Date.now() - createdAt))
+          : t("common.not_available", null, "n/a");
+
+      const comment = document.createElement("p");
+      comment.className = "landing-rating-recent-comment";
+      comment.textContent = String(entry?.comment || "").trim();
+
+      head.appendChild(stars);
+      head.appendChild(time);
+      item.appendChild(head);
+      item.appendChild(comment);
+      ratingRecentListEl.appendChild(item);
+    });
+  }
+
+  function renderLandingRatingSummary(data) {
+    if (!ratingAverageEl || !ratingAverageMetaEl) return;
+    const total = Math.max(0, Number(data?.total || 0));
+    const averageRaw = Number(data?.average);
+    const averageLabel = Number.isFinite(averageRaw)
+      ? t("landing.rating.average_value", { value: averageRaw.toFixed(2) }, `${averageRaw.toFixed(2)} / 5`)
+      : t("landing.rating.average_empty", null, "-- / 5");
+
+    ratingAverageEl.textContent = averageLabel;
+    ratingAverageMetaEl.textContent = totalRatingsLabel(total);
+    renderLandingRatingDistribution(data?.distribution || null, total);
+    renderLandingRatingRecent(data?.recent || []);
+  }
+
+  async function loadLandingRatings() {
+    const response = await fetchJsonResponse("/api/landing/ratings");
+    if (response.ok && response.payload?.ok && response.payload?.data) {
+      renderLandingRatingSummary(response.payload.data);
+      return true;
+    }
+
+    if (ratingAverageMetaEl) {
+      ratingAverageMetaEl.textContent = t("landing.rating.load_failed", null, "Bewertungen konnten nicht geladen werden.");
+    }
+    renderLandingRatingDistribution(null, 0);
+    renderLandingRatingRecent([]);
+    return false;
+  }
+
+  function updateLandingSubmitState(isSubmitting) {
+    if (!ratingSubmitEl) return;
+    ratingSubmitEl.disabled = isSubmitting;
+    ratingSubmitEl.textContent = isSubmitting
+      ? t("landing.rating.form.submitting", null, "Wird gesendet ...")
+      : t("landing.rating.form.submit", null, "Bewertung senden");
+  }
+
+  function initLandingRatingSection() {
+    if (!ratingForm || !ratingStarButtons.length) return;
+
+    renderLandingRatingStars(0);
+    loadLandingRatings();
+
+    ratingStarButtons.forEach((button) => {
+      button.setAttribute("role", "radio");
+      button.setAttribute("aria-checked", "false");
+      button.addEventListener("click", () => {
+        const value = Number(button.dataset.value || 0);
+        selectedLandingRating = Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : 0;
+        renderLandingRatingStars(selectedLandingRating);
+        setLandingRatingMessage("", "");
+      });
+    });
+
+    ratingForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (isSubmittingLandingRating) return;
+
+      if (!selectedLandingRating) {
+        setLandingRatingMessage("error", t("landing.rating.msg.select_rating", null, "Bitte zuerst Sterne auswählen."));
+        return;
+      }
+
+      isSubmittingLandingRating = true;
+      updateLandingSubmitState(true);
+      setLandingRatingMessage("", "");
+
+      const comment = String(ratingCommentEl?.value || "").trim();
+      const response = await fetchJsonResponse("/api/landing/ratings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rating: selectedLandingRating,
+          comment,
+          language: i18nLang(),
+        }),
+      });
+
+      if (response.ok && response.payload?.ok && response.payload?.data) {
+        selectedLandingRating = 0;
+        if (ratingCommentEl) ratingCommentEl.value = "";
+        renderLandingRatingStars(0);
+        renderLandingRatingSummary(response.payload.data);
+        setLandingRatingMessage("success", t("landing.rating.msg.saved", null, "Danke für deine Bewertung!"));
+      } else if (response.status === 429 || response.payload?.error === "cooldown") {
+        const retryAfterSeconds =
+          Number(response.payload?.retryAfterSeconds || 0) || Number(response.retryAfter || 0) || 0;
+        const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+        setLandingRatingMessage(
+          "error",
+          t("landing.rating.msg.cooldown", { minutes }, `Du hast bereits bewertet. Bitte in ${minutes} Minuten erneut versuchen.`)
+        );
+      } else {
+        setLandingRatingMessage("error", t("landing.rating.msg.failed", null, "Bewertung konnte nicht gesendet werden."));
+      }
+
+      isSubmittingLandingRating = false;
+      updateLandingSubmitState(false);
+    });
+  }
+
   async function loadMetricsForMonitorId(monitorId) {
     const payload = await fetchJsonPayload(`/api/monitors/${encodeURIComponent(monitorId)}/metrics`);
     if (!payload?.ok || !payload.data) return null;
@@ -590,6 +841,7 @@
   }
 
   initRevealAnimations();
+  initLandingRatingSection();
   loadPreviewData();
   setInterval(loadPreviewData, previewPollIntervalMs);
 })();

@@ -33,6 +33,8 @@ function createLegacyRequestHandlerFactory(dependencies = {}) {
       res,
       url,
       handlers: {
+        handleLandingRatingsGet: handlers.handleLandingRatingsGet,
+        handleLandingRatingsCreate: handlers.handleLandingRatingsCreate,
         handleStripeWebhook: handlers.handleStripeWebhook,
         handleAccountEmailNotificationUnsubscribe: handlers.handleAccountEmailNotificationUnsubscribe,
       },
