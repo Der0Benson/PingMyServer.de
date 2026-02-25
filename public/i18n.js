@@ -308,7 +308,6 @@
         },
         rating: {
           h2: "Wie gefällt dir PingMyServer?",
-          sub: "Bewerte die Startseite in 5 Sekunden.",
           loading: "Bewertungen werden geladen ...",
           no_votes: "Noch keine Bewertungen",
           total_one: "{n} Bewertung",
@@ -1969,7 +1968,6 @@
         },
         rating: {
           h2: "How do you like PingMyServer?",
-          sub: "Rate the landing page in 5 seconds.",
           loading: "Loading ratings ...",
           no_votes: "No ratings yet",
           total_one: "{n} rating",
