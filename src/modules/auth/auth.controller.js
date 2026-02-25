@@ -82,6 +82,97 @@ function createAuthController(dependencies = {}) {
     runtimeLogger,
   } = dependencies;
 
+  function isDuplicateEntryError(error) {
+    return String(error?.code || "").trim() === "ER_DUP_ENTRY";
+  }
+
+  async function recoverGithubUserAfterCreateConflict(email, githubId, githubLogin) {
+    const userByGithub = await findUserByGithubId(githubId);
+    if (userByGithub) {
+      const userId = Number(userByGithub.id);
+      if (Number.isFinite(userId) && userId > 0) {
+        await linkGithubToUser(userId, githubId, githubLogin);
+        return { userId };
+      }
+    }
+
+    const userByEmail = await findUserByEmail(email);
+    if (!userByEmail) {
+      return { userId: null, conflict: false };
+    }
+
+    const existingGithubId = String(userByEmail.github_id || "").trim();
+    if (existingGithubId && existingGithubId !== githubId) {
+      return { userId: null, conflict: true };
+    }
+
+    const userId = Number(userByEmail.id);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return { userId: null, conflict: false };
+    }
+
+    await linkGithubToUser(userId, githubId, githubLogin);
+    return { userId, conflict: false };
+  }
+
+  async function recoverGoogleUserAfterCreateConflict(email, googleSub) {
+    const userByGoogle = await findUserByGoogleSub(googleSub);
+    if (userByGoogle) {
+      const userId = Number(userByGoogle.id);
+      if (Number.isFinite(userId) && userId > 0) {
+        await linkGoogleToUser(userId, googleSub, email);
+        return { userId };
+      }
+    }
+
+    const userByEmail = await findUserByEmail(email);
+    if (!userByEmail) {
+      return { userId: null, conflict: false };
+    }
+
+    const existingGoogleSub = String(userByEmail.google_sub || "").trim();
+    if (existingGoogleSub && existingGoogleSub !== googleSub) {
+      return { userId: null, conflict: true };
+    }
+
+    const userId = Number(userByEmail.id);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return { userId: null, conflict: false };
+    }
+
+    await linkGoogleToUser(userId, googleSub, email);
+    return { userId, conflict: false };
+  }
+
+  async function recoverDiscordUserAfterCreateConflict(email, discordId, discordLogin) {
+    const userByDiscord = await findUserByDiscordId(discordId);
+    if (userByDiscord) {
+      const userId = Number(userByDiscord.id);
+      if (Number.isFinite(userId) && userId > 0) {
+        await linkDiscordToUser(userId, discordId, discordLogin, email);
+        return { userId };
+      }
+    }
+
+    const userByEmail = await findUserByEmail(email);
+    if (!userByEmail) {
+      return { userId: null, conflict: false };
+    }
+
+    const existingDiscordId = String(userByEmail.discord_id || "").trim();
+    if (existingDiscordId && existingDiscordId !== discordId) {
+      return { userId: null, conflict: true };
+    }
+
+    const userId = Number(userByEmail.id);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return { userId: null, conflict: false };
+    }
+
+    await linkDiscordToUser(userId, discordId, discordLogin, email);
+    return { userId, conflict: false };
+  }
+
   async function handleAuthGithubStart(req, res) {
     if (!GITHUB_AUTH_ENABLED) {
       sendRedirect(res, "/login?oauth=github_disabled");
@@ -181,7 +272,20 @@ function createAuthController(dependencies = {}) {
           userId = Number(userByEmail.id);
           await linkGithubToUser(userId, githubId, githubLogin);
         } else {
-          userId = await createUserFromGithub(email, githubId, githubLogin);
+          try {
+            userId = await createUserFromGithub(email, githubId, githubLogin);
+          } catch (error) {
+            if (!isDuplicateEntryError(error)) {
+              throw error;
+            }
+
+            const recovered = await recoverGithubUserAfterCreateConflict(email, githubId, githubLogin);
+            if (recovered.conflict) {
+              sendRedirect(res, "/login?oauth=github_conflict");
+              return;
+            }
+            userId = recovered.userId;
+          }
         }
       }
   
@@ -294,7 +398,20 @@ function createAuthController(dependencies = {}) {
           userId = Number(userByEmail.id);
           await linkGoogleToUser(userId, googleSub, email);
         } else {
-          userId = await createUserFromGoogle(email, googleSub, email);
+          try {
+            userId = await createUserFromGoogle(email, googleSub, email);
+          } catch (error) {
+            if (!isDuplicateEntryError(error)) {
+              throw error;
+            }
+
+            const recovered = await recoverGoogleUserAfterCreateConflict(email, googleSub);
+            if (recovered.conflict) {
+              sendRedirect(res, "/login?oauth=google_conflict");
+              return;
+            }
+            userId = recovered.userId;
+          }
         }
       }
   
@@ -405,7 +522,20 @@ function createAuthController(dependencies = {}) {
           userId = Number(userByEmail.id);
           await linkDiscordToUser(userId, discordId, discordLogin, email);
         } else {
-          userId = await createUserFromDiscord(email, discordId, discordLogin, email);
+          try {
+            userId = await createUserFromDiscord(email, discordId, discordLogin, email);
+          } catch (error) {
+            if (!isDuplicateEntryError(error)) {
+              throw error;
+            }
+
+            const recovered = await recoverDiscordUserAfterCreateConflict(email, discordId, discordLogin);
+            if (recovered.conflict) {
+              sendRedirect(res, "/login?oauth=discord_conflict");
+              return;
+            }
+            userId = recovered.userId;
+          }
         }
       }
   
