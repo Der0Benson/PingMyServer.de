@@ -130,6 +130,75 @@
               </div>
             </section>
 
+            <section class="card wide" id="team-settings">
+              <div class="card-title" data-i18n="connections.team.title">Team</div>
+              <p class="muted sessions-summary" id="team-summary" data-i18n="connections.team.loading">Lade Team...</p>
+              <p class="panel-message" id="team-message"></p>
+
+              <form id="team-invite-form" class="team-form" novalidate autocomplete="off">
+                <label for="team-invite-email">
+                  <span data-i18n="connections.team.invite.label">E-Mail Einladung</span>
+                  <input
+                    id="team-invite-email"
+                    type="email"
+                    inputmode="email"
+                    data-i18n-placeholder="connections.team.invite.placeholder"
+                    placeholder="mitglied@example.com"
+                    required
+                  />
+                </label>
+                <div class="password-actions team-form-actions">
+                  <button class="btn primary" type="submit" data-i18n="connections.team.invite.button">Einladung senden</button>
+                </div>
+              </form>
+
+              <section class="team-verify-block" id="team-invite-verify-block" hidden>
+                <div class="team-verify-title" data-i18n="connections.team.verify.title">Teameinladung bestaetigen</div>
+                <p class="muted team-verify-copy" data-i18n="connections.team.verify.copy">
+                  Gib den Code aus der E-Mail ein und bestaetige die Einladung.
+                </p>
+                <form id="team-invite-verify-form" class="team-form" novalidate autocomplete="off">
+                  <input id="team-invite-token" type="hidden" />
+                  <label for="team-invite-code">
+                    <span data-i18n="connections.team.verify.code_label">Verifizierungscode</span>
+                    <input
+                      id="team-invite-code"
+                      type="text"
+                      inputmode="numeric"
+                      maxlength="8"
+                      data-i18n-placeholder="connections.team.verify.code_placeholder"
+                      placeholder="123456"
+                      required
+                    />
+                  </label>
+                  <div class="password-actions team-form-actions">
+                    <button class="btn primary" type="submit" data-i18n="connections.team.verify.button">Einladung bestaetigen</button>
+                  </div>
+                </form>
+              </section>
+
+              <div class="team-columns">
+                <div class="team-column">
+                  <div class="team-column-title" data-i18n="connections.team.members.title">Mitglieder</div>
+                  <div class="team-list" id="team-members-list">
+                    <div class="empty-state">
+                      <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                      <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="team-column">
+                  <div class="team-column-title" data-i18n="connections.team.invites.title">Offene Einladungen</div>
+                  <div class="team-list" id="team-invitations-list">
+                    <div class="empty-state">
+                      <div class="title" data-i18n="common.loading_data">Lade Daten...</div>
+                      <div class="muted" data-i18n="common.please_wait">Bitte kurz warten.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section class="card wide" id="domain-verification">
               <div class="card-title" data-i18n="connections.domains.title">Domain-Verifizierung</div>
               <p class="muted sessions-summary" id="domains-summary" data-i18n="connections.domains.loading">Lade Domains...</p>

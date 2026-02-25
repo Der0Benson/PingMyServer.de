@@ -721,6 +721,21 @@ const AUTH_EMAIL_VERIFICATION_CHALLENGE_RETENTION_MS = readEnvNumber(
     max: 30 * 24 * 60 * 60 * 1000,
   }
 );
+const TEAM_INVITATION_CODE_TTL_SECONDS = readEnvNumber("TEAM_INVITATION_CODE_TTL_SECONDS", 30 * 60, {
+  integer: true,
+  min: 5 * 60,
+  max: 24 * 60 * 60,
+});
+const TEAM_INVITATION_MAX_ATTEMPTS = readEnvNumber("TEAM_INVITATION_MAX_ATTEMPTS", 6, {
+  integer: true,
+  min: 1,
+  max: 20,
+});
+const TEAM_INVITATION_RETENTION_DAYS = readEnvNumber("TEAM_INVITATION_RETENTION_DAYS", 30, {
+  integer: true,
+  min: 1,
+  max: 365,
+});
 const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MIN = 1;
 const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_MAX = 1440;
 const EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT = readEnvNumber("EMAIL_NOTIFICATION_COOLDOWN_MINUTES_DEFAULT", 15, {
@@ -2802,6 +2817,207 @@ function buildAuthLoginVerificationEmailLocalized(options = {}) {
 
   return {
     subject: "Your PingMyServer login code",
+    textBody,
+    htmlBody,
+    code: normalizedCode,
+    expiresAt,
+  };
+}
+
+function buildTeamInvitationVerificationEmail(options = {}) {
+  const normalizedCode = normalizeAuthEmailVerificationCode(options.code);
+  const codeDisplay = formatAuthEmailVerificationCodeDisplay(normalizedCode) || normalizedCode;
+  const inviteUrl = String(options.inviteUrl || "").trim();
+  const invitedEmail = String(options.invitedEmail || "").trim() || "user";
+  const inviterEmail = String(options.inviterEmail || "").trim() || "team-owner";
+  const expiresAt =
+    options.expiresAt instanceof Date ? options.expiresAt : new Date(Date.now() + TEAM_INVITATION_CODE_TTL_SECONDS * 1000);
+  const expiresLabel = formatOwnerVerificationEmailTime(expiresAt);
+  const generatedAtLabel = formatOwnerVerificationEmailTime(new Date());
+  const year = new Date().getUTCFullYear();
+
+  const textBodyLines = [
+    "PingMyServer - Team Einladung",
+    "",
+    `Du wurdest in ein Team eingeladen.`,
+    `Empfaenger: ${invitedEmail}`,
+    `Einlader: ${inviterEmail}`,
+    "",
+    `Dein Verifizierungscode: ${codeDisplay}`,
+    `Gueltig bis: ${expiresLabel} (Europe/Berlin)`,
+    "",
+    "Wichtig: Zum Beitritt musst du in PingMyServer mit dieser E-Mail angemeldet sein.",
+    "Bitte teile den Code nicht mit anderen.",
+  ];
+  if (inviteUrl) {
+    textBodyLines.push("", `Einladung oeffnen: ${inviteUrl}`);
+  }
+  textBodyLines.push("", `Erstellt am: ${generatedAtLabel}`);
+
+  const textBody = textBodyLines.join("\n");
+
+  const linkHtml = inviteUrl
+    ? `<p style="margin:14px 0 0 0;">
+         <a
+           href="${escapeSmtpHtml(inviteUrl)}"
+           style="display:inline-block;padding:10px 16px;border-radius:8px;background:#123356;color:#ffffff;text-decoration:none;border:1px solid #355f8b;"
+         >Einladung in PingMyServer oeffnen</a>
+       </p>`
+    : "";
+
+  const htmlBody = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>PingMyServer Team Einladung</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e3ef;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#ffffff;">
+                <div style="font-size:20px;font-weight:800;">Team Einladung bestaetigen</div>
+                <div style="margin-top:6px;font-size:12px;color:#c8d8ec;">PingMyServer Sicherheitsnachricht</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 22px;">
+                <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
+                  Du wurdest von <strong>${escapeSmtpHtml(inviterEmail)}</strong> eingeladen.
+                  Melde dich mit <strong>${escapeSmtpHtml(invitedEmail)}</strong> an und bestaetige diesen Code:
+                </p>
+                <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
+                  ${escapeSmtpHtml(codeDisplay)}
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
+                  Gueltig bis: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
+                  Erstellt am: ${escapeSmtpHtml(generatedAtLabel)}
+                </p>
+                ${linkHtml}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 22px;background:#f5f8fc;border-top:1px solid #e6edf5;font-size:11px;line-height:1.6;color:#6d8298;">
+                PingMyServer.de - Team Einladung - (c) ${year}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "Deine PingMyServer Team Einladung",
+    textBody,
+    htmlBody,
+    code: normalizedCode,
+    expiresAt,
+  };
+}
+
+function buildTeamInvitationVerificationEmailLocalized(options = {}) {
+  const language = normalizeNotificationLanguage(options.language || options.lang, "de");
+  if (language !== "en") {
+    return buildTeamInvitationVerificationEmail(options);
+  }
+
+  const normalizedCode = normalizeAuthEmailVerificationCode(options.code);
+  const codeDisplay = formatAuthEmailVerificationCodeDisplay(normalizedCode) || normalizedCode;
+  const inviteUrl = String(options.inviteUrl || "").trim();
+  const invitedEmail = String(options.invitedEmail || "").trim() || "user";
+  const inviterEmail = String(options.inviterEmail || "").trim() || "team-owner";
+  const expiresAt =
+    options.expiresAt instanceof Date ? options.expiresAt : new Date(Date.now() + TEAM_INVITATION_CODE_TTL_SECONDS * 1000);
+  const expiresLabel = formatOwnerVerificationEmailTime(expiresAt, "en");
+  const generatedAtLabel = formatOwnerVerificationEmailTime(new Date(), "en");
+  const year = new Date().getUTCFullYear();
+
+  const textBodyLines = [
+    "PingMyServer - Team invitation",
+    "",
+    "You were invited to a team.",
+    `Recipient: ${invitedEmail}`,
+    `Invited by: ${inviterEmail}`,
+    "",
+    `Your verification code: ${codeDisplay}`,
+    `Valid until: ${expiresLabel} (Europe/Berlin)`,
+    "",
+    "Important: Sign in to PingMyServer with this email address before confirming.",
+    "Do not share this code with anyone.",
+  ];
+  if (inviteUrl) {
+    textBodyLines.push("", `Open invitation: ${inviteUrl}`);
+  }
+  textBodyLines.push("", `Generated at: ${generatedAtLabel}`);
+
+  const textBody = textBodyLines.join("\n");
+
+  const linkHtml = inviteUrl
+    ? `<p style="margin:14px 0 0 0;">
+         <a
+           href="${escapeSmtpHtml(inviteUrl)}"
+           style="display:inline-block;padding:10px 16px;border-radius:8px;background:#123356;color:#ffffff;text-decoration:none;border:1px solid #355f8b;"
+         >Open invitation in PingMyServer</a>
+       </p>`
+    : "";
+
+  const htmlBody = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>PingMyServer Team Invitation</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 10px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e3ef;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:18px 22px;background:#0f2036;color:#ffffff;">
+                <div style="font-size:20px;font-weight:800;">Confirm your team invitation</div>
+                <div style="margin-top:6px;font-size:12px;color:#c8d8ec;">PingMyServer security message</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 22px;">
+                <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
+                  <strong>${escapeSmtpHtml(inviterEmail)}</strong> invited you to a team.
+                  Sign in as <strong>${escapeSmtpHtml(invitedEmail)}</strong> and confirm this code:
+                </p>
+                <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
+                  ${escapeSmtpHtml(codeDisplay)}
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
+                  Valid until: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
+                  Generated at: ${escapeSmtpHtml(generatedAtLabel)}
+                </p>
+                ${linkHtml}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 22px;background:#f5f8fc;border-top:1px solid #e6edf5;font-size:11px;line-height:1.6;color:#6d8298;">
+                PingMyServer.de - Team invitation - (c) ${year}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: "Your PingMyServer team invitation",
     textBody,
     htmlBody,
     code: normalizedCode,
@@ -5931,6 +6147,65 @@ async function initDb() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_memberships (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      owner_user_id BIGINT NOT NULL,
+      member_user_id BIGINT NOT NULL,
+      role ENUM('owner','member') NOT NULL DEFAULT 'member',
+      invited_by_user_id BIGINT NULL,
+      joined_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_team_membership_owner_member (owner_user_id, member_user_id),
+      INDEX idx_team_memberships_member_user (member_user_id, joined_at),
+      INDEX idx_team_memberships_owner_role (owner_user_id, role, joined_at),
+      CONSTRAINT fk_team_memberships_owner_user
+        FOREIGN KEY (owner_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_team_memberships_member_user
+        FOREIGN KEY (member_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_team_memberships_invited_by_user
+        FOREIGN KEY (invited_by_user_id) REFERENCES users(id)
+        ON DELETE SET NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_invitations (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      owner_user_id BIGINT NOT NULL,
+      invited_by_user_id BIGINT NOT NULL,
+      invite_email VARCHAR(255) NOT NULL,
+      invite_token_hash CHAR(64) NOT NULL UNIQUE,
+      verification_code_hash CHAR(64) NOT NULL,
+      verification_code_last4 CHAR(4) NOT NULL,
+      attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+      max_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 6,
+      send_count SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+      status ENUM('pending','accepted','revoked','expired') NOT NULL DEFAULT 'pending',
+      last_sent_at DATETIME(3) NOT NULL,
+      expires_at DATETIME(3) NOT NULL,
+      accepted_at DATETIME(3) NULL,
+      accepted_by_user_id BIGINT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_team_invitations_owner_status (owner_user_id, status, created_at),
+      INDEX idx_team_invitations_email_status (invite_email, status, expires_at),
+      INDEX idx_team_invitations_expires (expires_at),
+      CONSTRAINT fk_team_invitations_owner_user
+        FOREIGN KEY (owner_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_team_invitations_invited_by_user
+        FOREIGN KEY (invited_by_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_team_invitations_accepted_by_user
+        FOREIGN KEY (accepted_by_user_id) REFERENCES users(id)
+        ON DELETE SET NULL
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS game_agent_pairings (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       user_id BIGINT NOT NULL,
@@ -6825,6 +7100,800 @@ async function handleAccountDomainDelete(req, res, id) {
     sendJson(res, 200, { ok: true });
   } catch (error) {
     runtimeLogger.error("account_domain_delete_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function cleanupStaleTeamInvitations() {
+  await pool.query(
+    `
+      UPDATE team_invitations
+      SET status = 'expired', updated_at = UTC_TIMESTAMP()
+      WHERE status = 'pending'
+        AND expires_at <= UTC_TIMESTAMP(3)
+    `
+  );
+
+  const retentionDays = Math.max(1, Number(TEAM_INVITATION_RETENTION_DAYS || 30));
+  const cutoff = new Date(Date.now() - retentionDays * DAY_MS);
+  await pool.query(
+    `
+      DELETE FROM team_invitations
+      WHERE status IN ('accepted', 'revoked', 'expired')
+        AND updated_at < ?
+    `,
+    [cutoff]
+  );
+}
+
+async function ensureTeamOwnerMembership(ownerUserId, queryable = pool) {
+  const numericOwnerUserId = Number(ownerUserId);
+  if (!Number.isInteger(numericOwnerUserId) || numericOwnerUserId <= 0) return;
+
+  await queryable.query(
+    `
+      INSERT INTO team_memberships (owner_user_id, member_user_id, role, invited_by_user_id, joined_at)
+      VALUES (?, ?, 'owner', ?, UTC_TIMESTAMP(3))
+      ON DUPLICATE KEY UPDATE role = 'owner'
+    `,
+    [numericOwnerUserId, numericOwnerUserId, numericOwnerUserId]
+  );
+}
+
+function serializeTeamMemberRow(row = {}) {
+  const userId = Number(row.member_user_id || row.user_id || 0);
+  const email = normalizeEmail(row.member_email || row.email);
+  const roleRaw = String(row.role || "").trim().toLowerCase();
+  const role = roleRaw === "owner" ? "owner" : "member";
+  const joinedAt = toTimestampMs(row.joined_at || row.created_at);
+  if (!Number.isInteger(userId) || userId <= 0 || !email) return null;
+  return {
+    userId,
+    email,
+    role,
+    joinedAt,
+  };
+}
+
+function serializeTeamInvitationRow(row = {}) {
+  const invitationId = Number(row.id || 0);
+  const email = normalizeEmail(row.invite_email || row.email);
+  if (!Number.isInteger(invitationId) || invitationId <= 0 || !email) return null;
+
+  const expiresAt = toTimestampMs(row.expires_at);
+  const createdAt = toTimestampMs(row.created_at);
+  const lastSentAt = toTimestampMs(row.last_sent_at);
+  const acceptedAt = toTimestampMs(row.accepted_at);
+  const rawStatus = String(row.status || "pending").trim().toLowerCase();
+  const status =
+    rawStatus === "pending" && Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now()
+      ? "expired"
+      : rawStatus;
+
+  return {
+    id: invitationId,
+    email,
+    emailMasked: maskNotificationEmailAddress(email),
+    status,
+    attempts: Math.max(0, Number(row.attempts || 0)),
+    maxAttempts: Math.max(1, Number(row.max_attempts || TEAM_INVITATION_MAX_ATTEMPTS)),
+    sendCount: Math.max(1, Number(row.send_count || 1)),
+    createdAt,
+    lastSentAt,
+    expiresAt,
+    acceptedAt,
+    acceptedByUserId: Number(row.accepted_by_user_id || 0) || null,
+  };
+}
+
+function serializeJoinedTeamRow(row = {}) {
+  const ownerUserId = Number(row.owner_user_id || 0);
+  const ownerEmail = normalizeEmail(row.owner_email || "");
+  if (!Number.isInteger(ownerUserId) || ownerUserId <= 0 || !ownerEmail) return null;
+  return {
+    ownerUserId,
+    ownerEmail,
+    role: String(row.role || "member").trim().toLowerCase() === "owner" ? "owner" : "member",
+    joinedAt: toTimestampMs(row.joined_at || row.created_at),
+  };
+}
+
+async function listOwnedTeamMembers(ownerUserId) {
+  const [rows] = await pool.query(
+    `
+      SELECT
+        tm.owner_user_id,
+        tm.member_user_id,
+        tm.role,
+        tm.joined_at,
+        tm.created_at,
+        u.email AS member_email
+      FROM team_memberships tm
+      JOIN users u
+        ON u.id = tm.member_user_id
+      WHERE tm.owner_user_id = ?
+      ORDER BY CASE WHEN tm.role = 'owner' THEN 0 ELSE 1 END ASC, tm.joined_at ASC, tm.id ASC
+    `,
+    [ownerUserId]
+  );
+
+  return rows.map((row) => serializeTeamMemberRow(row)).filter(Boolean);
+}
+
+async function listOwnedTeamInvitations(ownerUserId) {
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        invite_email,
+        attempts,
+        max_attempts,
+        send_count,
+        status,
+        last_sent_at,
+        expires_at,
+        accepted_at,
+        accepted_by_user_id,
+        created_at
+      FROM team_invitations
+      WHERE owner_user_id = ?
+        AND status = 'pending'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 250
+    `,
+    [ownerUserId]
+  );
+
+  return rows.map((row) => serializeTeamInvitationRow(row)).filter(Boolean);
+}
+
+async function getTeamOwnerAccountById(userId) {
+  const numericUserId = Number(userId);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return null;
+  const [rows] = await pool.query(
+    `
+      SELECT id, email, notify_email_language
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [numericUserId]
+  );
+  return rows[0] || null;
+}
+
+function buildTeamInvitationUrl(token) {
+  const safeToken = String(token || "").trim().toLowerCase();
+  if (!safeToken || !/^[a-f0-9]{64}$/.test(safeToken)) return "";
+  const base = `${getDefaultTrustedOrigin()}/connections`;
+  return `${base}?teamInviteToken=${encodeURIComponent(safeToken)}`;
+}
+
+async function sendTeamInvitationEmail({
+  inviteEmail,
+  invitationToken,
+  verificationCode,
+  expiresAt,
+  inviterEmail,
+  language,
+}) {
+  const recipient = normalizeEmail(inviteEmail);
+  const token = String(invitationToken || "").trim().toLowerCase();
+  const code = normalizeAuthEmailVerificationCode(verificationCode);
+  if (!recipient || !/^[a-f0-9]{64}$/.test(token) || !code) {
+    const error = new Error("invalid_invitation_payload");
+    error.code = "invalid_invitation_payload";
+    throw error;
+  }
+
+  const message = buildTeamInvitationVerificationEmailLocalized({
+    code,
+    inviteUrl: buildTeamInvitationUrl(token),
+    invitedEmail: recipient,
+    inviterEmail,
+    expiresAt,
+    language,
+  });
+
+  await sendOwnerSmtpTestEmail({
+    to: recipient,
+    subject: message.subject,
+    textBody: message.textBody,
+    htmlBody: message.htmlBody,
+    extraHeaders: {
+      "X-PMS-Notification-Type": "team_invitation",
+    },
+  });
+}
+
+async function createTeamInvitation(ownerAccount, inviteEmail) {
+  const ownerUserId = Number(ownerAccount?.id || 0);
+  const ownerEmail = normalizeEmail(ownerAccount?.email);
+  const ownerLanguage = normalizeNotificationLanguage(ownerAccount?.notify_email_language, "de");
+  const normalizedInviteEmail = normalizeEmail(inviteEmail);
+
+  if (!Number.isInteger(ownerUserId) || ownerUserId <= 0 || !ownerEmail || !isValidEmail(normalizedInviteEmail)) {
+    const error = new Error("invalid_input");
+    error.code = "invalid_input";
+    throw error;
+  }
+  if (normalizedInviteEmail === ownerEmail) {
+    const error = new Error("self_invite_forbidden");
+    error.code = "self_invite_forbidden";
+    throw error;
+  }
+
+  const invitedUser = await findUserByEmail(normalizedInviteEmail);
+  if (invitedUser) {
+    const [membershipRows] = await pool.query(
+      `
+        SELECT id
+        FROM team_memberships
+        WHERE owner_user_id = ?
+          AND member_user_id = ?
+        LIMIT 1
+      `,
+      [ownerUserId, invitedUser.id]
+    );
+    if (membershipRows.length) {
+      const error = new Error("already_member");
+      error.code = "already_member";
+      throw error;
+    }
+  }
+
+  await cleanupStaleTeamInvitations();
+  await ensureTeamOwnerMembership(ownerUserId);
+
+  const invitationToken = crypto.randomBytes(32).toString("hex");
+  const verificationCode = createAuthEmailVerificationCode();
+  const verificationCodeHash = hashAuthEmailVerificationCode(invitationToken, verificationCode);
+  if (!verificationCodeHash) {
+    const error = new Error("invalid_verification_payload");
+    error.code = "invalid_verification_payload";
+    throw error;
+  }
+
+  const expiresAt = new Date(Date.now() + TEAM_INVITATION_CODE_TTL_SECONDS * 1000);
+
+  // Re-inviting the same address invalidates previous pending invitations.
+  await pool.query(
+    `
+      UPDATE team_invitations
+      SET status = 'revoked', updated_at = UTC_TIMESTAMP()
+      WHERE owner_user_id = ?
+        AND invite_email = ?
+        AND status = 'pending'
+    `,
+    [ownerUserId, normalizedInviteEmail]
+  );
+
+  const [result] = await pool.query(
+    `
+      INSERT INTO team_invitations (
+        owner_user_id,
+        invited_by_user_id,
+        invite_email,
+        invite_token_hash,
+        verification_code_hash,
+        verification_code_last4,
+        attempts,
+        max_attempts,
+        send_count,
+        status,
+        last_sent_at,
+        expires_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, 1, 'pending', UTC_TIMESTAMP(3), ?)
+    `,
+    [
+      ownerUserId,
+      ownerUserId,
+      normalizedInviteEmail,
+      hashSessionToken(invitationToken),
+      verificationCodeHash,
+      verificationCode.slice(-4),
+      TEAM_INVITATION_MAX_ATTEMPTS,
+      expiresAt,
+    ]
+  );
+
+  try {
+    await sendTeamInvitationEmail({
+      inviteEmail: normalizedInviteEmail,
+      invitationToken,
+      verificationCode,
+      expiresAt,
+      inviterEmail: ownerEmail,
+      language: ownerLanguage,
+    });
+  } catch (error) {
+    const invitationId = Number(result?.insertId || 0);
+    if (Number.isInteger(invitationId) && invitationId > 0) {
+      await pool
+        .query(
+          `
+            DELETE FROM team_invitations
+            WHERE id = ?
+              AND owner_user_id = ?
+              AND status = 'pending'
+            LIMIT 1
+          `,
+          [invitationId, ownerUserId]
+        )
+        .catch(() => {
+          // ignore cleanup errors
+        });
+    }
+    throw error;
+  }
+
+  return {
+    invitationId: Number(result?.insertId || 0),
+    inviteEmail: normalizedInviteEmail,
+    expiresAtMs: expiresAt.getTime(),
+  };
+}
+
+async function findTeamInvitationByToken(token) {
+  const rawToken = String(token || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(rawToken)) return null;
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        id,
+        owner_user_id,
+        invited_by_user_id,
+        invite_email,
+        invite_token_hash,
+        verification_code_hash,
+        attempts,
+        max_attempts,
+        send_count,
+        status,
+        last_sent_at,
+        expires_at,
+        accepted_at,
+        accepted_by_user_id,
+        created_at
+      FROM team_invitations
+      WHERE invite_token_hash = ?
+      LIMIT 1
+    `,
+    [hashSessionToken(rawToken)]
+  );
+
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+async function handleAccountTeamGet(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    await cleanupStaleTeamInvitations();
+    await ensureTeamOwnerMembership(user.id);
+
+    const ownerAccount = await getTeamOwnerAccountById(user.id);
+    if (!ownerAccount) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const [members, invitations, joinedRows] = await Promise.all([
+      listOwnedTeamMembers(user.id),
+      listOwnedTeamInvitations(user.id),
+      pool.query(
+        `
+          SELECT
+            tm.owner_user_id,
+            tm.member_user_id,
+            tm.role,
+            tm.joined_at,
+            tm.created_at,
+            owner.email AS owner_email
+          FROM team_memberships tm
+          JOIN users owner
+            ON owner.id = tm.owner_user_id
+          WHERE tm.member_user_id = ?
+            AND tm.owner_user_id <> ?
+          ORDER BY tm.joined_at DESC, tm.id DESC
+          LIMIT 100
+        `,
+        [user.id, user.id]
+      ).then((result) => result?.[0] || []),
+    ]);
+
+    const joinedTeams = Array.isArray(joinedRows) ? joinedRows.map((row) => serializeJoinedTeamRow(row)).filter(Boolean) : [];
+
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        owner: {
+          userId: Number(ownerAccount.id),
+          email: normalizeEmail(ownerAccount.email),
+        },
+        members,
+        invitations,
+        joinedTeams,
+        limits: {
+          codeLength: AUTH_EMAIL_VERIFICATION_CODE_LENGTH,
+          maxAttempts: TEAM_INVITATION_MAX_ATTEMPTS,
+          expiresInSeconds: TEAM_INVITATION_CODE_TTL_SECONDS,
+        },
+      },
+    });
+  } catch (error) {
+    runtimeLogger.error("account_team_get_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountTeamInvitationCreate(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  if (!isOwnerSmtpConfigured()) {
+    sendJson(res, 503, { ok: false, error: "verification unavailable" });
+    return;
+  }
+
+  let body = null;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const inviteEmail = normalizeEmail(body?.email);
+  if (!isValidEmail(inviteEmail)) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const ownerAccount = await getTeamOwnerAccountById(user.id);
+    if (!ownerAccount) {
+      sendJson(res, 401, { ok: false, error: "unauthorized" });
+      return;
+    }
+
+    const result = await createTeamInvitation(ownerAccount, inviteEmail);
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        invitationId: result.invitationId,
+        inviteEmail: result.inviteEmail,
+        inviteEmailMasked: maskNotificationEmailAddress(result.inviteEmail),
+        expiresAt: result.expiresAtMs,
+        expiresInSeconds: TEAM_INVITATION_CODE_TTL_SECONDS,
+        codeLength: AUTH_EMAIL_VERIFICATION_CODE_LENGTH,
+      },
+    });
+  } catch (error) {
+    if (error?.code === "already_member") {
+      sendJson(res, 409, { ok: false, error: "already member" });
+      return;
+    }
+    if (error?.code === "self_invite_forbidden") {
+      sendJson(res, 400, { ok: false, error: "self invite forbidden" });
+      return;
+    }
+    if (error?.code === "invalid_input") {
+      sendJson(res, 400, { ok: false, error: "invalid input" });
+      return;
+    }
+    runtimeLogger.error("account_team_invitation_create_failed", error?.code || error?.message || error);
+    sendJson(res, 500, { ok: false, error: "verification send failed" });
+  }
+}
+
+async function handleAccountTeamInvitationVerify(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  let body = null;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    sendJson(res, error.statusCode || 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  const invitationToken = String(body?.invitationToken || body?.token || "").trim().toLowerCase();
+  const code = normalizeAuthEmailVerificationCode(body?.code);
+  if (!/^[a-f0-9]{64}$/.test(invitationToken) || !code) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    await cleanupStaleTeamInvitations();
+    const invitation = await findTeamInvitationByToken(invitationToken);
+    if (!invitation) {
+      sendJson(res, 404, { ok: false, error: "invalid invitation" });
+      return;
+    }
+
+    const normalizedInviteEmail = normalizeEmail(invitation.invite_email);
+    const normalizedUserEmail = normalizeEmail(user.email);
+    if (!normalizedInviteEmail || normalizedInviteEmail !== normalizedUserEmail) {
+      sendJson(res, 403, { ok: false, error: "invitation email mismatch" });
+      return;
+    }
+
+    if (String(invitation.status || "").trim().toLowerCase() !== "pending") {
+      sendJson(res, 409, { ok: false, error: "invitation unavailable" });
+      return;
+    }
+
+    const expiresAtMs = toTimestampMs(invitation.expires_at);
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+      await pool.query(
+        `
+          UPDATE team_invitations
+          SET status = 'expired', updated_at = UTC_TIMESTAMP()
+          WHERE id = ?
+            AND status = 'pending'
+          LIMIT 1
+        `,
+        [invitation.id]
+      );
+      sendJson(res, 410, { ok: false, error: "invitation expired" });
+      return;
+    }
+
+    const maxAttempts = Math.max(1, Number(invitation.max_attempts || TEAM_INVITATION_MAX_ATTEMPTS));
+    const attempts = Math.max(0, Number(invitation.attempts || 0));
+    if (attempts >= maxAttempts) {
+      sendJson(res, 429, { ok: false, error: "invitation attempts exceeded", remainingAttempts: 0 });
+      return;
+    }
+
+    const expectedHash = String(invitation.verification_code_hash || "").trim();
+    const providedHash = hashAuthEmailVerificationCode(invitationToken, code);
+    if (!timingSafeEqualHex(expectedHash, providedHash)) {
+      const [result] = await pool.query(
+        `
+          UPDATE team_invitations
+          SET attempts = attempts + 1, updated_at = UTC_TIMESTAMP()
+          WHERE id = ?
+            AND status = 'pending'
+            AND attempts < max_attempts
+            AND expires_at > UTC_TIMESTAMP(3)
+          LIMIT 1
+        `,
+        [invitation.id]
+      );
+      const nextAttempts = Number(result?.affectedRows || 0) === 1 ? attempts + 1 : attempts;
+      const remainingAttempts = Math.max(0, maxAttempts - nextAttempts);
+      sendJson(res, remainingAttempts > 0 ? 401 : 429, {
+        ok: false,
+        error: remainingAttempts > 0 ? "invalid code" : "invitation attempts exceeded",
+        remainingAttempts,
+      });
+      return;
+    }
+
+    let connection = null;
+    try {
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+
+      const [lockedRows] = await connection.query(
+        `
+          SELECT
+            id,
+            owner_user_id,
+            invited_by_user_id,
+            invite_email,
+            status,
+            attempts,
+            max_attempts,
+            verification_code_hash,
+            expires_at
+          FROM team_invitations
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [invitation.id]
+      );
+      const locked = lockedRows[0] || null;
+      if (!locked || String(locked.status || "").trim().toLowerCase() !== "pending") {
+        await connection.rollback();
+        sendJson(res, 409, { ok: false, error: "invitation unavailable" });
+        return;
+      }
+
+      const lockedExpiresAtMs = toTimestampMs(locked.expires_at);
+      if (!Number.isFinite(lockedExpiresAtMs) || lockedExpiresAtMs <= Date.now()) {
+        await connection.query(
+          `
+            UPDATE team_invitations
+            SET status = 'expired', updated_at = UTC_TIMESTAMP()
+            WHERE id = ?
+            LIMIT 1
+          `,
+          [locked.id]
+        );
+        await connection.commit();
+        sendJson(res, 410, { ok: false, error: "invitation expired" });
+        return;
+      }
+
+      const lockedInviteEmail = normalizeEmail(locked.invite_email);
+      if (!lockedInviteEmail || lockedInviteEmail !== normalizedUserEmail) {
+        await connection.rollback();
+        sendJson(res, 403, { ok: false, error: "invitation email mismatch" });
+        return;
+      }
+
+      const lockedMaxAttempts = Math.max(1, Number(locked.max_attempts || TEAM_INVITATION_MAX_ATTEMPTS));
+      const lockedAttempts = Math.max(0, Number(locked.attempts || 0));
+      if (lockedAttempts >= lockedMaxAttempts) {
+        await connection.rollback();
+        sendJson(res, 429, { ok: false, error: "invitation attempts exceeded", remainingAttempts: 0 });
+        return;
+      }
+
+      const lockedExpectedHash = String(locked.verification_code_hash || "").trim();
+      if (!timingSafeEqualHex(lockedExpectedHash, providedHash)) {
+        await connection.query(
+          `
+            UPDATE team_invitations
+            SET attempts = attempts + 1, updated_at = UTC_TIMESTAMP()
+            WHERE id = ?
+              AND attempts < max_attempts
+            LIMIT 1
+          `,
+          [locked.id]
+        );
+        await connection.commit();
+        const remainingAttempts = Math.max(0, lockedMaxAttempts - (lockedAttempts + 1));
+        sendJson(res, remainingAttempts > 0 ? 401 : 429, {
+          ok: false,
+          error: remainingAttempts > 0 ? "invalid code" : "invitation attempts exceeded",
+          remainingAttempts,
+        });
+        return;
+      }
+
+      const ownerUserId = Number(locked.owner_user_id || 0);
+      if (!Number.isInteger(ownerUserId) || ownerUserId <= 0) {
+        await connection.rollback();
+        sendJson(res, 400, { ok: false, error: "invalid invitation" });
+        return;
+      }
+      if (ownerUserId === Number(user.id)) {
+        await connection.rollback();
+        sendJson(res, 400, { ok: false, error: "self invite forbidden" });
+        return;
+      }
+
+      await ensureTeamOwnerMembership(ownerUserId, connection);
+      await connection.query(
+        `
+          INSERT INTO team_memberships (
+            owner_user_id,
+            member_user_id,
+            role,
+            invited_by_user_id,
+            joined_at
+          )
+          VALUES (?, ?, 'member', ?, UTC_TIMESTAMP(3))
+          ON DUPLICATE KEY UPDATE
+            role = CASE WHEN role = 'owner' THEN role ELSE 'member' END,
+            invited_by_user_id = COALESCE(invited_by_user_id, VALUES(invited_by_user_id)),
+            updated_at = UTC_TIMESTAMP()
+        `,
+        [ownerUserId, user.id, Number(locked.invited_by_user_id || ownerUserId)]
+      );
+
+      await connection.query(
+        `
+          UPDATE team_invitations
+          SET
+            status = 'accepted',
+            accepted_at = UTC_TIMESTAMP(3),
+            accepted_by_user_id = ?,
+            updated_at = UTC_TIMESTAMP()
+          WHERE id = ?
+            AND status = 'pending'
+          LIMIT 1
+        `,
+        [user.id, locked.id]
+      );
+
+      await connection.commit();
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      if (connection) {
+        try {
+          await connection.rollback();
+        } catch (rollbackError) {
+          // ignore rollback errors
+        }
+      }
+      throw error;
+    } finally {
+      if (connection) {
+        connection.release();
+      }
+    }
+  } catch (error) {
+    runtimeLogger.error("account_team_invitation_verify_failed", error?.code || error?.message || error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountTeamInvitationRevoke(req, res, invitationId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const numericInvitationId = Number(invitationId);
+  if (!Number.isInteger(numericInvitationId) || numericInvitationId <= 0) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+
+  try {
+    const [result] = await pool.query(
+      `
+        UPDATE team_invitations
+        SET status = 'revoked', updated_at = UTC_TIMESTAMP()
+        WHERE id = ?
+          AND owner_user_id = ?
+          AND status = 'pending'
+        LIMIT 1
+      `,
+      [numericInvitationId, user.id]
+    );
+    if (Number(result?.affectedRows || 0) !== 1) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    runtimeLogger.error("account_team_invitation_revoke_failed", error);
+    sendJson(res, 500, { ok: false, error: "internal error" });
+  }
+}
+
+async function handleAccountTeamMemberDelete(req, res, memberUserId) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const numericMemberUserId = Number(memberUserId);
+  if (!Number.isInteger(numericMemberUserId) || numericMemberUserId <= 0) {
+    sendJson(res, 400, { ok: false, error: "invalid input" });
+    return;
+  }
+  if (numericMemberUserId === Number(user.id)) {
+    sendJson(res, 400, { ok: false, error: "owner removal forbidden" });
+    return;
+  }
+
+  try {
+    const [result] = await pool.query(
+      `
+        DELETE FROM team_memberships
+        WHERE owner_user_id = ?
+          AND member_user_id = ?
+          AND role = 'member'
+        LIMIT 1
+      `,
+      [user.id, numericMemberUserId]
+    );
+    if (Number(result?.affectedRows || 0) !== 1) {
+      sendJson(res, 404, { ok: false, error: "not found" });
+      return;
+    }
+    sendJson(res, 200, { ok: true });
+  } catch (error) {
+    runtimeLogger.error("account_team_member_delete_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
   }
 }
@@ -13000,6 +14069,9 @@ const runtimeHandlers = {
   handleAccountSessionsList,
   handleAccountConnectionsList,
   handleAccountDomainsList,
+  handleAccountTeamGet,
+  handleAccountTeamInvitationCreate,
+  handleAccountTeamInvitationVerify,
   handleAccountDomainChallengeCreate,
   handleAccountDomainVerify,
   handleAccountNotificationsGet,
@@ -13021,6 +14093,8 @@ const runtimeHandlers = {
   handleAccountRevokeOtherSessions,
   handleAccountSessionRevoke,
   handleAccountDomainDelete,
+  handleAccountTeamInvitationRevoke,
+  handleAccountTeamMemberDelete,
   handleAccountPasswordChange,
   handleAccountDelete,
   handleGameAgentPairingsList,

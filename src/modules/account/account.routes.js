@@ -26,6 +26,21 @@ async function handleAccountRoutes(context) {
     return true;
   }
 
+  if (method === "GET" && pathname === "/api/account/team") {
+    await handlers.handleAccountTeamGet(req, res);
+    return true;
+  }
+
+  if (method === "POST" && pathname === "/api/account/team/invitations") {
+    await handlers.handleAccountTeamInvitationCreate(req, res);
+    return true;
+  }
+
+  if (method === "POST" && pathname === "/api/account/team/invitations/verify") {
+    await handlers.handleAccountTeamInvitationVerify(req, res);
+    return true;
+  }
+
   if (method === "POST" && pathname === "/api/account/domains") {
     await handlers.handleAccountDomainChallengeCreate(req, res);
     return true;
@@ -130,6 +145,18 @@ async function handleAccountRoutes(context) {
   const accountDomainMatch = pathname.match(/^\/api\/account\/domains\/(\d+)\/?$/);
   if (method === "DELETE" && accountDomainMatch) {
     await handlers.handleAccountDomainDelete(req, res, accountDomainMatch[1]);
+    return true;
+  }
+
+  const accountTeamInvitationMatch = pathname.match(/^\/api\/account\/team\/invitations\/(\d+)\/?$/);
+  if (method === "DELETE" && accountTeamInvitationMatch) {
+    await handlers.handleAccountTeamInvitationRevoke(req, res, accountTeamInvitationMatch[1]);
+    return true;
+  }
+
+  const accountTeamMemberMatch = pathname.match(/^\/api\/account\/team\/members\/(\d+)\/?$/);
+  if (method === "DELETE" && accountTeamMemberMatch) {
+    await handlers.handleAccountTeamMemberDelete(req, res, accountTeamMemberMatch[1]);
     return true;
   }
 

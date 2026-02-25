@@ -16,6 +16,16 @@ const domainsMessageEl = document.getElementById("domains-message");
 const domainsListEl = document.getElementById("domain-list");
 const domainForm = document.getElementById("domain-form");
 const domainInputEl = document.getElementById("domain-input");
+const teamSummaryEl = document.getElementById("team-summary");
+const teamMessageEl = document.getElementById("team-message");
+const teamMembersListEl = document.getElementById("team-members-list");
+const teamInvitationsListEl = document.getElementById("team-invitations-list");
+const teamInviteForm = document.getElementById("team-invite-form");
+const teamInviteEmailEl = document.getElementById("team-invite-email");
+const teamInviteVerifyBlockEl = document.getElementById("team-invite-verify-block");
+const teamInviteVerifyForm = document.getElementById("team-invite-verify-form");
+const teamInviteTokenEl = document.getElementById("team-invite-token");
+const teamInviteCodeEl = document.getElementById("team-invite-code");
 
 const passwordForm = document.getElementById("password-form");
 const currentPasswordEl = document.getElementById("current-password");
@@ -35,10 +45,12 @@ const PASSWORD_MAX_LENGTH = 72;
 let sessions = [];
 let appConnections = [];
 let domains = [];
+let teamData = { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
 let user = null;
 let loadingSessions = false;
 let loadingAppConnections = false;
 let loadingDomains = false;
+let loadingTeam = false;
 let canUsePasswordlessAccountActions = false;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 
@@ -114,6 +126,11 @@ function setAppConnectionsSummary(text) {
 function setDomainsSummary(text) {
   if (!domainsSummaryEl) return;
   domainsSummaryEl.textContent = text || "";
+}
+
+function setTeamSummary(text) {
+  if (!teamSummaryEl) return;
+  teamSummaryEl.textContent = text || "";
 }
 
 function applyCredentialModeUi() {
@@ -255,6 +272,26 @@ function renderEmptyDomains(title, text) {
   `;
 }
 
+function renderEmptyTeamMembers(title, text) {
+  if (!teamMembersListEl) return;
+  teamMembersListEl.innerHTML = `
+    <div class="empty-state">
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="muted">${escapeHtml(text)}</div>
+    </div>
+  `;
+}
+
+function renderEmptyTeamInvitations(title, text) {
+  if (!teamInvitationsListEl) return;
+  teamInvitationsListEl.innerHTML = `
+    <div class="empty-state">
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="muted">${escapeHtml(text)}</div>
+    </div>
+  `;
+}
+
 function formatDomainSubtitle(item) {
   const verifiedAt = Number(item?.verifiedAt);
   if (Number.isFinite(verifiedAt) && verifiedAt > 0) {
@@ -367,6 +404,161 @@ function renderDomains() {
 
     domainsListEl.appendChild(row);
   }
+}
+
+function ensureTeamInviteVerifyVisible(token) {
+  const safeToken = String(token || "").trim().toLowerCase();
+  if (!teamInviteVerifyBlockEl || !teamInviteTokenEl) return;
+  if (!/^[a-f0-9]{64}$/.test(safeToken)) {
+    teamInviteVerifyBlockEl.hidden = true;
+    teamInviteTokenEl.value = "";
+    return;
+  }
+  teamInviteVerifyBlockEl.hidden = false;
+  teamInviteTokenEl.value = safeToken;
+}
+
+function formatTeamInvitationExpiresAt(ts) {
+  if (!Number.isFinite(ts)) return t("common.unknown", null, "unknown");
+  const diffMs = ts - Date.now();
+  if (diffMs <= 0) return t("connections.team.invites.expired", null, "Expired");
+  return formatTimeIn(diffMs);
+}
+
+function renderTeamMembers() {
+  if (!teamMembersListEl) return;
+  const members = Array.isArray(teamData?.members) ? teamData.members : [];
+
+  if (!members.length) {
+    renderEmptyTeamMembers(
+      t("connections.team.members.empty_title", null, "No team members."),
+      t("connections.team.members.empty_body", null, "Invite members by email to collaborate.")
+    );
+    return;
+  }
+
+  teamMembersListEl.innerHTML = "";
+  for (const member of members) {
+    const userId = Number(member?.userId || 0);
+    const email = String(member?.email || "").trim();
+    if (!Number.isInteger(userId) || userId <= 0 || !email) continue;
+
+    const role = String(member?.role || "member").trim().toLowerCase() === "owner" ? "owner" : "member";
+    const canRemove = role !== "owner";
+    const row = document.createElement("article");
+    row.className = "team-item";
+    row.innerHTML = `
+      <div class="team-item-head">
+        <div>
+          <div class="team-item-title">${escapeHtml(email)}</div>
+          <div class="team-item-subtitle">${escapeHtml(
+            Number.isFinite(Number(member?.joinedAt))
+              ? t(
+                  "connections.team.members.joined",
+                  { relative: formatRelative(Number(member.joinedAt)) },
+                  `Joined ${formatRelative(Number(member.joinedAt))}`
+                )
+              : t("common.unknown", null, "unknown")
+          )}</div>
+        </div>
+        <span class="team-item-badge ${escapeHtml(role)}">${escapeHtml(
+          role === "owner"
+            ? t("connections.team.members.badge.owner", null, "Owner")
+            : t("connections.team.members.badge.member", null, "Member")
+        )}</span>
+      </div>
+      <div class="team-item-actions">
+        <button
+          class="btn ghost danger-btn"
+          type="button"
+          data-team-remove-member-id="${escapeHtml(String(userId))}"
+          ${canRemove ? "" : "disabled"}
+        >${escapeHtml(
+          canRemove
+            ? t("connections.team.members.remove", null, "Remove")
+            : t("connections.team.members.owner_fixed", null, "Owner")
+        )}</button>
+      </div>
+    `;
+    teamMembersListEl.appendChild(row);
+  }
+}
+
+function renderTeamInvitations() {
+  if (!teamInvitationsListEl) return;
+  const invitations = Array.isArray(teamData?.invitations) ? teamData.invitations : [];
+
+  if (!invitations.length) {
+    renderEmptyTeamInvitations(
+      t("connections.team.invites.empty_title", null, "No open invitations."),
+      t("connections.team.invites.empty_body", null, "Open invitations will show up here.")
+    );
+    return;
+  }
+
+  teamInvitationsListEl.innerHTML = "";
+  for (const invitation of invitations) {
+    const invitationId = Number(invitation?.id || 0);
+    const email = String(invitation?.email || "").trim();
+    if (!Number.isInteger(invitationId) || invitationId <= 0 || !email) continue;
+
+    const statusRaw = String(invitation?.status || "pending").trim().toLowerCase();
+    const isPending = statusRaw === "pending";
+    const badgeLabel = isPending
+      ? t("connections.team.invites.badge.pending", null, "Pending")
+      : t("connections.team.invites.badge.expired", null, "Expired");
+
+    const subtitle = isPending
+      ? t(
+          "connections.team.invites.expires_in",
+          { expiresIn: formatTeamInvitationExpiresAt(Number(invitation?.expiresAt)) },
+          `Expires in ${formatTeamInvitationExpiresAt(Number(invitation?.expiresAt))}`
+        )
+      : t("connections.team.invites.expired", null, "Expired");
+
+    const row = document.createElement("article");
+    row.className = "team-item";
+    row.innerHTML = `
+      <div class="team-item-head">
+        <div>
+          <div class="team-item-title">${escapeHtml(email)}</div>
+          <div class="team-item-subtitle">${escapeHtml(subtitle)}</div>
+        </div>
+        <span class="team-item-badge ${escapeHtml(isPending ? "pending" : "")}">${escapeHtml(badgeLabel)}</span>
+      </div>
+      <div class="team-item-actions">
+        <button
+          class="btn ghost danger-btn"
+          type="button"
+          data-team-revoke-invitation-id="${escapeHtml(String(invitationId))}"
+          ${isPending ? "" : "disabled"}
+        >${escapeHtml(t("connections.team.invites.revoke", null, "Revoke"))}</button>
+      </div>
+    `;
+    teamInvitationsListEl.appendChild(row);
+  }
+}
+
+function renderTeamSection() {
+  const members = Array.isArray(teamData?.members) ? teamData.members : [];
+  const invitations = Array.isArray(teamData?.invitations) ? teamData.invitations : [];
+  const owner = teamData?.owner && typeof teamData.owner === "object" ? teamData.owner : null;
+  const ownerEmail = String(owner?.email || "").trim();
+
+  setTeamSummary(
+    t(
+      "connections.team.summary",
+      {
+        members: members.length,
+        invitations: invitations.length,
+        owner: ownerEmail || t("common.unknown", null, "unknown"),
+      },
+      `Owner ${ownerEmail || "unknown"} | ${members.length} members | ${invitations.length} open invitations`
+    )
+  );
+
+  renderTeamMembers();
+  renderTeamInvitations();
 }
 
 function renderAppConnections() {
@@ -690,6 +882,276 @@ async function loadDomains() {
   } finally {
     loadingDomains = false;
   }
+}
+
+function clearTeamInviteTokenFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("teamInviteToken")) return;
+    url.searchParams.delete("teamInviteToken");
+    const nextPath = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", nextPath);
+  } catch (error) {
+    // ignore
+  }
+}
+
+async function loadTeam() {
+  if (loadingTeam) return;
+  loadingTeam = true;
+  setTeamSummary(t("connections.team.loading", null, "Loading team..."));
+  setPanelMessage(teamMessageEl, "");
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/team");
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      teamData = { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+      renderEmptyTeamMembers(
+        t("common.error_loading", null, "Error while loading."),
+        t("common.try_again_later", null, "Please try again later.")
+      );
+      renderEmptyTeamInvitations(
+        t("common.error_loading", null, "Error while loading."),
+        t("common.try_again_later", null, "Please try again later.")
+      );
+      setTeamSummary(t("common.error_loading", null, "Error while loading."));
+      return;
+    }
+
+    teamData = payload?.data && typeof payload.data === "object"
+      ? payload.data
+      : { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+    renderTeamSection();
+  } catch (error) {
+    teamData = { owner: null, members: [], invitations: [], joinedTeams: [], limits: {} };
+    renderEmptyTeamMembers(
+      t("common.connection_failed", null, "Connection failed."),
+      t("common.try_again_later", null, "Please try again later.")
+    );
+    renderEmptyTeamInvitations(
+      t("common.connection_failed", null, "Connection failed."),
+      t("common.try_again_later", null, "Please try again later.")
+    );
+    setTeamSummary(t("common.connection_failed", null, "Connection failed."));
+  } finally {
+    loadingTeam = false;
+  }
+}
+
+async function createTeamInvitationRequest(email) {
+  const inviteEmail = String(email || "").trim();
+  if (!inviteEmail) return;
+
+  setPanelMessage(teamMessageEl, t("connections.team.msg.invite_sending", null, "Sending invitation..."));
+  if (teamInviteEmailEl) teamInviteEmailEl.disabled = true;
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/team/invitations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      const errorCode = String(payload?.error || "").toLowerCase();
+      if (errorCode === "already member") {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.already_member", null, "This user is already in your team."), "error");
+      } else if (errorCode === "self invite forbidden") {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.self_invite", null, "You cannot invite your own email."), "error");
+      } else if (errorCode === "verification unavailable") {
+        setPanelMessage(
+          teamMessageEl,
+          t("connections.team.msg.verification_unavailable", null, "Email verification is currently unavailable."),
+          "error"
+        );
+      } else if (response.status === 400) {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.invalid_email", null, "Please enter a valid email."), "error");
+      } else {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.invite_failed", null, "Invitation could not be sent."), "error");
+      }
+      return;
+    }
+
+    const maskedEmail = String(payload?.data?.inviteEmailMasked || inviteEmail).trim();
+    setPanelMessage(
+      teamMessageEl,
+      t(
+        "connections.team.msg.invite_sent",
+        { email: maskedEmail },
+        `Invitation sent to ${maskedEmail}.`
+      ),
+      "success"
+    );
+    if (teamInviteEmailEl) teamInviteEmailEl.value = "";
+    await loadTeam();
+  } catch (error) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.invite_failed", null, "Invitation could not be sent."), "error");
+  } finally {
+    if (teamInviteEmailEl) teamInviteEmailEl.disabled = false;
+  }
+}
+
+async function verifyTeamInvitation() {
+  const token = String(teamInviteTokenEl?.value || "").trim().toLowerCase();
+  const code = String(teamInviteCodeEl?.value || "").replace(/\s+/g, "").trim();
+  if (!/^[a-f0-9]{64}$/.test(token)) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.invalid_invite_token", null, "Invalid invitation token."), "error");
+    return;
+  }
+  if (!/^\d{4,8}$/.test(code)) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.invalid_invite_code", null, "Please enter a valid verification code."), "error");
+    return;
+  }
+
+  setPanelMessage(teamMessageEl, t("connections.team.msg.verifying", null, "Verifying invitation..."));
+  if (teamInviteCodeEl) teamInviteCodeEl.disabled = true;
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/team/invitations/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invitationToken: token, code }),
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!response.ok || !payload?.ok) {
+      const errorCode = String(payload?.error || "").toLowerCase();
+      if (errorCode === "invitation email mismatch") {
+        setPanelMessage(
+          teamMessageEl,
+          t(
+            "connections.team.msg.email_mismatch",
+            null,
+            "You must sign in with the invited email address before confirming."
+          ),
+          "error"
+        );
+      } else if (errorCode === "invalid code") {
+        const remaining = Number(payload?.remainingAttempts || 0);
+        setPanelMessage(
+          teamMessageEl,
+          t(
+            "connections.team.msg.invalid_code_with_remaining",
+            { remaining },
+            `Verification code is invalid. Remaining attempts: ${remaining}.`
+          ),
+          "error"
+        );
+      } else if (errorCode === "invitation expired") {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.invitation_expired", null, "Invitation has expired."), "error");
+      } else if (errorCode === "invitation attempts exceeded") {
+        setPanelMessage(
+          teamMessageEl,
+          t("connections.team.msg.invitation_attempts_exceeded", null, "Too many invalid attempts. Request a new invitation."),
+          "error"
+        );
+      } else if (errorCode === "invalid invitation") {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.invalid_invitation", null, "Invitation could not be found."), "error");
+      } else {
+        setPanelMessage(teamMessageEl, t("connections.team.msg.verify_failed", null, "Invitation could not be verified."), "error");
+      }
+      await loadTeam();
+      return;
+    }
+
+    setPanelMessage(teamMessageEl, t("connections.team.msg.verify_success", null, "Invitation verified. You are now part of the team."), "success");
+    if (teamInviteCodeEl) teamInviteCodeEl.value = "";
+    ensureTeamInviteVerifyVisible("");
+    clearTeamInviteTokenFromUrl();
+    await loadTeam();
+  } catch (error) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.verify_failed", null, "Invitation could not be verified."), "error");
+  } finally {
+    if (teamInviteCodeEl) teamInviteCodeEl.disabled = false;
+  }
+}
+
+async function revokeTeamInvitation(invitationId) {
+  const numericInvitationId = Number(invitationId);
+  if (!Number.isFinite(numericInvitationId) || numericInvitationId <= 0) return;
+
+  const confirmed = window.confirm(
+    t("connections.team.invites.confirm_revoke", null, "Revoke this invitation?")
+  );
+  if (!confirmed) return;
+
+  setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_pending", null, "Revoking invitation..."));
+
+  try {
+    const { response, payload } = await fetchJson(`/api/account/team/invitations/${encodeURIComponent(String(numericInvitationId))}`, {
+      method: "DELETE",
+    });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_failed", null, "Invitation could not be revoked."), "error");
+      return;
+    }
+    setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_success", null, "Invitation revoked."), "success");
+    await loadTeam();
+  } catch (error) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.revoke_failed", null, "Invitation could not be revoked."), "error");
+  }
+}
+
+async function removeTeamMember(memberUserId) {
+  const numericMemberUserId = Number(memberUserId);
+  if (!Number.isFinite(numericMemberUserId) || numericMemberUserId <= 0) return;
+
+  const confirmed = window.confirm(
+    t("connections.team.members.confirm_remove", null, "Remove this member from your team?")
+  );
+  if (!confirmed) return;
+
+  setPanelMessage(teamMessageEl, t("connections.team.msg.member_removing", null, "Removing team member..."));
+
+  try {
+    const { response, payload } = await fetchJson(`/api/account/team/members/${encodeURIComponent(String(numericMemberUserId))}`, {
+      method: "DELETE",
+    });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(teamMessageEl, t("connections.team.msg.member_remove_failed", null, "Team member could not be removed."), "error");
+      return;
+    }
+    setPanelMessage(teamMessageEl, t("connections.team.msg.member_removed", null, "Team member removed."), "success");
+    await loadTeam();
+  } catch (error) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.member_remove_failed", null, "Team member could not be removed."), "error");
+  }
+}
+
+async function handleTeamInviteSubmit(event) {
+  event.preventDefault();
+  const email = String(teamInviteEmailEl?.value || "").trim();
+  if (!email) {
+    setPanelMessage(teamMessageEl, t("connections.team.msg.enter_email", null, "Please enter an email address."), "error");
+    return;
+  }
+  await createTeamInvitationRequest(email);
+}
+
+async function handleTeamInviteVerifySubmit(event) {
+  event.preventDefault();
+  await verifyTeamInvitation();
 }
 
 async function createDomainChallenge(domain, options = {}) {
@@ -1157,7 +1619,7 @@ function bindEvents() {
 
   if (refreshSessionsButton) {
     refreshSessionsButton.addEventListener("click", () => {
-      Promise.all([loadAppConnections(), loadDomains(), loadSessions()]).catch(() => {
+      Promise.all([loadAppConnections(), loadDomains(), loadTeam(), loadSessions()]).catch(() => {
         // ignore
       });
     });
@@ -1186,6 +1648,40 @@ function bindEvents() {
 
   if (domainForm) {
     domainForm.addEventListener("submit", handleDomainSubmit);
+  }
+
+  if (teamInviteForm) {
+    teamInviteForm.addEventListener("submit", handleTeamInviteSubmit);
+  }
+
+  if (teamInviteVerifyForm) {
+    teamInviteVerifyForm.addEventListener("submit", handleTeamInviteVerifySubmit);
+  }
+
+  if (teamMembersListEl) {
+    teamMembersListEl.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("button[data-team-remove-member-id]");
+      if (!button) return;
+      const memberUserId = button.getAttribute("data-team-remove-member-id") || "";
+      removeTeamMember(memberUserId).catch(() => {
+        // ignore
+      });
+    });
+  }
+
+  if (teamInvitationsListEl) {
+    teamInvitationsListEl.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("button[data-team-revoke-invitation-id]");
+      if (!button) return;
+      const invitationId = button.getAttribute("data-team-revoke-invitation-id") || "";
+      revokeTeamInvitation(invitationId).catch(() => {
+        // ignore
+      });
+    });
   }
 
   if (domainsListEl) {
@@ -1236,7 +1732,10 @@ async function init() {
   applyCredentialModeUi();
   await syncPublicStatusLinks();
 
-  const prefillDomain = String(new URLSearchParams(window.location.search).get("domain") || "").trim();
+  const searchParams = new URLSearchParams(window.location.search);
+  const prefillDomain = String(searchParams.get("domain") || "").trim();
+  const teamInviteToken = String(searchParams.get("teamInviteToken") || "").trim().toLowerCase();
+
   if (prefillDomain && domainInputEl) {
     domainInputEl.value = prefillDomain;
     domainInputEl.focus();
@@ -1248,8 +1747,17 @@ async function init() {
     }
   }
 
+  ensureTeamInviteVerifyVisible(teamInviteToken);
+  if (teamInviteToken && teamInviteCodeEl) {
+    const teamSection = document.getElementById("team-settings");
+    if (teamSection && typeof teamSection.scrollIntoView === "function") {
+      teamSection.scrollIntoView({ block: "start" });
+    }
+    teamInviteCodeEl.focus();
+  }
+
   bindEvents();
-  await Promise.all([loadAppConnections(), loadDomains(), loadSessions()]);
+  await Promise.all([loadAppConnections(), loadDomains(), loadTeam(), loadSessions()]);
 }
 
 init();
