@@ -52,6 +52,8 @@ function createAuthController(dependencies = {}) {
     bcrypt,
     BCRYPT_COST,
     DUMMY_PASSWORD_HASH,
+    hashPassword,
+    verifyPassword,
     getAuthFailure,
     isAccountLocked,
     registerAuthFailure,
@@ -84,6 +86,27 @@ function createAuthController(dependencies = {}) {
 
   function isDuplicateEntryError(error) {
     return String(error?.code || "").trim() === "ER_DUP_ENTRY";
+  }
+
+  const hashPasswordValue =
+    typeof hashPassword === "function"
+      ? (password) => hashPassword(password)
+      : (password) => bcrypt.hash(password, BCRYPT_COST);
+
+  async function verifyPasswordValue(password, passwordHash, options = {}) {
+    if (typeof verifyPassword === "function") {
+      const result = await verifyPassword(password, passwordHash, options);
+      if (typeof result === "boolean") {
+        return { matches: result, needsRehash: false };
+      }
+      return {
+        matches: !!result?.matches,
+        needsRehash: !!result?.needsRehash,
+      };
+    }
+
+    const matches = await bcrypt.compare(String(password || ""), String(passwordHash || ""));
+    return { matches, needsRehash: false };
   }
 
   async function recoverGithubUserAfterCreateConflict(email, githubId, githubLogin) {
@@ -585,7 +608,7 @@ function createAuthController(dependencies = {}) {
         return;
       }
   
-      const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+      const passwordHash = await hashPasswordValue(password);
       const [result] = await pool.query(
         "INSERT INTO users (email, password_hash) VALUES (?, ?)",
         [email, passwordHash]
@@ -676,8 +699,19 @@ function createAuthController(dependencies = {}) {
       );
   
       const user = rows[0] || null;
-      const hashToCompare = user?.password_hash || DUMMY_PASSWORD_HASH;
-      const passwordMatches = await bcrypt.compare(password, hashToCompare);
+      let passwordMatches = false;
+      let passwordNeedsRehash = false;
+
+      if (user) {
+        const verification = await verifyPasswordValue(password, user.password_hash, {
+          allowLegacyFallback: true,
+        });
+        passwordMatches = verification.matches;
+        passwordNeedsRehash = verification.needsRehash;
+      } else {
+        // Keep timing for unknown users close to known-user path.
+        await verifyPasswordValue(password, DUMMY_PASSWORD_HASH, { allowLegacyFallback: false });
+      }
   
       if (isAccountLocked(failure)) {
         const retryAfterSeconds = Math.max(
@@ -711,7 +745,16 @@ function createAuthController(dependencies = {}) {
         sendJson(res, 401, { ok: false, error: "invalid credentials" });
         return;
       }
-  
+
+      if (passwordNeedsRehash) {
+        try {
+          const upgradedHash = await hashPasswordValue(password);
+          await pool.query("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1", [upgradedHash, user.id]);
+        } catch (error) {
+          runtimeLogger.error("password_rehash_failed", Number(user.id), error?.code || error?.message || error);
+        }
+      }
+
       await clearAuthFailures(email);
       await cleanupExpiredSessions();
   

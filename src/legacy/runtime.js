@@ -294,6 +294,16 @@ function parseSameSiteValue(value, name) {
   failConfig(`${name} must be one of: Lax, Strict, None`);
 }
 
+function parseTlsMinVersion(value, name) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "tlsv1.2") return "TLSv1.2";
+  if (normalized === "tlsv1.3") return "TLSv1.3";
+  failConfig(`${name} must be one of: TLSv1.2, TLSv1.3`);
+}
+
 function parsePrivateTargetPolicyValue(value, name) {
   const normalized = String(value || "")
     .trim()
@@ -788,6 +798,8 @@ const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
 const SESSION_TOKEN_HASH_SECRET = readEnvString("SESSION_TOKEN_HASH_SECRET", MYSQL_PASSWORD, { trim: false });
+const PASSWORD_PEPPER = readEnvString("PASSWORD_PEPPER", SESSION_TOKEN_HASH_SECRET, { trim: false });
+const PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED = readEnvBoolean("PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED", true);
 const LANDING_RATING_HASH_SECRET = readEnvString("LANDING_RATING_HASH_SECRET", SESSION_TOKEN_HASH_SECRET, { trim: false });
 const LANDING_RATING_COMMENT_MAX_LENGTH = readEnvNumber("LANDING_RATING_COMMENT_MAX_LENGTH", 300, {
   integer: true,
@@ -820,6 +832,13 @@ const EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS = readEnvNumber("EMAIL_UNSUBSCRIBE_TOKEN_
 const MYSQL_DATABASE = requireEnvString("MYSQL_DATABASE");
 const MYSQL_CONNECTION_LIMIT = requireEnvNumber("MYSQL_CONNECTION_LIMIT", { integer: true, min: 1 });
 const MYSQL_TIMEZONE = requireEnvString("MYSQL_TIMEZONE");
+const MYSQL_SSL_ENABLED = readEnvBoolean("MYSQL_SSL_ENABLED", false);
+const MYSQL_SSL_REJECT_UNAUTHORIZED = readEnvBoolean("MYSQL_SSL_REJECT_UNAUTHORIZED", true);
+const MYSQL_SSL_MIN_VERSION = parseTlsMinVersion(readEnvString("MYSQL_SSL_MIN_VERSION", "TLSv1.2"), "MYSQL_SSL_MIN_VERSION");
+const MYSQL_SSL_CA = readEnvString("MYSQL_SSL_CA", "", { trim: false });
+const MYSQL_SSL_CERT = readEnvString("MYSQL_SSL_CERT", "", { trim: false });
+const MYSQL_SSL_KEY = readEnvString("MYSQL_SSL_KEY", "", { trim: false });
+const MYSQL_SSL_OPTIONS = buildMySqlTlsOptions();
 const GITHUB_AUTH_ENABLED = requireEnvBoolean("GITHUB_AUTH_ENABLED");
 const GITHUB_CLIENT_ID = GITHUB_AUTH_ENABLED
   ? requireEnvString("GITHUB_CLIENT_ID")
@@ -1031,6 +1050,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: MYSQL_CONNECTION_LIMIT,
   timezone: MYSQL_TIMEZONE,
+  ...(MYSQL_SSL_OPTIONS ? { ssl: MYSQL_SSL_OPTIONS } : {}),
 });
 
 const authRateLimiter = new Map();
@@ -2149,6 +2169,39 @@ async function readJsonBody(req, limitBytes = REQUEST_BODY_LIMIT_BYTES) {
   }
 }
 
+function applyPasswordPepper(password) {
+  const plain = String(password || "");
+  const pepper = String(PASSWORD_PEPPER || "");
+  if (!pepper) return plain;
+  return crypto.createHmac("sha256", pepper).update(plain, "utf8").digest("hex");
+}
+
+async function hashPassword(password) {
+  return bcrypt.hash(applyPasswordPepper(password), BCRYPT_COST);
+}
+
+async function verifyPassword(password, passwordHash, options = {}) {
+  const hash = String(passwordHash || "").trim();
+  if (!hash) return { matches: false, needsRehash: false };
+
+  const pepperedCandidate = applyPasswordPepper(password);
+  if (await bcrypt.compare(pepperedCandidate, hash)) {
+    return { matches: true, needsRehash: false };
+  }
+
+  const allowLegacyFallback =
+    options.allowLegacyFallback !== false && PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED && !!String(PASSWORD_PEPPER || "");
+  if (!allowLegacyFallback) {
+    return { matches: false, needsRehash: false };
+  }
+
+  const legacyMatches = await bcrypt.compare(String(password || ""), hash);
+  return {
+    matches: legacyMatches,
+    needsRehash: legacyMatches,
+  };
+}
+
 function hashSessionToken(token) {
   return crypto
     .pbkdf2Sync(
@@ -2909,25 +2962,52 @@ function buildOwnerSmtpTestMessage({ from, to, subject, body, textBody, htmlBody
   return `${headers.join("\r\n")}\r\n\r\n${sections.join("\r\n")}`;
 }
 
-function decodeOwnerSmtpTlsCa(rawValue) {
+function decodeTlsPemContent(rawValue, marker, name) {
   const raw = String(rawValue || "").trim();
   if (!raw) return "";
 
-  const withLineBreaks = raw.includes("\\n") ? raw.replace(/\\n/g, "\n").trim() : raw;
-  if (withLineBreaks.includes("BEGIN CERTIFICATE")) {
-    return withLineBreaks;
+  const markerText = String(marker || "").trim();
+  const normalized = raw.includes("\\n") ? raw.replace(/\\n/g, "\n").trim() : raw;
+  if (markerText && normalized.includes(markerText)) {
+    return normalized;
   }
 
   try {
     const decoded = Buffer.from(raw, "base64").toString("utf8").trim();
-    if (decoded.includes("BEGIN CERTIFICATE")) {
+    if (markerText && decoded.includes(markerText)) {
       return decoded;
     }
   } catch (error) {
-    // ignore malformed base64 and fall back to raw value
+    // fall through to config validation below
   }
 
-  return "";
+  failConfig(`${name} must contain PEM text (plain or base64-encoded)`);
+}
+
+function decodeOwnerSmtpTlsCa(rawValue) {
+  return decodeTlsPemContent(rawValue, "BEGIN CERTIFICATE", "OWNER_SMTP_TLS_CA");
+}
+
+function buildMySqlTlsOptions() {
+  if (!MYSQL_SSL_ENABLED) return null;
+
+  const tlsOptions = {
+    rejectUnauthorized: MYSQL_SSL_REJECT_UNAUTHORIZED,
+  };
+
+  if (MYSQL_SSL_MIN_VERSION) {
+    tlsOptions.minVersion = MYSQL_SSL_MIN_VERSION;
+  }
+
+  const caPem = decodeTlsPemContent(MYSQL_SSL_CA, "BEGIN CERTIFICATE", "MYSQL_SSL_CA");
+  const certPem = decodeTlsPemContent(MYSQL_SSL_CERT, "BEGIN CERTIFICATE", "MYSQL_SSL_CERT");
+  const keyPem = decodeTlsPemContent(MYSQL_SSL_KEY, "BEGIN ", "MYSQL_SSL_KEY");
+
+  if (caPem) tlsOptions.ca = caPem;
+  if (certPem) tlsOptions.cert = certPem;
+  if (keyPem) tlsOptions.key = keyPem;
+
+  return tlsOptions;
 }
 
 const OWNER_SMTP_TLS_CA_PEM = decodeOwnerSmtpTlsCa(OWNER_SMTP_TLS_CA);
@@ -6300,6 +6380,7 @@ const oauthRepository = createOauthRepository({
   crypto,
   bcrypt,
   bcryptCost: BCRYPT_COST,
+  hashPassword,
 });
 
 const {
@@ -6457,6 +6538,8 @@ const authController = createAuthController({
   bcrypt,
   BCRYPT_COST,
   DUMMY_PASSWORD_HASH,
+  hashPassword,
+  verifyPassword,
   getAuthFailure,
   isAccountLocked,
   registerAuthFailure,
@@ -9398,8 +9481,10 @@ async function handleAccountPasswordChange(req, res) {
 
     const allowPasswordlessChange = hasLinkedOauthConnection(account);
     if (currentPassword) {
-      const currentMatches = await bcrypt.compare(currentPassword, account.password_hash);
-      if (!currentMatches) {
+      const currentVerification = await verifyPassword(currentPassword, account.password_hash, {
+        allowLegacyFallback: true,
+      });
+      if (!currentVerification.matches) {
         sendJson(res, 401, { ok: false, error: "invalid credentials" });
         return;
       }
@@ -9411,13 +9496,15 @@ async function handleAccountPasswordChange(req, res) {
       return;
     }
 
-    const sameAsCurrent = await bcrypt.compare(newPassword, account.password_hash);
-    if (sameAsCurrent) {
+    const sameAsCurrentCheck = await verifyPassword(newPassword, account.password_hash, {
+      allowLegacyFallback: true,
+    });
+    if (sameAsCurrentCheck.matches) {
       sendJson(res, 400, { ok: false, error: "same password" });
       return;
     }
 
-    const nextHash = await bcrypt.hash(newPassword, BCRYPT_COST);
+    const nextHash = await hashPassword(newPassword);
     await pool.query("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1", [nextHash, user.id]);
 
     const revoked = await deleteSessionsByUserIdExcept(user.id, req.sessionId);
@@ -9460,8 +9547,10 @@ async function handleAccountDelete(req, res) {
 
     const allowPasswordlessDelete = hasLinkedOauthConnection(account);
     if (currentPassword) {
-      const currentMatches = await bcrypt.compare(currentPassword, account.password_hash);
-      if (!currentMatches) {
+      const currentVerification = await verifyPassword(currentPassword, account.password_hash, {
+        allowLegacyFallback: true,
+      });
+      if (!currentVerification.matches) {
         sendJson(res, 401, { ok: false, error: "invalid credentials" });
         return;
       }

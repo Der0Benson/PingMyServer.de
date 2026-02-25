@@ -1,5 +1,10 @@
 function createOauthRepository(dependencies = {}) {
-  const { pool, crypto, bcrypt, bcryptCost } = dependencies;
+  const { pool, crypto, bcrypt, bcryptCost, hashPassword } = dependencies;
+
+  const hashPasswordValue =
+    typeof hashPassword === "function"
+      ? (password) => hashPassword(password)
+      : (password) => bcrypt.hash(password, bcryptCost);
 
   async function findUserByGithubId(githubId) {
     const [rows] = await pool.query(
@@ -35,7 +40,7 @@ function createOauthRepository(dependencies = {}) {
 
   async function createUserFromGithub(email, githubId, githubLogin) {
     const randomPassword = crypto.randomBytes(32).toString("hex");
-    const passwordHash = await bcrypt.hash(randomPassword, bcryptCost);
+    const passwordHash = await hashPasswordValue(randomPassword);
     const [result] = await pool.query("INSERT INTO users (email, password_hash, github_id, github_login) VALUES (?, ?, ?, ?)", [
       email,
       passwordHash,
@@ -51,7 +56,7 @@ function createOauthRepository(dependencies = {}) {
 
   async function createUserFromGoogle(email, googleSub, googleEmail) {
     const randomPassword = crypto.randomBytes(32).toString("hex");
-    const passwordHash = await bcrypt.hash(randomPassword, bcryptCost);
+    const passwordHash = await hashPasswordValue(randomPassword);
     const [result] = await pool.query("INSERT INTO users (email, password_hash, google_sub, google_email) VALUES (?, ?, ?, ?)", [
       email,
       passwordHash,
@@ -86,7 +91,7 @@ function createOauthRepository(dependencies = {}) {
 
   async function createUserFromDiscord(email, discordId, discordUsername, discordEmail) {
     const randomPassword = crypto.randomBytes(32).toString("hex");
-    const passwordHash = await bcrypt.hash(randomPassword, bcryptCost);
+    const passwordHash = await hashPasswordValue(randomPassword);
     const [result] = await pool.query(
       "INSERT INTO users (email, password_hash, discord_id, discord_username, discord_email) VALUES (?, ?, ?, ?, ?)",
       [email, passwordHash, discordId, discordUsername, discordEmail]
