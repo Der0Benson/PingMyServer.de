@@ -2512,6 +2512,43 @@ function buildOwnerVerificationDesignEmail(options = {}) {
         color: inherit !important;
         text-decoration: none !important;
       }
+      .pms-code-wrap {
+        background: #ffffff !important;
+        border: 2px solid #0f2036 !important;
+        border-radius: 14px;
+      }
+      .pms-code-label,
+      .pms-code-value,
+      .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+      .pms-code-value {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (prefers-color-scheme: dark) {
+        .pms-code-wrap {
+          background: #ffffff !important;
+          border-color: #0f2036 !important;
+        }
+        .pms-code-label,
+        .pms-code-value,
+        .pms-code-meta {
+          color: #0f2036 !important;
+          -webkit-text-fill-color: #0f2036 !important;
+        }
+      }
+      [data-ogsc] .pms-code-wrap {
+        background: #ffffff !important;
+        border-color: #0f2036 !important;
+      }
+      [data-ogsc] .pms-code-label,
+      [data-ogsc] .pms-code-value,
+      [data-ogsc] .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
     </style>
     <title>PingMyServer Verifizierung</title>
   </head>
@@ -2543,11 +2580,25 @@ function buildOwnerVerificationDesignEmail(options = {}) {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
                   <tr>
                     <td
-                      style="border:1px solid #5aa4da;border-radius:14px;background:linear-gradient(180deg,#15385f,#113052);padding:20px 16px;text-align:center;"
+                      class="pms-code-wrap"
+                      bgcolor="#ffffff"
+                      style="background:#ffffff !important;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;border:2px solid #0f2036;border-radius:14px;padding:20px 16px;text-align:center;"
                     >
-                      <div style="font-size:12px;letter-spacing:0.12em;color:#a4cdee;text-transform:uppercase;margin-bottom:8px;">Verifizierungscode</div>
-                      <div style="font-size:42px;line-height:1;font-weight:900;letter-spacing:0.24em;color:#ffffff;">${escapeSmtpHtml(codeDisplay)}</div>
-                      <div style="font-size:12px;color:#bdd8f2;margin-top:12px;">Gültig bis ${escapeSmtpHtml(expiresLabel)} Uhr</div>
+                      <div
+                        class="pms-code-label"
+                        style="font-size:12px;letter-spacing:0.08em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;text-transform:uppercase;margin-bottom:8px;font-weight:700;"
+                      >
+                        Verifizierungscode
+                      </div>
+                      <div
+                        class="pms-code-value"
+                        style="font-size:40px;line-height:1.05;font-weight:900;letter-spacing:0.12em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-variant-numeric:tabular-nums;"
+                      >
+                        ${escapeSmtpHtml(codeDisplay)}
+                      </div>
+                      <div class="pms-code-meta" style="font-size:12px;color:#23384f !important;-webkit-text-fill-color:#23384f !important;margin-top:12px;font-weight:600;">
+                        Gültig bis ${escapeSmtpHtml(expiresLabel)} Uhr
+                      </div>
                     </td>
                   </tr>
                 </table>
@@ -2661,6 +2712,43 @@ function buildAuthLoginVerificationEmail(options = {}) {
         color: inherit !important;
         text-decoration: none !important;
       }
+      .pms-code-wrap {
+        background: #ffffff !important;
+        border: 2px solid #0f2036 !important;
+        border-radius: 14px;
+      }
+      .pms-code-label,
+      .pms-code-value,
+      .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+      .pms-code-value {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (prefers-color-scheme: dark) {
+        .pms-code-wrap {
+          background: #ffffff !important;
+          border-color: #0f2036 !important;
+        }
+        .pms-code-label,
+        .pms-code-value,
+        .pms-code-meta {
+          color: #0f2036 !important;
+          -webkit-text-fill-color: #0f2036 !important;
+        }
+      }
+      [data-ogsc] .pms-code-wrap {
+        background: #ffffff !important;
+        border-color: #0f2036 !important;
+      }
+      [data-ogsc] .pms-code-label,
+      [data-ogsc] .pms-code-value,
+      [data-ogsc] .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
     </style>
     <title>PingMyServer Login Verifizierung</title>
   </head>
@@ -2692,11 +2780,25 @@ function buildAuthLoginVerificationEmail(options = {}) {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
                   <tr>
                     <td
-                      style="border:1px solid #5aa4da;border-radius:14px;background:linear-gradient(180deg,#15385f,#113052);padding:20px 16px;text-align:center;"
+                      class="pms-code-wrap"
+                      bgcolor="#ffffff"
+                      style="background:#ffffff !important;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;border:2px solid #0f2036;border-radius:14px;padding:20px 16px;text-align:center;"
                     >
-                      <div style="font-size:12px;letter-spacing:0.12em;color:#a4cdee;text-transform:uppercase;margin-bottom:8px;">Login-Code</div>
-                      <div style="font-size:42px;line-height:1;font-weight:900;letter-spacing:0.24em;color:#ffffff;">${escapeSmtpHtml(codeDisplay)}</div>
-                      <div style="font-size:12px;color:#bdd8f2;margin-top:12px;">Gültig bis ${escapeSmtpHtml(expiresLabel)} Uhr</div>
+                      <div
+                        class="pms-code-label"
+                        style="font-size:12px;letter-spacing:0.08em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;text-transform:uppercase;margin-bottom:8px;font-weight:700;"
+                      >
+                        Login-Code
+                      </div>
+                      <div
+                        class="pms-code-value"
+                        style="font-size:40px;line-height:1.05;font-weight:900;letter-spacing:0.12em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-variant-numeric:tabular-nums;"
+                      >
+                        ${escapeSmtpHtml(codeDisplay)}
+                      </div>
+                      <div class="pms-code-meta" style="font-size:12px;color:#23384f !important;-webkit-text-fill-color:#23384f !important;margin-top:12px;font-weight:600;">
+                        Gültig bis ${escapeSmtpHtml(expiresLabel)} Uhr
+                      </div>
                     </td>
                   </tr>
                 </table>
@@ -2775,6 +2877,45 @@ function buildAuthLoginVerificationEmailLocalized(options = {}) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light only" />
     <meta name="supported-color-schemes" content="light" />
+    <style>
+      .pms-code-wrap {
+        background: #ffffff !important;
+        border: 2px solid #0f2036 !important;
+        border-radius: 14px;
+      }
+      .pms-code-label,
+      .pms-code-value,
+      .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+      .pms-code-value {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (prefers-color-scheme: dark) {
+        .pms-code-wrap {
+          background: #ffffff !important;
+          border-color: #0f2036 !important;
+        }
+        .pms-code-label,
+        .pms-code-value,
+        .pms-code-meta {
+          color: #0f2036 !important;
+          -webkit-text-fill-color: #0f2036 !important;
+        }
+      }
+      [data-ogsc] .pms-code-wrap {
+        background: #ffffff !important;
+        border-color: #0f2036 !important;
+      }
+      [data-ogsc] .pms-code-label,
+      [data-ogsc] .pms-code-value,
+      [data-ogsc] .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+    </style>
     <title>PingMyServer Login Verification</title>
   </head>
   <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
@@ -2793,9 +2934,28 @@ function buildAuthLoginVerificationEmailLocalized(options = {}) {
                 <p style="margin:0 0 10px 0;font-size:14px;line-height:1.55;color:#1f334a;">
                   Use this login code to complete your sign-in.
                 </p>
-                <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
-                  ${escapeSmtpHtml(codeDisplay)}
-                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px 0;">
+                  <tr>
+                    <td
+                      class="pms-code-wrap"
+                      bgcolor="#ffffff"
+                      style="background:#ffffff !important;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;border:2px solid #0f2036;border-radius:14px;padding:18px 14px;text-align:center;"
+                    >
+                      <div
+                        class="pms-code-label"
+                        style="font-size:12px;letter-spacing:0.08em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;text-transform:uppercase;margin-bottom:8px;font-weight:700;"
+                      >
+                        Login code
+                      </div>
+                      <div
+                        class="pms-code-value"
+                        style="font-size:36px;line-height:1.05;font-weight:900;letter-spacing:0.12em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-variant-numeric:tabular-nums;"
+                      >
+                        ${escapeSmtpHtml(codeDisplay)}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
                 <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
                   Valid until: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
                   Account: ${escapeSmtpHtml(accountLabel)}<br />
@@ -2872,6 +3032,45 @@ function buildTeamInvitationVerificationEmail(options = {}) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light only" />
     <meta name="supported-color-schemes" content="light" />
+    <style>
+      .pms-code-wrap {
+        background: #ffffff !important;
+        border: 2px solid #0f2036 !important;
+        border-radius: 14px;
+      }
+      .pms-code-label,
+      .pms-code-value,
+      .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+      .pms-code-value {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (prefers-color-scheme: dark) {
+        .pms-code-wrap {
+          background: #ffffff !important;
+          border-color: #0f2036 !important;
+        }
+        .pms-code-label,
+        .pms-code-value,
+        .pms-code-meta {
+          color: #0f2036 !important;
+          -webkit-text-fill-color: #0f2036 !important;
+        }
+      }
+      [data-ogsc] .pms-code-wrap {
+        background: #ffffff !important;
+        border-color: #0f2036 !important;
+      }
+      [data-ogsc] .pms-code-label,
+      [data-ogsc] .pms-code-value,
+      [data-ogsc] .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+    </style>
     <title>PingMyServer Team-Einladung</title>
   </head>
   <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
@@ -2891,9 +3090,28 @@ function buildTeamInvitationVerificationEmail(options = {}) {
                   Du wurdest von <strong>${escapeSmtpHtml(inviterEmail)}</strong> eingeladen.
                   Melde dich mit <strong>${escapeSmtpHtml(invitedEmail)}</strong> an und bestätige diesen Code:
                 </p>
-                <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
-                  ${escapeSmtpHtml(codeDisplay)}
-                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px 0;">
+                  <tr>
+                    <td
+                      class="pms-code-wrap"
+                      bgcolor="#ffffff"
+                      style="background:#ffffff !important;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;border:2px solid #0f2036;border-radius:14px;padding:18px 14px;text-align:center;"
+                    >
+                      <div
+                        class="pms-code-label"
+                        style="font-size:12px;letter-spacing:0.08em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;text-transform:uppercase;margin-bottom:8px;font-weight:700;"
+                      >
+                        Verifizierungscode
+                      </div>
+                      <div
+                        class="pms-code-value"
+                        style="font-size:36px;line-height:1.05;font-weight:900;letter-spacing:0.12em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-variant-numeric:tabular-nums;"
+                      >
+                        ${escapeSmtpHtml(codeDisplay)}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
                 <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
                   Gültig bis: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
                   Erstellt am: ${escapeSmtpHtml(generatedAtLabel)}
@@ -2975,6 +3193,45 @@ function buildTeamInvitationVerificationEmailLocalized(options = {}) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light only" />
     <meta name="supported-color-schemes" content="light" />
+    <style>
+      .pms-code-wrap {
+        background: #ffffff !important;
+        border: 2px solid #0f2036 !important;
+        border-radius: 14px;
+      }
+      .pms-code-label,
+      .pms-code-value,
+      .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+      .pms-code-value {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (prefers-color-scheme: dark) {
+        .pms-code-wrap {
+          background: #ffffff !important;
+          border-color: #0f2036 !important;
+        }
+        .pms-code-label,
+        .pms-code-value,
+        .pms-code-meta {
+          color: #0f2036 !important;
+          -webkit-text-fill-color: #0f2036 !important;
+        }
+      }
+      [data-ogsc] .pms-code-wrap {
+        background: #ffffff !important;
+        border-color: #0f2036 !important;
+      }
+      [data-ogsc] .pms-code-label,
+      [data-ogsc] .pms-code-value,
+      [data-ogsc] .pms-code-meta {
+        color: #0f2036 !important;
+        -webkit-text-fill-color: #0f2036 !important;
+      }
+    </style>
     <title>PingMyServer Team Invitation</title>
   </head>
   <body style="margin:0;padding:0;background:#f2f6fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0d1a2a;">
@@ -2994,9 +3251,28 @@ function buildTeamInvitationVerificationEmailLocalized(options = {}) {
                   <strong>${escapeSmtpHtml(inviterEmail)}</strong> invited you to a team.
                   Sign in as <strong>${escapeSmtpHtml(invitedEmail)}</strong> and confirm this code:
                 </p>
-                <p style="margin:0 0 12px 0;font-size:28px;line-height:1;font-weight:800;letter-spacing:0.18em;color:#0f2036;">
-                  ${escapeSmtpHtml(codeDisplay)}
-                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px 0;">
+                  <tr>
+                    <td
+                      class="pms-code-wrap"
+                      bgcolor="#ffffff"
+                      style="background:#ffffff !important;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;border:2px solid #0f2036;border-radius:14px;padding:18px 14px;text-align:center;"
+                    >
+                      <div
+                        class="pms-code-label"
+                        style="font-size:12px;letter-spacing:0.08em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;text-transform:uppercase;margin-bottom:8px;font-weight:700;"
+                      >
+                        Verification code
+                      </div>
+                      <div
+                        class="pms-code-value"
+                        style="font-size:36px;line-height:1.05;font-weight:900;letter-spacing:0.12em;color:#0f2036 !important;-webkit-text-fill-color:#0f2036 !important;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-variant-numeric:tabular-nums;"
+                      >
+                        ${escapeSmtpHtml(codeDisplay)}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
                 <p style="margin:0;font-size:13px;line-height:1.6;color:#4f677f;">
                   Valid until: ${escapeSmtpHtml(expiresLabel)} (Europe/Berlin)<br />
                   Generated at: ${escapeSmtpHtml(generatedAtLabel)}
