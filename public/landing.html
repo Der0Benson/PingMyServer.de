@@ -293,80 +293,6 @@
         </div>
     </section>
 
-    <section id="bewertungen" class="landing-rating py-16 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-10">
-                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.rating.h2">Wie gefällt dir PingMyServer?</h2>
-                <p class="text-xl text-slate-300" data-i18n="landing.rating.sub">Bewerte die Startseite in 5 Sekunden.</p>
-            </div>
-
-            <div class="landing-rating-grid">
-                <article class="glass-effect rounded-xl p-8 landing-rating-summary-card">
-                    <div class="landing-rating-kpi">
-                        <div class="landing-rating-average" id="landing-rating-average">--</div>
-                        <div class="landing-rating-average-meta" id="landing-rating-average-meta" data-i18n="landing.rating.loading">
-                            Bewertungen werden geladen ...
-                        </div>
-                    </div>
-                    <div class="landing-rating-distribution" id="landing-rating-distribution"></div>
-                </article>
-
-                <form class="glass-effect rounded-xl p-8 landing-rating-form" id="landing-rating-form" novalidate>
-                    <label class="landing-rating-label" data-i18n="landing.rating.form.label">Deine Bewertung</label>
-                    <div
-                        class="landing-star-row"
-                        id="landing-rating-stars"
-                        role="radiogroup"
-                        data-i18n-aria-label="landing.rating.form.stars_aria"
-                        aria-label="Bewertung in Sternen"
-                    >
-                        <button class="landing-star-btn" type="button" data-value="1" aria-label="1 star">☆</button>
-                        <button class="landing-star-btn" type="button" data-value="2" aria-label="2 stars">☆</button>
-                        <button class="landing-star-btn" type="button" data-value="3" aria-label="3 stars">☆</button>
-                        <button class="landing-star-btn" type="button" data-value="4" aria-label="4 stars">☆</button>
-                        <button class="landing-star-btn" type="button" data-value="5" aria-label="5 stars">☆</button>
-                    </div>
-
-                    <label class="landing-rating-comment-label" for="landing-rating-comment" data-i18n="landing.rating.form.comment_label">
-                        Optionales Feedback
-                    </label>
-                    <textarea
-                        id="landing-rating-comment"
-                        class="landing-rating-comment"
-                        maxlength="300"
-                        rows="3"
-                        data-i18n-placeholder="landing.rating.form.comment_placeholder"
-                        placeholder="Was gefällt dir? Was fehlt dir?"
-                    ></textarea>
-
-                    <div class="landing-rating-actions">
-                        <button class="landing-rating-submit" id="landing-rating-submit" type="submit" data-i18n="landing.rating.form.submit">
-                            Bewertung senden
-                        </button>
-                        <div class="landing-rating-message" id="landing-rating-message" aria-live="polite"></div>
-                        <div class="landing-rating-login-note" id="landing-rating-login-note" hidden>
-                            <span data-i18n="landing.rating.form.login_required">Zum Bewerten bitte anmelden.</span>
-                            <a
-                                id="landing-rating-login-link"
-                                class="landing-rating-login-link"
-                                href="/login"
-                                data-i18n="landing.rating.form.login_cta"
-                            >Jetzt anmelden</a>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <section class="glass-effect rounded-xl p-8 landing-rating-recent">
-                <h3 class="text-2xl font-bold mb-4" data-i18n="landing.rating.recent_title">Neueste Rückmeldungen</h3>
-                <div class="landing-rating-recent-shell" id="landing-rating-recent-shell">
-                    <div class="landing-rating-recent-list" id="landing-rating-recent-list"></div>
-                </div>
-                <div class="landing-rating-empty" id="landing-rating-empty" data-i18n="landing.rating.recent_empty">Noch keine Rückmeldungen.</div>
-            </section>
-        </div>
-    </section>
-
     <!-- Features Section -->
     <section id="features" class="landing-features py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
@@ -837,6 +763,91 @@
                 </a>
             </div>
             <p class="text-sm text-slate-400 mt-6" data-i18n="landing.cta.note">Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany</p>
+        </div>
+    </section>
+
+    <section id="bewertungen" class="landing-rating py-16 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.rating.h2">Wie gefällt dir PingMyServer?</h2>
+                <p class="text-xl text-slate-300" data-i18n="landing.rating.sub">Bewerte die Startseite in 5 Sekunden.</p>
+            </div>
+
+            <div class="landing-rating-grid">
+                <article class="glass-effect rounded-xl p-8 landing-rating-summary-card">
+                    <div class="landing-rating-kpi">
+                        <div class="landing-rating-average" id="landing-rating-average">--</div>
+                        <div class="landing-rating-average-meta" id="landing-rating-average-meta" data-i18n="landing.rating.loading">
+                            Bewertungen werden geladen ...
+                        </div>
+                    </div>
+                    <div class="landing-rating-distribution" id="landing-rating-distribution"></div>
+                </article>
+
+                <article class="glass-effect rounded-xl p-8 landing-rating-form-panel">
+                    <div class="landing-rating-guest-note" id="landing-rating-guest-note">
+                        <span data-i18n="landing.rating.form.login_required">Zum Bewerten bitte anmelden.</span>
+                        <a
+                            id="landing-rating-guest-login-link"
+                            class="landing-rating-guest-link"
+                            href="/login"
+                            data-i18n="landing.rating.form.login_cta"
+                        >Jetzt anmelden</a>
+                    </div>
+                    <button
+                        class="landing-rating-toggle"
+                        id="landing-rating-toggle"
+                        type="button"
+                        hidden
+                        data-i18n="landing.rating.form.open"
+                    >
+                        Bewertung schreiben
+                    </button>
+                    <form class="landing-rating-form" id="landing-rating-form" novalidate hidden>
+                        <label class="landing-rating-label" data-i18n="landing.rating.form.label">Deine Bewertung</label>
+                        <div
+                            class="landing-star-row"
+                            id="landing-rating-stars"
+                            role="radiogroup"
+                            data-i18n-aria-label="landing.rating.form.stars_aria"
+                            aria-label="Bewertung in Sternen"
+                        >
+                            <button class="landing-star-btn" type="button" data-value="1" aria-label="1 star">☆</button>
+                            <button class="landing-star-btn" type="button" data-value="2" aria-label="2 stars">☆</button>
+                            <button class="landing-star-btn" type="button" data-value="3" aria-label="3 stars">☆</button>
+                            <button class="landing-star-btn" type="button" data-value="4" aria-label="4 stars">☆</button>
+                            <button class="landing-star-btn" type="button" data-value="5" aria-label="5 stars">☆</button>
+                        </div>
+
+                        <label class="landing-rating-comment-label" for="landing-rating-comment" data-i18n="landing.rating.form.comment_label">
+                            Optionales Feedback
+                        </label>
+                        <textarea
+                            id="landing-rating-comment"
+                            class="landing-rating-comment"
+                            maxlength="300"
+                            rows="3"
+                            data-i18n-placeholder="landing.rating.form.comment_placeholder"
+                            placeholder="Was gefällt dir? Was fehlt dir?"
+                        ></textarea>
+
+                        <div class="landing-rating-actions">
+                            <button class="landing-rating-submit" id="landing-rating-submit" type="submit" data-i18n="landing.rating.form.submit">
+                                Bewertung senden
+                            </button>
+                            <div class="landing-rating-message" id="landing-rating-message" aria-live="polite"></div>
+                        </div>
+                    </form>
+                </article>
+            </div>
+
+            <section class="glass-effect rounded-xl p-8 landing-rating-recent">
+                <h3 class="text-2xl font-bold mb-4" data-i18n="landing.rating.recent_title">Neueste Rückmeldungen</h3>
+                <div class="landing-rating-recent-shell" id="landing-rating-recent-shell">
+                    <div class="landing-rating-recent-list" id="landing-rating-recent-list"></div>
+                </div>
+                <div class="landing-rating-empty" id="landing-rating-empty" data-i18n="landing.rating.recent_empty">Noch keine Rückmeldungen.</div>
+            </section>
         </div>
     </section>
 

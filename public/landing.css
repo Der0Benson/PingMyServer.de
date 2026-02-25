@@ -365,6 +365,31 @@ body.landing-page .border-slate-700 {
   gap: 12px;
 }
 
+.landing-rating-form-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.landing-rating-toggle {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(76, 201, 240, 0.52);
+  background: rgba(76, 201, 240, 0.14);
+  color: rgba(218, 245, 255, 0.96);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.landing-rating-toggle:hover {
+  background: rgba(76, 201, 240, 0.22);
+}
+
+.landing-rating-toggle[hidden],
+.landing-rating-form[hidden] {
+  display: none !important;
+}
+
 .landing-rating-label,
 .landing-rating-comment-label {
   color: var(--text);
@@ -453,7 +478,7 @@ body.landing-page .border-slate-700 {
   color: #f1a6a6;
 }
 
-.landing-rating-login-note {
+.landing-rating-guest-note {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -461,13 +486,13 @@ body.landing-page .border-slate-700 {
   font-size: 0.82rem;
 }
 
-.landing-rating-login-link {
+.landing-rating-guest-link {
   color: var(--accent);
   text-decoration: none;
   font-weight: 600;
 }
 
-.landing-rating-login-link:hover {
+.landing-rating-guest-link:hover {
   text-decoration: underline;
 }
 
