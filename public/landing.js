@@ -922,13 +922,30 @@
     return unique;
   }
 
+  function buildDemoPreviewMetric() {
+    return {
+      monitorId: "landing-demo-pingmyserver-de",
+      name: "pingmyserver.de",
+      target: "https://pingmyserver.de",
+      status: "online",
+      lastResponseMs: 28,
+      last24h: {
+        uptime: 99.98,
+        bars: Array.from({ length: previewBarCount }, () => ({ status: "ok" })),
+      },
+      incidents: {
+        items: [],
+      },
+    };
+  }
+
   async function loadPreviewData() {
     const isAuthenticated = await hasAuthenticatedSession();
     renderNavigationAuthState(isAuthenticated);
     setLandingRatingAuthState(isAuthenticated);
 
     const publicMetric = await loadPublicPreviewMetric();
-    const normalizedMetrics = uniqueMetrics(publicMetric ? [publicMetric] : []).slice(0, 1);
+    const normalizedMetrics = uniqueMetrics([publicMetric || buildDemoPreviewMetric()]).slice(0, 1);
 
     renderOverallStatus(normalizedMetrics);
     renderPrimaryMonitor(normalizedMetrics[0] || null);

@@ -17,6 +17,12 @@ function createMonitorsRepository(dependencies = {}) {
       .replace(/\.+$/, "");
   }
 
+  function comparableHostname(value) {
+    const normalized = normalizeHostname(value);
+    if (normalized.startsWith("www.")) return normalized.slice(4);
+    return normalized;
+  }
+
   function extractHostnameFromTarget(value) {
     const raw = String(value || "").trim();
     if (!raw) return "";
@@ -35,12 +41,15 @@ function createMonitorsRepository(dependencies = {}) {
   }
 
   function rowMatchesPublicHostname(row, hostname) {
-    const normalizedHostname = normalizeHostname(hostname);
+    const normalizedHostname = comparableHostname(hostname);
     if (!normalizedHostname) return false;
-    const targetHost = extractHostnameFromTarget(row?.target_url);
+
+    const targetHost = comparableHostname(extractHostnameFromTarget(row?.target_url));
     if (targetHost && targetHost === normalizedHostname) return true;
-    const legacyHost = extractHostnameFromTarget(row?.url);
+
+    const legacyHost = comparableHostname(extractHostnameFromTarget(row?.url));
     if (legacyHost && legacyHost === normalizedHostname) return true;
+
     return false;
   }
 
