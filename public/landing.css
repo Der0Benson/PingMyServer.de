@@ -253,7 +253,11 @@ body.landing-page .border-slate-700 {
   border-radius: 11px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transform-origin: top left;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.18s ease, background 0.18s ease;
 }
 
 .landing-nav-product-row.is-active,
@@ -318,7 +322,11 @@ body.landing-page .border-slate-700 {
   padding: 7px 4px;
   border-radius: 9px;
   border: 1px solid transparent;
-  transition: border-color 0.18s ease, background 0.18s ease;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transform-origin: top left;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.18s ease, background 0.18s ease;
 }
 
 .landing-nav-product-side-link:hover {
@@ -346,6 +354,65 @@ body.landing-page .border-slate-700 {
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   text-decoration: none;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transform-origin: top left;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-nav-product:hover .landing-nav-product-row,
+.landing-nav-product[open] .landing-nav-product-row,
+.landing-nav-product:hover .landing-nav-product-side-link,
+.landing-nav-product[open] .landing-nav-product-side-link,
+.landing-nav-product:hover .landing-nav-product-demo,
+.landing-nav-product[open] .landing-nav-product-demo {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.landing-nav-product:hover .landing-nav-product-col-main .landing-nav-product-row:nth-child(1),
+.landing-nav-product[open] .landing-nav-product-col-main .landing-nav-product-row:nth-child(1) {
+  transition-delay: 0.03s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-main .landing-nav-product-row:nth-child(2),
+.landing-nav-product[open] .landing-nav-product-col-main .landing-nav-product-row:nth-child(2) {
+  transition-delay: 0.06s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-main .landing-nav-product-row:nth-child(3),
+.landing-nav-product[open] .landing-nav-product-col-main .landing-nav-product-row:nth-child(3) {
+  transition-delay: 0.09s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-main .landing-nav-product-row:nth-child(4),
+.landing-nav-product[open] .landing-nav-product-col-main .landing-nav-product-row:nth-child(4) {
+  transition-delay: 0.12s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(1),
+.landing-nav-product[open] .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(1) {
+  transition-delay: 0.05s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(2),
+.landing-nav-product[open] .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(2) {
+  transition-delay: 0.09s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(3),
+.landing-nav-product[open] .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(3) {
+  transition-delay: 0.13s;
+}
+
+.landing-nav-product:hover .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(4),
+.landing-nav-product[open] .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(4) {
+  transition-delay: 0.17s;
+}
+
+.landing-nav-product:hover .landing-nav-product-demo,
+.landing-nav-product[open] .landing-nav-product-demo {
+  transition-delay: 0.2s;
 }
 
 .landing-nav-product-demo-avatar {
@@ -1246,6 +1313,9 @@ button:focus-visible {
   .interactive-surface,
   .interactive-surface::after,
   .landing-nav-product-panel,
+  .landing-nav-product-row,
+  .landing-nav-product-side-link,
+  .landing-nav-product-demo,
   .shine-effect::before,
   .faq-content,
   .faq-icon {
