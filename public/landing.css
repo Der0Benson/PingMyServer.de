@@ -199,20 +199,32 @@ body.landing-page .border-slate-700 {
   left: 0;
   width: min(670px, 82vw);
   padding: 14px;
-  display: none;
+  display: block;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(180deg, rgba(17, 23, 35, 0.985), rgba(10, 14, 21, 0.985));
   box-shadow: var(--shadow);
   z-index: 70;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px) scale(0.985);
+  transform-origin: top left;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
 }
 
 .landing-nav-product[open] .landing-nav-product-panel {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .landing-nav-product:hover .landing-nav-product-panel {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .landing-nav-product-grid {
@@ -1233,6 +1245,7 @@ button:focus-visible {
   .reveal-item,
   .interactive-surface,
   .interactive-surface::after,
+  .landing-nav-product-panel,
   .shine-effect::before,
   .faq-content,
   .faq-icon {
