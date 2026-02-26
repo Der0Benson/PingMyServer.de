@@ -161,13 +161,13 @@ body.landing-page .border-slate-700 {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  color: var(--text);
+  color: var(--muted);
   font-size: 0.95rem;
   text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  padding: 9px 13px;
+  background: transparent;
+  padding: 9px 12px;
   transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
@@ -181,12 +181,14 @@ body.landing-page .border-slate-700 {
   transition: transform 0.2s ease;
 }
 
+.landing-nav-product:hover .landing-nav-product-summary,
 .landing-nav-product[open] .landing-nav-product-summary {
   color: var(--text);
-  border-color: rgba(76, 201, 240, 0.45);
-  background: rgba(76, 201, 240, 0.15);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
 }
 
+.landing-nav-product:hover .landing-nav-product-summary::after,
 .landing-nav-product[open] .landing-nav-product-summary::after {
   transform: rotate(-135deg) translateY(-1px);
 }
@@ -206,6 +208,10 @@ body.landing-page .border-slate-700 {
 }
 
 .landing-nav-product[open] .landing-nav-product-panel {
+  display: block;
+}
+
+.landing-nav-product:hover .landing-nav-product-panel {
   display: block;
 }
 
