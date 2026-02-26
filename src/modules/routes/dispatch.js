@@ -166,6 +166,7 @@ async function handleDispatchedRoutes(context) {
     url,
     utilities: {
       getPublicMonitorByIdentifier: utilities.getPublicMonitorByIdentifier,
+      getPublicMonitorByHostname: utilities.getPublicMonitorByHostname,
       requireAuth: utilities.requireAuth,
       getLatestMonitorForUser: utilities.getLatestMonitorForUser,
       getDefaultPublicMonitor: utilities.getDefaultPublicMonitor,
