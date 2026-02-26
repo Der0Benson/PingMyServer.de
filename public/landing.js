@@ -536,6 +536,30 @@
   }
 
   if (companyMenu) {
+    const companySummary = companyMenu.querySelector("summary");
+
+    if (supportsFinePointer) {
+      companyMenu.addEventListener("mouseenter", () => {
+        companyMenu.setAttribute("open", "");
+      });
+
+      companyMenu.addEventListener("mouseleave", () => {
+        closeCompanyMenu();
+      });
+    }
+
+    if (companySummary) {
+      companySummary.addEventListener("click", (event) => {
+        if (!supportsFinePointer) return;
+        event.preventDefault();
+        if (companyMenu.hasAttribute("open")) {
+          closeCompanyMenu();
+          return;
+        }
+        companyMenu.setAttribute("open", "");
+      });
+    }
+
     companyMenuLinks.forEach((link) => {
       link.addEventListener("click", () => {
         closeCompanyMenu();
