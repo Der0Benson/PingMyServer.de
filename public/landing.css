@@ -143,6 +143,102 @@ body.landing-page .border-slate-700 {
   border-color: rgba(76, 201, 240, 0.5);
 }
 
+.landing-nav-company {
+  position: relative;
+}
+
+.landing-nav-company > summary {
+  list-style: none;
+}
+
+.landing-nav-company > summary::-webkit-details-marker {
+  display: none;
+}
+
+.landing-nav-company-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding: 4px 0;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.landing-nav-company-summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+  transition: transform 0.2s ease;
+}
+
+.landing-nav-company[open] .landing-nav-company-summary {
+  color: var(--text);
+  border-color: rgba(76, 201, 240, 0.5);
+}
+
+.landing-nav-company[open] .landing-nav-company-summary::after {
+  transform: rotate(-135deg) translateY(-1px);
+}
+
+.landing-nav-company-panel {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: -16px;
+  width: min(420px, 70vw);
+  padding: 10px;
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(16, 22, 33, 0.98), rgba(11, 15, 22, 0.97));
+  box-shadow: var(--shadow);
+  z-index: 70;
+}
+
+.landing-nav-company[open] .landing-nav-company-panel {
+  display: grid;
+}
+
+.landing-nav-company-item {
+  display: grid;
+  gap: 2px;
+  min-height: 68px;
+  text-decoration: none;
+  padding: 10px 11px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.landing-nav-company-item:hover {
+  border-color: rgba(76, 201, 240, 0.45);
+  background: rgba(76, 201, 240, 0.08);
+  transform: translateY(-1px);
+}
+
+.landing-nav-company-item-title {
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.landing-nav-company-item-desc {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .landing-nav-actions {
   margin-left: auto;
   display: flex;
@@ -241,6 +337,64 @@ body.landing-page .border-slate-700 {
 .landing-mobile-links a:hover {
   border-color: rgba(76, 201, 240, 0.3);
   background: rgba(76, 201, 240, 0.08);
+}
+
+.landing-mobile-company {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.landing-mobile-company > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 0.86rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.landing-mobile-company > summary::-webkit-details-marker {
+  display: none;
+}
+
+.landing-mobile-company > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid rgba(230, 237, 247, 0.85);
+  border-bottom: 1.5px solid rgba(230, 237, 247, 0.85);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.landing-mobile-company[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.landing-mobile-company-links {
+  display: grid;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.landing-mobile-company-links a {
+  display: block;
+  text-decoration: none;
+  color: var(--muted);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 18, 28, 0.7);
+  padding: 9px 10px;
+  font-size: 0.84rem;
+}
+
+.landing-mobile-company-links a:hover {
+  color: var(--text);
+  border-color: rgba(76, 201, 240, 0.35);
 }
 
 .landing-mobile-actions {
@@ -785,6 +939,10 @@ button:focus-visible {
   }
 
   .landing-nav-links a {
+    font-size: 0.79rem;
+  }
+
+  .landing-nav-company-summary {
     font-size: 0.79rem;
   }
 

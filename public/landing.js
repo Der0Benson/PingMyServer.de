@@ -31,8 +31,11 @@
   const alertText = document.getElementById("landing-alert-text");
   const navLoginLinks = Array.from(document.querySelectorAll("[data-landing-login]"));
   const navPrimaryCtas = Array.from(document.querySelectorAll("[data-landing-primary-cta]"));
+  const companyMenu = document.querySelector("[data-landing-company-menu]");
+  const companyMenuLinks = document.querySelectorAll("[data-landing-company-link]");
   const mobileMenuToggle = document.getElementById("landing-mobile-menu-toggle");
   const mobileMenu = document.getElementById("landing-mobile-menu");
+  const mobileCompanyMenu = document.querySelector("[data-landing-mobile-company]");
   const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
   const ratingForm = document.getElementById("landing-rating-form");
   const ratingAverageEl = document.getElementById("landing-rating-average");
@@ -83,6 +86,14 @@
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
+    if (mobileCompanyMenu) {
+      mobileCompanyMenu.removeAttribute("open");
+    }
+  }
+
+  function closeCompanyMenu() {
+    if (!companyMenu) return;
+    companyMenu.removeAttribute("open");
   }
 
   if (mobileMenu && mobileMenuToggle) {
@@ -109,6 +120,7 @@
 
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
+      closeCompanyMenu();
       closeMobileMenu();
     });
 
@@ -521,6 +533,21 @@
     } catch (error) {
       return null;
     }
+  }
+
+  if (companyMenu) {
+    companyMenuLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        closeCompanyMenu();
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (companyMenu.contains(target)) return;
+      closeCompanyMenu();
+    });
   }
 
   async function fetchJsonResponse(url, options = {}) {
