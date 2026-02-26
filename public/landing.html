@@ -52,47 +52,75 @@
                     <span class="landing-brand-name">PingMyServer.de</span>
                 </a>
                 <div class="landing-nav-links hidden md:flex">
-                    <a href="#features" class="hover:text-cyan-400 transition" data-i18n="landing.nav.features">Features</a>
-                    <a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
-                    <a href="#faq" class="hover:text-cyan-400 transition" data-i18n="landing.nav.faq">FAQ</a>
-                    <a href="/status" class="hover:text-cyan-400 transition" data-i18n="landing.nav.status">Statusseite</a>
-                    <details class="landing-nav-company" data-landing-company-menu>
-                        <summary class="landing-nav-company-summary" data-i18n="landing.nav.company">Unternehmen</summary>
-                        <div class="landing-nav-company-panel" data-i18n-aria-label="landing.nav.company" aria-label="Unternehmen">
-                            <a href="#about" class="landing-nav-company-item" data-landing-company-link>
-                                <span class="landing-nav-company-item-title" data-i18n="landing.nav.company_about">Über uns</span>
-                                <span class="landing-nav-company-item-desc" data-i18n="landing.nav.company_about_desc">Unsere Story und Vision</span>
-                            </a>
-                            <a
-                                href="https://github.com/Der0Benson/PingMyServer.de"
-                                class="landing-nav-company-item"
-                                data-landing-company-link
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <span class="landing-nav-company-item-title">GitHub</span>
-                                <span class="landing-nav-company-item-desc" data-i18n="landing.nav.company_github_desc">Repository und Entwicklung</span>
-                            </a>
-                            <a
-                                href="https://github.com/Der0Benson/PingMyServer.de/commits/main"
-                                class="landing-nav-company-item"
-                                data-landing-company-link
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <span class="landing-nav-company-item-title" data-i18n="landing.footer.commits">Commits</span>
-                                <span class="landing-nav-company-item-desc" data-i18n="landing.nav.company_commits_desc">Änderungen live verfolgen</span>
-                            </a>
-                            <a
-                                href="mailto:pritzsche.ben.luca@gmail.com"
-                                class="landing-nav-company-item"
-                                data-landing-company-link
-                            >
-                                <span class="landing-nav-company-item-title" data-i18n="landing.footer.contact">Kontakt</span>
-                                <span class="landing-nav-company-item-desc" data-i18n="landing.nav.company_contact_desc">Direkt per E-Mail</span>
+                    <details class="landing-nav-product" data-landing-product-menu>
+                        <summary class="landing-nav-product-summary" data-i18n="landing.nav.product">Produkt</summary>
+                        <div class="landing-nav-product-panel" data-i18n-aria-label="landing.nav.product" aria-label="Produkt">
+                            <div class="landing-nav-product-grid">
+                                <div class="landing-nav-product-col landing-nav-product-col-main">
+                                    <a href="#features" class="landing-nav-product-row is-active" data-landing-product-link>
+                                        <span class="landing-nav-product-dot dot-cyan"></span>
+                                        <span class="landing-nav-product-row-copy">
+                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</span>
+                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.monitoring_desc">Überwache Websites, APIs und Services rund um die Uhr.</span>
+                                        </span>
+                                        <span class="landing-nav-product-arrow">›</span>
+                                    </a>
+                                    <a href="#features" class="landing-nav-product-row" data-landing-product-link>
+                                        <span class="landing-nav-product-dot dot-orange"></span>
+                                        <span class="landing-nav-product-row-copy">
+                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</span>
+                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.incidents_desc">Historie, Ausfallzeiten und Ursachen auf einen Blick.</span>
+                                        </span>
+                                        <span class="landing-nav-product-arrow">›</span>
+                                    </a>
+                                    <a href="#features" class="landing-nav-product-row" data-landing-product-link>
+                                        <span class="landing-nav-product-dot dot-amber"></span>
+                                        <span class="landing-nav-product-row-copy">
+                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</span>
+                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.alerting_desc">Discord, E-Mail und Webhooks für sofortige Reaktion.</span>
+                                        </span>
+                                        <span class="landing-nav-product-arrow">›</span>
+                                    </a>
+                                    <a href="/status" class="landing-nav-product-row" data-landing-product-link>
+                                        <span class="landing-nav-product-dot dot-emerald"></span>
+                                        <span class="landing-nav-product-row-copy">
+                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</span>
+                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.status_desc">Live-Transparenz für Nutzer und Kunden.</span>
+                                        </span>
+                                        <span class="landing-nav-product-arrow">›</span>
+                                    </a>
+                                </div>
+                                <div class="landing-nav-product-col landing-nav-product-col-side">
+                                    <a href="#features" class="landing-nav-product-side-link" data-landing-product-link>
+                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.kpi_title">Realtime KPI Dashboard</span>
+                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.kpi_desc">Response-Zeiten, Uptime und Trends sofort sehen.</span>
+                                    </a>
+                                    <a href="#features" class="landing-nav-product-side-link" data-landing-product-link>
+                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.ssl_title">Domain & SSL Monitoring</span>
+                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.ssl_desc">Ablaufdaten und Zertifikate automatisch überwachen.</span>
+                                    </a>
+                                    <a href="#faq" class="landing-nav-product-side-link" data-landing-product-link>
+                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.api_title">API-Ready Workflows</span>
+                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.api_desc">Für Deployments, Ops und Team-Prozesse geeignet.</span>
+                                    </a>
+                                    <a href="/status" class="landing-nav-product-side-link" data-landing-product-link>
+                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.demo_title">Live Demo</span>
+                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.demo_desc">Sieh dir die öffentliche Statusseite direkt an.</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <a href="/status" class="landing-nav-product-demo" data-landing-product-link>
+                                <img src="/assets/Me.jpg" alt="" aria-hidden="true" class="landing-nav-product-demo-avatar" />
+                                <span class="landing-nav-product-demo-copy">
+                                    <span class="landing-nav-product-demo-title" data-i18n="landing.nav.demo_title">Demo ansehen</span>
+                                    <span class="landing-nav-product-demo-desc" data-i18n="landing.nav.demo_desc">Kurzer Einblick in die Live-Features von PingMyServer.</span>
+                                </span>
                             </a>
                         </div>
                     </details>
+                    <a href="#about" class="hover:text-cyan-400 transition" data-i18n="landing.nav.why_us">Warum wir</a>
+                    <a href="#bewertungen" class="hover:text-cyan-400 transition" data-i18n="landing.nav.customers">Kunden</a>
+                    <a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
                 </div>
                 <div class="landing-nav-actions">
                     <div class="lang-picker">
@@ -151,25 +179,18 @@
             </div>
             <div id="landing-mobile-menu" class="landing-mobile-menu" hidden>
                 <div class="landing-mobile-links">
-                    <a href="#features" data-landing-mobile-link data-i18n="landing.nav.features">Features</a>
-                    <a href="#preise" data-landing-mobile-link data-i18n="landing.nav.pricing">Preise</a>
-                    <a href="#faq" data-landing-mobile-link data-i18n="landing.nav.faq">FAQ</a>
-                    <a href="/status" data-landing-mobile-link data-i18n="landing.nav.status">Statusseite</a>
-                    <details class="landing-mobile-company" data-landing-mobile-company>
-                        <summary class="landing-mobile-company-summary" data-i18n="landing.nav.company">Unternehmen</summary>
+                    <details class="landing-mobile-company" data-landing-mobile-product>
+                        <summary class="landing-mobile-company-summary" data-i18n="landing.nav.product">Produkt</summary>
                         <div class="landing-mobile-company-links">
-                            <a href="#about" data-landing-mobile-link data-i18n="landing.nav.company_about">Über uns</a>
-                            <a href="https://github.com/Der0Benson/PingMyServer.de" target="_blank" rel="noreferrer" data-landing-mobile-link>GitHub</a>
-                            <a
-                                href="https://github.com/Der0Benson/PingMyServer.de/commits/main"
-                                target="_blank"
-                                rel="noreferrer"
-                                data-landing-mobile-link
-                                data-i18n="landing.footer.commits"
-                            >Commits</a>
-                            <a href="mailto:pritzsche.ben.luca@gmail.com" data-landing-mobile-link data-i18n="landing.footer.contact">Kontakt</a>
+                            <a href="#features" data-landing-mobile-link data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</a>
+                            <a href="#features" data-landing-mobile-link data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</a>
+                            <a href="#features" data-landing-mobile-link data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</a>
+                            <a href="/status" data-landing-mobile-link data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</a>
                         </div>
                     </details>
+                    <a href="#about" data-landing-mobile-link data-i18n="landing.nav.why_us">Warum wir</a>
+                    <a href="#bewertungen" data-landing-mobile-link data-i18n="landing.nav.customers">Kunden</a>
+                    <a href="#preise" data-landing-mobile-link data-i18n="landing.nav.pricing">Preise</a>
                 </div>
                 <div class="landing-mobile-actions">
                     <a

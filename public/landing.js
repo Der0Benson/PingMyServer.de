@@ -31,11 +31,11 @@
   const alertText = document.getElementById("landing-alert-text");
   const navLoginLinks = Array.from(document.querySelectorAll("[data-landing-login]"));
   const navPrimaryCtas = Array.from(document.querySelectorAll("[data-landing-primary-cta]"));
-  const companyMenu = document.querySelector("[data-landing-company-menu]");
-  const companyMenuLinks = document.querySelectorAll("[data-landing-company-link]");
+  const companyMenu = document.querySelector("[data-landing-product-menu]");
+  const companyMenuLinks = document.querySelectorAll("[data-landing-product-link]");
   const mobileMenuToggle = document.getElementById("landing-mobile-menu-toggle");
   const mobileMenu = document.getElementById("landing-mobile-menu");
-  const mobileCompanyMenu = document.querySelector("[data-landing-mobile-company]");
+  const mobileCompanyMenu = document.querySelector("[data-landing-mobile-product]");
   const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
   const ratingForm = document.getElementById("landing-rating-form");
   const ratingAverageEl = document.getElementById("landing-rating-average");
