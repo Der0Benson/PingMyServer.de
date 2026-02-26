@@ -6517,6 +6517,7 @@ const {
   getLatestMonitorForUser,
   getMonitorByIdForUser,
   getDefaultPublicMonitor,
+  getPublicMonitorByHostname,
   getLatestPublicMonitor,
   getPublicMonitorByIdentifier,
 } = monitorsRepository;
@@ -13508,6 +13509,7 @@ const runtimeUtilities = {
   serializeMonitorRow,
   getMetricsForMonitor,
   getPublicMonitorByIdentifier,
+  getPublicMonitorByHostname,
   getLatestMonitorForUser,
   getDefaultPublicMonitor,
   getLatestPublicMonitor,

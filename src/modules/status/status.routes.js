@@ -3,10 +3,13 @@ async function handleStatusRoutes(context) {
 
   if (method === "GET" && pathname === "/status/data") {
     const monitorFilter = String(url.searchParams.get("monitor") || "").trim();
+    const landingPreviewRequested = String(url.searchParams.get("landing") || "").trim() === "1";
     let monitor = null;
     let user = null;
 
-    if (monitorFilter) {
+    if (landingPreviewRequested) {
+      monitor = await utilities.getPublicMonitorByHostname("pingmyserver.de");
+    } else if (monitorFilter) {
       monitor = await utilities.getPublicMonitorByIdentifier(monitorFilter);
     } else {
       user = await utilities.requireAuth(req, res, { silent: true });

@@ -874,28 +874,8 @@
     });
   }
 
-  async function loadMetricsForMonitorId(monitorId) {
-    const payload = await fetchJsonPayload(`/api/monitors/${encodeURIComponent(monitorId)}/metrics`);
-    if (!payload?.ok || !payload.data) return null;
-    return payload.data;
-  }
-
-  async function loadAuthenticatedPreviewMetrics() {
-    const monitorsPayload = await fetchJsonPayload("/api/monitors");
-    const monitors = Array.isArray(monitorsPayload?.data) ? monitorsPayload.data : [];
-    if (!monitors.length) return [];
-
-    const monitorIds = monitors
-      .map((monitor) => String(monitor?.id || "").trim())
-      .filter(Boolean)
-      .slice(0, 2);
-
-    const metricResults = await Promise.all(monitorIds.map((monitorId) => loadMetricsForMonitorId(monitorId)));
-    return metricResults.filter(Boolean);
-  }
-
   async function loadPublicPreviewMetric() {
-    const payload = await fetchJsonPayload("/status/data");
+    const payload = await fetchJsonPayload("/status/data?landing=1");
     if (!payload?.ok || !payload.data) return null;
     return payload.data;
   }
@@ -943,23 +923,16 @@
   }
 
   async function loadPreviewData() {
-    let metricsList = [];
     const isAuthenticated = await hasAuthenticatedSession();
     renderNavigationAuthState(isAuthenticated);
     setLandingRatingAuthState(isAuthenticated);
 
-    if (isAuthenticated) {
-      metricsList = await loadAuthenticatedPreviewMetrics();
-    } else {
-      const publicMetric = await loadPublicPreviewMetric();
-      metricsList = publicMetric ? [publicMetric] : [];
-    }
-
-    const normalizedMetrics = uniqueMetrics(metricsList).slice(0, 2);
+    const publicMetric = await loadPublicPreviewMetric();
+    const normalizedMetrics = uniqueMetrics(publicMetric ? [publicMetric] : []).slice(0, 1);
 
     renderOverallStatus(normalizedMetrics);
     renderPrimaryMonitor(normalizedMetrics[0] || null);
-    renderSecondaryMonitor(normalizedMetrics[1] || null);
+    renderSecondaryMonitor(null);
     renderLatestAlert(normalizedMetrics);
   }
 

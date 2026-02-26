@@ -10,6 +10,40 @@ function createMonitorsRepository(dependencies = {}) {
     publicStatusAllowNumericId,
   } = dependencies;
 
+  function normalizeHostname(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\.+$/, "");
+  }
+
+  function extractHostnameFromTarget(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+
+    try {
+      return normalizeHostname(new URL(raw).hostname);
+    } catch (error) {
+      // fall through
+    }
+
+    try {
+      return normalizeHostname(new URL(`https://${raw}`).hostname);
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function rowMatchesPublicHostname(row, hostname) {
+    const normalizedHostname = normalizeHostname(hostname);
+    if (!normalizedHostname) return false;
+    const targetHost = extractHostnameFromTarget(row?.target_url);
+    if (targetHost && targetHost === normalizedHostname) return true;
+    const legacyHost = extractHostnameFromTarget(row?.url);
+    if (legacyHost && legacyHost === normalizedHostname) return true;
+    return false;
+  }
+
   function serializeMonitorRow(row) {
     const publicId = isValidMonitorPublicId(String(row.public_id || "")) ? String(row.public_id) : null;
     if (!publicId) return null;
@@ -278,6 +312,59 @@ function createMonitorsRepository(dependencies = {}) {
     return getPublicMonitorByIdentifier(defaultPublicStatusMonitorId);
   }
 
+  async function getPublicMonitorByHostname(hostname) {
+    const normalizedHostname = normalizeHostname(hostname);
+    if (!normalizedHostname) return null;
+
+    const likePattern = `%${normalizedHostname}%`;
+    const [rows] = await pool.query(
+      `
+        SELECT
+          id,
+          public_id,
+          user_id,
+          name,
+          url,
+          target_url,
+          interval_ms,
+          slo_target_percent,
+          slo_enabled,
+          http_assertions_enabled,
+          http_expected_status_codes,
+          http_content_type_contains,
+          http_body_contains,
+          http_follow_redirects,
+          http_max_redirects,
+          http_timeout_ms,
+          notify_email_enabled,
+          is_paused,
+          last_status,
+          status_since,
+          last_checked_at,
+          last_check_at,
+          last_response_ms,
+          created_at
+        FROM monitors
+        WHERE user_id IS NOT NULL
+          AND (
+            LOWER(COALESCE(target_url, '')) LIKE ?
+            OR LOWER(COALESCE(url, '')) LIKE ?
+          )
+        ORDER BY COALESCE(last_check_at, last_checked_at, created_at) DESC, id DESC
+        LIMIT 200
+      `,
+      [likePattern, likePattern]
+    );
+
+    if (!rows.length) return null;
+
+    for (const row of rows) {
+      if (rowMatchesPublicHostname(row, normalizedHostname)) return row;
+    }
+
+    return null;
+  }
+
   async function getLatestPublicMonitor() {
     const [rows] = await pool.query(
       `
@@ -327,6 +414,7 @@ function createMonitorsRepository(dependencies = {}) {
     getLatestMonitorForUser,
     getMonitorByIdForUser,
     getDefaultPublicMonitor,
+    getPublicMonitorByHostname,
     getLatestPublicMonitor,
     getPublicMonitorByIdentifier,
   };
