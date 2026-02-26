@@ -148,6 +148,21 @@ body.landing-page .border-slate-700 {
   position: relative;
 }
 
+.landing-nav-product::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: min(670px, 82vw);
+  height: 12px;
+  pointer-events: none;
+}
+
+.landing-nav-product:hover::after,
+.landing-nav-product[open]::after {
+  pointer-events: auto;
+}
+
 .landing-nav-product > summary {
   list-style: none;
 }

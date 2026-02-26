@@ -537,21 +537,57 @@
 
   if (companyMenu) {
     const companySummary = companyMenu.querySelector("summary");
+    let closeCompanyMenuTimer = 0;
+
+    const shouldUseHoverMenu = () => supportsFinePointer && window.innerWidth >= 768;
+    const clearCompanyMenuTimer = () => {
+      if (!closeCompanyMenuTimer) return;
+      window.clearTimeout(closeCompanyMenuTimer);
+      closeCompanyMenuTimer = 0;
+    };
+    const openCompanyMenuOnHover = () => {
+      clearCompanyMenuTimer();
+      companyMenu.setAttribute("open", "");
+    };
+    const scheduleCompanyMenuClose = (delayMs = 170) => {
+      clearCompanyMenuTimer();
+      closeCompanyMenuTimer = window.setTimeout(() => {
+        closeCompanyMenuTimer = 0;
+        closeCompanyMenu();
+      }, delayMs);
+    };
 
     if (supportsFinePointer) {
-      companyMenu.addEventListener("mouseenter", () => {
-        companyMenu.setAttribute("open", "");
+      companyMenu.addEventListener("pointerenter", () => {
+        if (!shouldUseHoverMenu()) return;
+        openCompanyMenuOnHover();
       });
 
-      companyMenu.addEventListener("mouseleave", () => {
-        closeCompanyMenu();
+      companyMenu.addEventListener("pointerleave", (event) => {
+        if (!shouldUseHoverMenu()) return;
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && companyMenu.contains(nextTarget)) return;
+        scheduleCompanyMenuClose();
+      });
+
+      companyMenu.addEventListener("focusin", () => {
+        if (!shouldUseHoverMenu()) return;
+        openCompanyMenuOnHover();
+      });
+
+      companyMenu.addEventListener("focusout", (event) => {
+        if (!shouldUseHoverMenu()) return;
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && companyMenu.contains(nextTarget)) return;
+        scheduleCompanyMenuClose(120);
       });
     }
 
     if (companySummary) {
       companySummary.addEventListener("click", (event) => {
-        if (!supportsFinePointer) return;
+        if (!shouldUseHoverMenu()) return;
         event.preventDefault();
+        clearCompanyMenuTimer();
         if (companyMenu.hasAttribute("open")) {
           closeCompanyMenu();
           return;
@@ -562,6 +598,7 @@
 
     companyMenuLinks.forEach((link) => {
       link.addEventListener("click", () => {
+        clearCompanyMenuTimer();
         closeCompanyMenu();
       });
     });
@@ -570,6 +607,13 @@
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (companyMenu.contains(target)) return;
+      clearCompanyMenuTimer();
+      closeCompanyMenu();
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 768) return;
+      clearCompanyMenuTimer();
       closeCompanyMenu();
     });
   }
