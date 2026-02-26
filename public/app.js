@@ -834,7 +834,7 @@ async function createMaintenance() {
              t(
                "app.maintenance.msg_request_blocked",
                null,
-               "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen."
+               "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über die aktuelle Domain aufrufen und Proxy/CSP prüfen."
              ),
              "error"
            );
@@ -3044,4 +3044,3 @@ async function init() {
 }
 
 init();
-

@@ -2,6 +2,20 @@ const { handleRequestError } = require("../core/error-handler");
 const { handleDispatchedRoutes } = require("../modules/routes/dispatch");
 const { handleSystemRoutes } = require("../modules/system/system.routes");
 
+function getPrimaryHeaderValue(value) {
+  if (Array.isArray(value)) {
+    if (!value.length) return "";
+    return String(value[0] || "").trim();
+  }
+  return String(value || "").trim();
+}
+
+function resolvePublicRequestHost(req) {
+  const forwardedHost = getPrimaryHeaderValue(req?.headers?.["x-forwarded-host"]);
+  if (forwardedHost) return forwardedHost;
+  return getPrimaryHeaderValue(req?.headers?.host);
+}
+
 function createLegacyRequestHandlerFactory(dependencies = {}) {
   const {
     applySecurityHeaders,
@@ -83,6 +97,7 @@ function createLegacyRequestHandlerFactory(dependencies = {}) {
 
   function createLegacyRequestHandler() {
     return async (req, res) => {
+      res.__pms_public_host = resolvePublicRequestHost(req);
       applySecurityHeaders(res);
 
       try {

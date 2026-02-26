@@ -759,7 +759,7 @@
           msg_scheduling: "Wartung wird geplant ...",
           msg_domain_not_verified: "Domain{host} ist nicht verifiziert. Bitte verifizieren, um Wartungen planen zu können.",
           msg_request_blocked:
-            "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über pingmyserver.de aufrufen und Proxy/CSP prüfen.",
+            "Request wurde blockiert (Origin/Referer). Bitte die Seite direkt über die aktuelle Domain aufrufen und Proxy/CSP prüfen.",
           msg_invalid_target:
             "Monitor-Ziel ist ungültig (z.B. IP/localhost) und kann nicht per Domain-Verifizierung freigeschaltet werden.",
           msg_starts_past:
@@ -2419,7 +2419,7 @@
           msg_scheduling: "Scheduling maintenance ...",
           msg_domain_not_verified: "Domain{host} is not verified. Please verify it to schedule maintenances.",
           msg_request_blocked:
-            "Request was blocked (Origin/Referer). Please open the site directly via pingmyserver.de and check proxy/CSP.",
+            "Request was blocked (Origin/Referer). Please open the site directly via the current domain and check proxy/CSP.",
           msg_invalid_target:
             "Monitor target is invalid (e.g. IP/localhost) and cannot be unlocked via domain verification.",
           msg_starts_past:
@@ -3341,7 +3341,43 @@
     return DEFAULT_LANG;
   }
 
+  function normalizeHostname(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function isDeDomainHost(hostname) {
+    const normalized = normalizeHostname(hostname);
+    return normalized === "pingmyserver.de" || normalized.endsWith(".pingmyserver.de");
+  }
+
+  function isComDomainHost(hostname) {
+    const normalized = normalizeHostname(hostname);
+    return normalized === "pingmyserver.com" || normalized.endsWith(".pingmyserver.com");
+  }
+
+  function detectDomainLanguage(hostname) {
+    if (isDeDomainHost(hostname)) return "de";
+    if (isComDomainHost(hostname)) return "en";
+    return "";
+  }
+
+  function mapHostToLanguageDomain(hostname, lang) {
+    const normalizedHost = normalizeHostname(hostname);
+    const normalizedLang = normalizeLang(lang);
+
+    if (normalizedLang === "en" && isDeDomainHost(normalizedHost)) {
+      return normalizedHost.replace(/pingmyserver\.de$/, "pingmyserver.com");
+    }
+    if (normalizedLang === "de" && isComDomainHost(normalizedHost)) {
+      return normalizedHost.replace(/pingmyserver\.com$/, "pingmyserver.de");
+    }
+    return normalizedHost;
+  }
+
   function detectLang() {
+    const fromDomain = detectDomainLanguage(window.location.hostname);
+    if (fromDomain) return fromDomain;
+
     try {
       const params = new URLSearchParams(window.location.search || "");
       const fromQuery = params.get("lang");
@@ -3487,6 +3523,22 @@
     const { persist = true, reload = true } = options;
     const normalized = normalizeLang(nextLang);
     if (!SUPPORTED.has(normalized)) return;
+
+    if (reload) {
+      try {
+        const url = new URL(window.location.href);
+        const mappedHost = mapHostToLanguageDomain(url.hostname, normalized);
+        if (mappedHost && mappedHost !== normalizeHostname(url.hostname)) {
+          url.hostname = mappedHost;
+          url.searchParams.delete("lang");
+          window.location.replace(url.toString());
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     currentLang = normalized;
 
     if (persist) {

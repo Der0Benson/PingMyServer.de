@@ -1371,6 +1371,58 @@ function contentTypeFromPath(filePath) {
   return "application/octet-stream";
 }
 
+function normalizePublicHost(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+
+  const first = raw.split(",")[0].trim();
+  if (!first) return "";
+
+  if (first.startsWith("[")) {
+    const end = first.indexOf("]");
+    if (end > 1) return first.slice(1, end).trim();
+    return first;
+  }
+
+  const lastColon = first.lastIndexOf(":");
+  const hasSingleColon = lastColon > -1 && first.indexOf(":") === lastColon;
+  if (hasSingleColon) return first.slice(0, lastColon).trim();
+
+  return first;
+}
+
+function resolvePublicOriginFromResponse(res) {
+  const host = normalizePublicHost(res?.__pms_public_host);
+  if (host === "pingmyserver.com" || host.endsWith(".pingmyserver.com")) {
+    return "https://pingmyserver.com";
+  }
+  return "https://pingmyserver.de";
+}
+
+function resolvePrimaryLangFromOrigin(origin) {
+  return origin === "https://pingmyserver.com" ? "en" : "de";
+}
+
+function resolveOgLocaleFromLang(lang) {
+  return lang === "en" ? "en_US" : "de_DE";
+}
+
+function applyStaticTemplateReplacements(content, absolutePath, res) {
+  const ext = path.extname(absolutePath).toLowerCase();
+  if (ext !== ".html" && ext !== ".txt" && ext !== ".xml") {
+    return content;
+  }
+
+  const origin = resolvePublicOriginFromResponse(res);
+  const primaryLang = resolvePrimaryLangFromOrigin(origin);
+  const ogLocale = resolveOgLocaleFromLang(primaryLang);
+
+  return String(content || "")
+    .replace(/__PMS_ORIGIN__/g, origin)
+    .replace(/__PMS_PRIMARY_LANG__/g, primaryLang)
+    .replace(/__PMS_OG_LOCALE__/g, ogLocale);
+}
+
 async function serveStaticFile(res, relativeFilePath) {
   const normalized = relativeFilePath.replace(/^\/+/, "");
   if (!normalized) {
@@ -1385,7 +1437,11 @@ async function serveStaticFile(res, relativeFilePath) {
   }
 
   try {
-    const data = await fs.promises.readFile(absolutePath);
+    const ext = path.extname(absolutePath).toLowerCase();
+    const isTextTemplate = ext === ".html" || ext === ".txt" || ext === ".xml";
+    const data = isTextTemplate
+      ? applyStaticTemplateReplacements(await fs.promises.readFile(absolutePath, "utf8"), absolutePath, res)
+      : await fs.promises.readFile(absolutePath);
     res.writeHead(200, {
       "Content-Type": contentTypeFromPath(absolutePath),
       "Cache-Control": `public, max-age=${STATIC_CACHE_MAX_AGE_SECONDS}`,

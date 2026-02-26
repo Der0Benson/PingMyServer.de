@@ -9,4 +9,4 @@ Disallow: /onboarding
 Disallow: /login
 Disallow: /api/
 
-Sitemap: https://pingmyserver.de/sitemap.xml
+Sitemap: __PMS_ORIGIN__/sitemap.xml
