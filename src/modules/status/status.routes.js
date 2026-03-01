@@ -8,9 +8,18 @@ async function handleStatusRoutes(context) {
     let user = null;
 
     if (landingPreviewRequested) {
-      monitor = await utilities.getPublicMonitorByHostname("pingmyserver.de");
+      monitor = await utilities.getDefaultPublicMonitor();
+      if (!monitor) {
+        monitor = await utilities.getPublicMonitorByHostname("pingmyserver.de");
+      }
     } else if (monitorFilter) {
-      monitor = await utilities.getPublicMonitorByIdentifier(monitorFilter);
+      user = await utilities.requireAuth(req, res, { silent: true });
+      if (user) {
+        monitor = await utilities.getMonitorByIdForUser(user.id, monitorFilter);
+      }
+      if (!monitor) {
+        monitor = await utilities.getPublicMonitorByIdentifier(monitorFilter);
+      }
     } else {
       user = await utilities.requireAuth(req, res, { silent: true });
       if (user) {
@@ -65,7 +74,15 @@ async function handleStatusRoutes(context) {
     : /^\/status\/([A-Za-z0-9]{6,64})\/?$/;
   const publicStatusRouteMatch = pathname.match(publicStatusRouteRegex);
   if (method === "GET" && publicStatusRouteMatch) {
-    const monitor = await utilities.getPublicMonitorByIdentifier(publicStatusRouteMatch[1]);
+    const monitorIdentifier = publicStatusRouteMatch[1];
+    const user = await utilities.requireAuth(req, res, { silent: true });
+    let monitor = null;
+    if (user) {
+      monitor = await utilities.getMonitorByIdForUser(user.id, monitorIdentifier);
+    }
+    if (!monitor) {
+      monitor = await utilities.getPublicMonitorByIdentifier(monitorIdentifier);
+    }
     if (!monitor) {
       utilities.sendJson(res, 404, { ok: false, error: "not found" });
       return true;

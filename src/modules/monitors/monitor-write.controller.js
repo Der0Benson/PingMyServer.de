@@ -93,6 +93,7 @@ function createMonitorWriteController(dependencies = {}) {
     const monitorName = (requestedName || getDefaultMonitorName(normalizedUrl)).slice(0, 255);
     const safeDefaultIntervalMs = normalizeMonitorIntervalMs(defaultMonitorIntervalMs);
     let intervalMs = safeDefaultIntervalMs;
+    let statusPagePublic = false;
 
     if (Object.prototype.hasOwnProperty.call(body, "intervalMs") || Object.prototype.hasOwnProperty.call(body, "interval_ms")) {
       const rawInterval = Object.prototype.hasOwnProperty.call(body, "intervalMs") ? body.intervalMs : body.interval_ms;
@@ -102,6 +103,17 @@ function createMonitorWriteController(dependencies = {}) {
         return;
       }
       intervalMs = normalizeMonitorIntervalMs(numeric, safeDefaultIntervalMs);
+    }
+
+    const hasStatusPagePublic = Object.prototype.hasOwnProperty.call(body, "statusPagePublic");
+    const hasStatusPagePublicLegacy = Object.prototype.hasOwnProperty.call(body, "status_page_public");
+    if (hasStatusPagePublic || hasStatusPagePublicLegacy) {
+      const rawStatusPagePublic = hasStatusPagePublic ? body.statusPagePublic : body.status_page_public;
+      if (typeof rawStatusPagePublic !== "boolean") {
+        sendJson(res, 400, { ok: false, error: "invalid input" });
+        return;
+      }
+      statusPagePublic = rawStatusPagePublic;
     }
 
     try {
@@ -116,6 +128,7 @@ function createMonitorWriteController(dependencies = {}) {
             url: normalizedUrl,
             targetUrl: normalizedUrl,
             intervalMs,
+            statusPagePublic,
           });
 
           sendJson(res, 201, { ok: true, id: publicId });

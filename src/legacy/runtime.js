@@ -5735,6 +5735,12 @@ async function ensureSchemaCompatibility() {
       "ALTER TABLE monitors ADD COLUMN notify_email_enabled TINYINT(1) NOT NULL DEFAULT 1 AFTER notify_email_last_sent_status"
     );
   }
+  if (!(await hasColumn("monitors", "status_page_public"))) {
+    await pool.query("ALTER TABLE monitors ADD COLUMN status_page_public TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_email_enabled");
+  }
+  await pool.query(
+    "UPDATE monitors SET status_page_public = 0 WHERE status_page_public IS NULL OR status_page_public NOT IN (0, 1)"
+  );
 
   if (!(await hasColumn("monitor_checks", "error_message"))) {
     await pool.query("ALTER TABLE monitor_checks ADD COLUMN error_message VARCHAR(255) NULL AFTER status_code");
@@ -6294,6 +6300,7 @@ async function initDb() {
       notify_email_last_sent_at DATETIME(3) NULL,
       notify_email_last_sent_status ENUM('online','offline') NULL,
       notify_email_enabled TINYINT(1) NOT NULL DEFAULT 1,
+      status_page_public TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_monitors_user_id (user_id),
@@ -7997,7 +8004,18 @@ async function postGenericWebhook(webhookUrl, payload, options = {}) {
       headers,
       body: rawBody,
       signal: controller.signal,
+      redirect: "manual",
     });
+
+    // Prevent SSRF via redirect chains by refusing redirected webhook responses.
+    if (isRedirectStatusCode(response.status)) {
+      return {
+        ok: false,
+        statusCode: Number(response.status || 0),
+        error: "redirect_not_allowed",
+        code: "redirect_not_allowed",
+      };
+    }
 
     if (!response.ok) {
       let errorText = "";
@@ -9789,6 +9807,8 @@ const {
   handleMonitorHttpAssertionsUpdate,
   handleMonitorIntervalUpdate,
   handleMonitorEmailNotificationUpdate,
+  handleMonitorStatusPageGet,
+  handleMonitorStatusPageUpdate,
   handleMonitorSloGet,
   handleMonitorSloUpdate,
   listMaintenancesForMonitorId,
@@ -13480,6 +13500,8 @@ const runtimeHandlers = {
   handleMonitorHttpAssertionsUpdate,
   handleMonitorIntervalUpdate,
   handleMonitorEmailNotificationUpdate,
+  handleMonitorStatusPageGet,
+  handleMonitorStatusPageUpdate,
   handleMonitorSloGet,
   handleMonitorSloUpdate,
   handleMonitorMaintenancesList,

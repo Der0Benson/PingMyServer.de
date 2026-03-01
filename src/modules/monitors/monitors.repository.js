@@ -53,6 +53,12 @@ function createMonitorsRepository(dependencies = {}) {
     return false;
   }
 
+  function isStatusPagePublic(row) {
+    const raw = Number(row?.status_page_public);
+    if (Number.isFinite(raw)) return raw === 1;
+    return !!row?.status_page_public;
+  }
+
   function serializeMonitorRow(row) {
     const publicId = isValidMonitorPublicId(String(row.public_id || "")) ? String(row.public_id) : null;
     if (!publicId) return null;
@@ -65,6 +71,7 @@ function createMonitorsRepository(dependencies = {}) {
       name: row.name,
       url: getMonitorUrl(row),
       notify_email_enabled: emailNotificationsEnabled,
+      status_page_public: isStatusPagePublic(row),
       is_paused: !!row.is_paused,
       last_status: row.last_status || "online",
       last_checked_at: toMs(row.last_checked_at) || toMs(row.last_check_at),
@@ -82,6 +89,7 @@ function createMonitorsRepository(dependencies = {}) {
           url,
           target_url,
           notify_email_enabled,
+          status_page_public,
           is_paused,
           last_status,
           last_checked_at,
@@ -108,6 +116,11 @@ function createMonitorsRepository(dependencies = {}) {
     const url = String(payload.url || "").trim();
     const targetUrl = String(payload.targetUrl || "").trim();
     const intervalMs = Number(payload.intervalMs || 0);
+    const statusPagePublic =
+      payload.statusPagePublic === true ||
+      payload.status_page_public === true ||
+      payload.statusPagePublic === 1 ||
+      payload.status_page_public === 1;
 
     await pool.query(
       `
@@ -118,13 +131,14 @@ function createMonitorsRepository(dependencies = {}) {
           url,
           target_url,
           interval_ms,
+          status_page_public,
           is_paused,
           last_status,
           status_since
         )
-        VALUES (?, ?, ?, ?, ?, ?, 0, 'online', UTC_TIMESTAMP(3))
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'online', UTC_TIMESTAMP(3))
       `,
-      [publicId, userId, name, url, targetUrl, intervalMs]
+      [publicId, userId, name, url, targetUrl, intervalMs, statusPagePublic ? 1 : 0]
     );
   }
 
@@ -141,6 +155,7 @@ function createMonitorsRepository(dependencies = {}) {
           m.url,
           m.target_url,
           m.notify_email_enabled,
+          m.status_page_public,
           m.is_paused,
           COALESCE(ps.last_status, 'online') AS last_status,
           ps.last_checked_at AS last_checked_at,
@@ -206,6 +221,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_max_redirects,
           http_timeout_ms,
           notify_email_enabled,
+          status_page_public,
           is_paused,
           last_status,
           status_since,
@@ -250,6 +266,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_max_redirects,
           http_timeout_ms,
           notify_email_enabled,
+          status_page_public,
           is_paused,
           last_status,
           status_since,
@@ -276,6 +293,10 @@ function createMonitorsRepository(dependencies = {}) {
     const numericId = allowNumericId && /^\d+$/.test(monitorIdentifier) ? Number(monitorIdentifier) : -1;
     const whereClause = allowNumericId ? "(public_id = ? OR id = ?)" : "public_id = ?";
     const queryParams = allowNumericId ? [publicId, numericId] : [publicId];
+    const visibilityClause =
+      defaultPublicStatusMonitorId && monitorIdentifier === String(defaultPublicStatusMonitorId).trim()
+        ? ""
+        : "AND COALESCE(status_page_public, 0) = 1";
 
     const [rows] = await pool.query(
       `
@@ -306,6 +327,7 @@ function createMonitorsRepository(dependencies = {}) {
           created_at
         FROM monitors
         WHERE user_id IS NOT NULL
+          ${visibilityClause}
           AND ${whereClause}
         LIMIT 1
       `,
@@ -346,6 +368,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_max_redirects,
           http_timeout_ms,
           notify_email_enabled,
+          status_page_public,
           is_paused,
           last_status,
           status_since,
@@ -355,6 +378,7 @@ function createMonitorsRepository(dependencies = {}) {
           created_at
         FROM monitors
         WHERE user_id IS NOT NULL
+          AND COALESCE(status_page_public, 0) = 1
           AND (
             LOWER(COALESCE(target_url, '')) LIKE ?
             OR LOWER(COALESCE(url, '')) LIKE ?
@@ -395,6 +419,7 @@ function createMonitorsRepository(dependencies = {}) {
           http_max_redirects,
           http_timeout_ms,
           notify_email_enabled,
+          status_page_public,
           is_paused,
           last_status,
           status_since,
@@ -404,6 +429,7 @@ function createMonitorsRepository(dependencies = {}) {
           created_at
         FROM monitors
         WHERE user_id IS NOT NULL
+          AND COALESCE(status_page_public, 0) = 1
         ORDER BY COALESCE(last_check_at, last_checked_at, created_at) DESC, id DESC
         LIMIT 1
       `

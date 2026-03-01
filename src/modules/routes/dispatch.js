@@ -128,6 +128,8 @@ async function handleDispatchedRoutes(context) {
       handleMonitorHttpAssertionsUpdate: handlers.handleMonitorHttpAssertionsUpdate,
       handleMonitorIntervalUpdate: handlers.handleMonitorIntervalUpdate,
       handleMonitorEmailNotificationUpdate: handlers.handleMonitorEmailNotificationUpdate,
+      handleMonitorStatusPageGet: handlers.handleMonitorStatusPageGet,
+      handleMonitorStatusPageUpdate: handlers.handleMonitorStatusPageUpdate,
       handleMonitorSloGet: handlers.handleMonitorSloGet,
       handleMonitorSloUpdate: handlers.handleMonitorSloUpdate,
       handleMonitorMaintenancesList: handlers.handleMonitorMaintenancesList,
@@ -167,6 +169,7 @@ async function handleDispatchedRoutes(context) {
     utilities: {
       getPublicMonitorByIdentifier: utilities.getPublicMonitorByIdentifier,
       getPublicMonitorByHostname: utilities.getPublicMonitorByHostname,
+      getMonitorByIdForUser: utilities.getMonitorByIdForUser,
       requireAuth: utilities.requireAuth,
       getLatestMonitorForUser: utilities.getLatestMonitorForUser,
       getDefaultPublicMonitor: utilities.getDefaultPublicMonitor,

@@ -186,6 +186,19 @@ async function handleMonitorApiRoutes(context) {
     }
   }
 
+  const monitorStatusPageMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/status-page\/?$/);
+  if (monitorStatusPageMatch) {
+    const monitorId = monitorStatusPageMatch[1];
+    if (method === "GET") {
+      await handlers.handleMonitorStatusPageGet(req, res, monitorId);
+      return true;
+    }
+    if (method === "PUT" || method === "PATCH") {
+      await handlers.handleMonitorStatusPageUpdate(req, res, monitorId);
+      return true;
+    }
+  }
+
   const monitorSloMatch = pathname.match(/^\/api\/monitors\/([A-Za-z0-9]{6,64}|\d+)\/slo\/?$/);
   if (monitorSloMatch) {
     const monitorId = monitorSloMatch[1];
