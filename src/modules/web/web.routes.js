@@ -19,6 +19,14 @@ async function handleWebRoutes(context) {
     return true;
   }
 
+  if (
+    method === "GET" &&
+    (pathname === "/port-checker" || pathname === "/port-checker/" || pathname === "/tools/port-checker" || pathname === "/tools/port-checker/")
+  ) {
+    await utilities.serveStaticFile(res, "port-checker.html");
+    return true;
+  }
+
   if (method === "GET" && (pathname === "/onboarding" || pathname === "/onboarding/")) {
     const user = await utilities.requireAuth(req, res, { redirectToLogin: true });
     if (!user) return true;

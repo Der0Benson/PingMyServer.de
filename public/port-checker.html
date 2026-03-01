@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      data-i18n-content="meta.port_checker.description"
+      content="Port Checker kostenlos: Prüfe, ob ein öffentlicher TCP-Port auf deiner Domain erreichbar oder geschlossen ist."
+    />
+    <meta name="theme-color" content="#07111d" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title data-i18n="meta.port_checker.title">Port Checker kostenlos | Offene Ports online prüfen</title>
+    <link rel="stylesheet" href="/assets/landing-tailwind.css" />
+    <link rel="stylesheet" href="/assets/landing.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
+    <link rel="stylesheet" href="/assets/dns-lookup.css" />
+  </head>
+  <body class="dns-tool-page text-white">
+    <div class="dns-background" aria-hidden="true"></div>
+
+    <nav class="fixed w-full top-0 z-50 landing-nav-shell">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="landing-nav-main">
+          <a class="landing-brand" href="/" aria-label="PingMyServer Startseite">
+            <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+            <span class="landing-brand-name">PingMyServer.de</span>
+          </a>
+          <div class="landing-nav-links hidden md:flex">
+            <details class="landing-nav-product" data-landing-product-menu>
+              <summary class="landing-nav-product-summary" data-i18n="landing.nav.product">Produkt</summary>
+              <div class="landing-nav-product-panel" data-i18n-aria-label="landing.nav.product" aria-label="Produkt">
+                <div class="landing-nav-product-grid">
+                  <div class="landing-nav-product-col landing-nav-product-col-main">
+                    <a href="/#features" class="landing-nav-product-row is-active" data-landing-product-link>
+                      <span class="landing-nav-product-dot dot-cyan"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.monitoring_desc"
+                          >Überwache Websites, APIs und Services rund um die Uhr.</span
+                        >
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                    <a href="/#features" class="landing-nav-product-row" data-landing-product-link>
+                      <span class="landing-nav-product-dot dot-orange"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.incidents_desc"
+                          >Historie, Ausfallzeiten und Ursachen auf einen Blick.</span
+                        >
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                    <a href="/#features" class="landing-nav-product-row" data-landing-product-link>
+                      <span class="landing-nav-product-dot dot-amber"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.alerting_title"
+                          >Alerting & Integrationen</span
+                        >
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.alerting_desc"
+                          >Discord, E-Mail und Webhooks für sofortige Reaktion.</span
+                        >
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                    <a href="/status" class="landing-nav-product-row" data-landing-product-link>
+                      <span class="landing-nav-product-dot dot-emerald"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.status_desc"
+                          >Live-Transparenz für Nutzer und Kunden.</span
+                        >
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                  </div>
+                  <div class="landing-nav-product-col landing-nav-product-col-side">
+                    <a href="/#features" class="landing-nav-product-side-link" data-landing-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.kpi_title">Realtime KPI Dashboard</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.kpi_desc"
+                        >Response-Zeiten, Uptime und Trends sofort sehen.</span
+                      >
+                    </a>
+                    <a href="/#features" class="landing-nav-product-side-link" data-landing-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.ssl_title">Domain & SSL Monitoring</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.ssl_desc"
+                        >Ablaufdaten und Zertifikate automatisch überwachen.</span
+                      >
+                    </a>
+                    <a href="/dns-lookup" class="landing-nav-product-side-link" data-landing-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.dns_title">DNS Lookup Tool</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.dns_desc"
+                        >Prüfe A-, MX-, TXT- und weitere Records kostenlos.</span
+                      >
+                    </a>
+                    <a href="/status" class="landing-nav-product-side-link" data-landing-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.demo_title">Live Demo</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.demo_desc"
+                        >Sieh dir die öffentliche Statusseite direkt an.</span
+                      >
+                    </a>
+                  </div>
+                </div>
+                <a href="/status" class="landing-nav-product-demo" data-landing-product-link>
+                  <img src="/assets/demo.png" alt="" aria-hidden="true" class="landing-nav-product-demo-avatar" />
+                  <span class="landing-nav-product-demo-copy">
+                    <span class="landing-nav-product-demo-title" data-i18n="landing.nav.demo_title">Demo ansehen</span>
+                    <span class="landing-nav-product-demo-desc" data-i18n="landing.nav.demo_desc"
+                      >Kurzer Einblick in die Live-Features von PingMyServer.</span
+                    >
+                  </span>
+                </a>
+              </div>
+            </details>
+            <a href="/#about" class="hover:text-cyan-400 transition" data-i18n="landing.nav.why_us">Warum wir</a>
+            <a href="/#bewertungen" class="hover:text-cyan-400 transition" data-i18n="landing.nav.customers">Kunden</a>
+            <a href="/#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
+          </div>
+          <div class="landing-nav-actions">
+            <div class="lang-picker">
+              <span class="sr-only" data-i18n="common.language">Sprache</span>
+              <details class="lang-menu">
+                <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                  <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                  <img class="lang-flag-img" data-lang-block="en" src="/assets/flags/gb.svg" alt="" aria-hidden="true" hidden />
+                </summary>
+                <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                  <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                    <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                  </button>
+                  <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                    <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                  </button>
+                </div>
+              </details>
+            </div>
+            <a
+              id="landing-nav-login"
+              data-landing-login
+              href="/login"
+              class="landing-nav-login text-sm hover:text-cyan-400 transition inline-flex items-center"
+              data-i18n="landing.nav.login"
+              >Anmelden</a
+            >
+            <a
+              id="landing-nav-primary-cta"
+              data-landing-primary-cta
+              href="/login?mode=register"
+              class="landing-nav-cta bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center"
+              data-i18n="landing.nav.cta"
+              >Kostenlos starten</a
+            >
+            <button
+              id="landing-mobile-menu-toggle"
+              class="landing-mobile-toggle"
+              type="button"
+              aria-controls="landing-mobile-menu"
+              aria-expanded="false"
+              aria-label="Navigation öffnen"
+            >
+              <span class="landing-mobile-toggle-line"></span>
+              <span class="landing-mobile-toggle-line"></span>
+              <span class="landing-mobile-toggle-line"></span>
+            </button>
+          </div>
+        </div>
+        <div id="landing-mobile-menu" class="landing-mobile-menu" hidden>
+          <div class="landing-mobile-links">
+            <details class="landing-mobile-company" data-landing-mobile-product>
+              <summary class="landing-mobile-company-summary" data-i18n="landing.nav.product">Produkt</summary>
+              <div class="landing-mobile-company-links">
+                <a href="/#features" data-landing-mobile-link data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</a>
+                <a href="/#features" data-landing-mobile-link data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</a>
+                <a href="/#features" data-landing-mobile-link data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</a>
+                <a href="/status" data-landing-mobile-link data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</a>
+                <a href="/dns-lookup" data-landing-mobile-link data-i18n="landing.nav.product_side.dns_title">DNS Lookup Tool</a>
+              </div>
+            </details>
+            <a href="/#about" data-landing-mobile-link data-i18n="landing.nav.why_us">Warum wir</a>
+            <a href="/#bewertungen" data-landing-mobile-link data-i18n="landing.nav.customers">Kunden</a>
+            <a href="/#preise" data-landing-mobile-link data-i18n="landing.nav.pricing">Preise</a>
+          </div>
+          <div class="landing-mobile-actions">
+            <a href="/login" data-landing-login class="landing-mobile-login" data-i18n="landing.nav.login">Anmelden</a>
+            <a href="/login?mode=register" data-landing-primary-cta class="landing-mobile-cta" data-i18n="landing.nav.cta">Kostenlos starten</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="dns-shell dns-main">
+      <section class="dns-hero">
+        <div class="dns-hero-copy">
+          <div class="dns-kicker">
+            <span class="dns-kicker-line"></span>
+            <span data-i18n="port_checker.badge">Kostenloses Tool</span>
+          </div>
+          <h1 data-i18n="port_checker.title">Port Checker kostenlos</h1>
+          <p class="dns-lead" data-i18n="port_checker.lead">
+            Prüfe kostenlos, ob ein öffentlicher TCP-Port auf deiner Domain offen, geschlossen oder nicht erreichbar ist. Ideal für Webserver,
+            Game-Server, Mail-Ports und Firewall-Checks.
+          </p>
+        </div>
+      </section>
+
+      <section class="dns-grid">
+        <section class="dns-card dns-form-card">
+          <form id="port-checker-form" novalidate>
+            <div class="dns-field-grid">
+              <label class="dns-field">
+                <span class="dns-field-label" data-i18n="port_checker.form.host_label">Domain oder Hostname</span>
+                <input
+                  id="port-checker-host"
+                  name="host"
+                  type="text"
+                  spellcheck="false"
+                  autocomplete="off"
+                  placeholder="example.com"
+                  data-i18n-placeholder="port_checker.form.host_placeholder"
+                />
+              </label>
+
+              <label class="dns-field dns-field-type">
+                <span class="dns-field-label" data-i18n="port_checker.form.port_label">Port</span>
+                <input
+                  id="port-checker-port"
+                  name="port"
+                  type="number"
+                  min="1"
+                  max="65535"
+                  inputmode="numeric"
+                  placeholder="443"
+                  data-i18n-placeholder="port_checker.form.port_placeholder"
+                />
+              </label>
+            </div>
+
+            <div class="dns-form-actions">
+              <button id="port-checker-submit" class="dns-submit-btn" type="submit" data-i18n="port_checker.form.submit">Port prüfen</button>
+              <p class="dns-form-hint" data-i18n="port_checker.form.hint">
+                Aus Sicherheitsgründen sind nur öffentliche Ziele erlaubt. Lokale und private Netzwerke sind blockiert.
+              </p>
+            </div>
+          </form>
+
+          <div class="dns-example-block">
+            <span class="dns-example-label" data-i18n="port_checker.examples.label">Schnelltests</span>
+            <div class="dns-example-row">
+              <button class="dns-example-btn" type="button" data-example-host="example.com" data-example-port="443" data-i18n="port_checker.examples.https">
+                example.com:443
+              </button>
+              <button class="dns-example-btn" type="button" data-example-host="example.com" data-example-port="25" data-i18n="port_checker.examples.mail">
+                example.com:25
+              </button>
+              <button
+                class="dns-example-btn"
+                type="button"
+                data-example-host="play.example.com"
+                data-example-port="25565"
+                data-i18n="port_checker.examples.game"
+              >
+                play.example.com:25565
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="dns-card dns-results-card" aria-live="polite">
+          <div class="dns-results-head">
+            <div>
+              <p class="dns-results-kicker">CHECK</p>
+              <h2 data-i18n="port_checker.results.title">Ergebnis</h2>
+            </div>
+            <div id="port-checker-meta" class="dns-meta-chips" hidden></div>
+          </div>
+
+          <div id="port-checker-status" class="dns-status-note">Starte einen Check, um den Port-Status zu sehen.</div>
+
+          <div id="port-checker-error" class="dns-error-note" hidden></div>
+          <div id="port-checker-results" class="dns-results-list" hidden></div>
+        </section>
+      </section>
+
+      <section class="dns-card dns-help-card">
+        <div class="dns-help-copy">
+          <h2 data-i18n="port_checker.help.title">Wofür du es nutzen kannst</h2>
+          <p data-i18n="port_checker.help.body">
+            Perfekt für schnelle Live-Checks, wenn ein Service von außen erreichbar sein sollte, aber trotzdem nicht antwortet.
+          </p>
+        </div>
+        <div class="dns-help-list">
+          <div class="dns-help-item" data-i18n="port_checker.help.web">HTTP-, HTTPS- oder Reverse-Proxy-Ports prüfen</div>
+          <div class="dns-help-item" data-i18n="port_checker.help.mail">SMTP-, IMAP- oder andere Mail-Ports von außen testen</div>
+          <div class="dns-help-item" data-i18n="port_checker.help.infra">Firewall- und Freigabe-Probleme bei Servern schneller eingrenzen</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/i18n.js"></script>
+    <script src="/assets/port-checker.js"></script>
+  </body>
+</html>
