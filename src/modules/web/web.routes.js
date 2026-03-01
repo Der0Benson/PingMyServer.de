@@ -11,6 +11,14 @@ async function handleWebRoutes(context) {
     return true;
   }
 
+  if (
+    method === "GET" &&
+    (pathname === "/dns-lookup" || pathname === "/dns-lookup/" || pathname === "/tools/dns-lookup" || pathname === "/tools/dns-lookup/")
+  ) {
+    await utilities.serveStaticFile(res, "dns-lookup.html");
+    return true;
+  }
+
   if (method === "GET" && (pathname === "/onboarding" || pathname === "/onboarding/")) {
     const user = await utilities.requireAuth(req, res, { redirectToLogin: true });
     if (!user) return true;

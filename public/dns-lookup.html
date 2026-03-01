@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      data-i18n-content="meta.dns_lookup.description"
+      content="Kostenloser DNS Lookup für A-, AAAA-, MX-, TXT-, CNAME-, NS-, SRV- und SOA-Records."
+    />
+    <meta name="theme-color" content="#07111d" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title data-i18n="meta.dns_lookup.title">DNS Lookup · PingMyServer</title>
+    <link rel="stylesheet" href="/assets/dns-lookup.css" />
+  </head>
+  <body class="dns-tool-page">
+    <div class="dns-background" aria-hidden="true"></div>
+
+    <header class="dns-shell dns-topbar">
+      <a class="dns-brand" href="/" aria-label="PingMyServer Startseite">
+        <img class="dns-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+        <span>PingMyServer.de</span>
+      </a>
+
+      <div class="dns-topbar-actions">
+        <div class="dns-lang-toggle" role="group" aria-label="Language">
+          <button class="dns-lang-btn" type="button" data-set-lang="de">DE</button>
+          <button class="dns-lang-btn" type="button" data-set-lang="en">EN</button>
+        </div>
+        <a class="dns-link-btn" href="/" data-i18n="dns_lookup.nav.back">Zur Startseite</a>
+        <a class="dns-link-btn" href="/app" data-i18n="dns_lookup.nav.dashboard">Dashboard</a>
+        <a class="dns-link-btn dns-link-btn-strong" href="/login" data-i18n="dns_lookup.nav.login">Login</a>
+      </div>
+    </header>
+
+    <main class="dns-shell dns-main">
+      <section class="dns-hero">
+        <div class="dns-hero-copy">
+          <div class="dns-kicker">
+            <span class="dns-kicker-line"></span>
+            <span data-i18n="dns_lookup.badge">Kostenloses Tool</span>
+          </div>
+          <h1 data-i18n="dns_lookup.title">DNS schnell prüfen, ohne Zusatztool.</h1>
+          <p class="dns-lead" data-i18n="dns_lookup.lead">
+            Prüfe A-, AAAA-, MX-, TXT-, CNAME-, NS-, SRV- und SOA-Records direkt im Browser. Ideal für SPF, DKIM, MX-Checks und schnelle
+            DNS-Fehlersuche.
+          </p>
+          <div class="dns-record-badges">
+            <span class="dns-pill" data-i18n="dns_lookup.records">Unterstützte Records</span>
+            <span class="dns-pill dns-pill-soft">A</span>
+            <span class="dns-pill dns-pill-soft">AAAA</span>
+            <span class="dns-pill dns-pill-soft">MX</span>
+            <span class="dns-pill dns-pill-soft">TXT</span>
+            <span class="dns-pill dns-pill-soft">CNAME</span>
+            <span class="dns-pill dns-pill-soft">NS</span>
+            <span class="dns-pill dns-pill-soft">SRV</span>
+            <span class="dns-pill dns-pill-soft">SOA</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="dns-grid">
+        <section class="dns-card dns-form-card">
+          <form id="dns-lookup-form" novalidate>
+            <div class="dns-field-grid">
+              <label class="dns-field">
+                <span class="dns-field-label" data-i18n="dns_lookup.form.host_label">Domain oder Hostname</span>
+                <input
+                  id="dns-lookup-host"
+                  name="host"
+                  type="text"
+                  spellcheck="false"
+                  autocomplete="off"
+                  placeholder="example.com oder _dmarc.example.com"
+                  data-i18n-placeholder="dns_lookup.form.host_placeholder"
+                />
+              </label>
+
+              <label class="dns-field dns-field-type">
+                <span class="dns-field-label" data-i18n="dns_lookup.form.type_label">Record-Typ</span>
+                <select id="dns-lookup-type" name="type">
+                  <option value="A">A</option>
+                  <option value="AAAA">AAAA</option>
+                  <option value="MX">MX</option>
+                  <option value="TXT">TXT</option>
+                  <option value="CNAME">CNAME</option>
+                  <option value="NS">NS</option>
+                  <option value="SRV">SRV</option>
+                  <option value="SOA">SOA</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="dns-form-actions">
+              <button id="dns-lookup-submit" class="dns-submit-btn" type="submit" data-i18n="dns_lookup.form.submit">DNS prüfen</button>
+              <p class="dns-form-hint" data-i18n="dns_lookup.form.hint">
+                Du kannst auch eine komplette URL einfügen. Wir verwenden automatisch nur den Hostnamen.
+              </p>
+            </div>
+          </form>
+
+          <div class="dns-example-block">
+            <span class="dns-example-label" data-i18n="dns_lookup.examples.label">Schnelltests</span>
+            <div class="dns-example-row">
+              <button class="dns-example-btn" type="button" data-example-host="example.com" data-example-type="A" data-i18n="dns_lookup.examples.domain">
+                example.com
+              </button>
+              <button
+                class="dns-example-btn"
+                type="button"
+                data-example-host="_dmarc.example.com"
+                data-example-type="TXT"
+                data-i18n="dns_lookup.examples.dmarc"
+              >
+                _dmarc.example.com
+              </button>
+              <button
+                class="dns-example-btn"
+                type="button"
+                data-example-host="_sip._tcp.example.com"
+                data-example-type="SRV"
+                data-i18n="dns_lookup.examples.srv"
+              >
+                _sip._tcp.example.com
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="dns-card dns-results-card" aria-live="polite">
+          <div class="dns-results-head">
+            <div>
+              <p class="dns-results-kicker">LOOKUP</p>
+              <h2 data-i18n="dns_lookup.results.title">Ergebnis</h2>
+            </div>
+            <div id="dns-lookup-meta" class="dns-meta-chips" hidden></div>
+          </div>
+
+          <div id="dns-lookup-status" class="dns-status-note">
+            Starte einen Lookup, um deine DNS-Records zu sehen.
+          </div>
+
+          <div id="dns-lookup-error" class="dns-error-note" hidden></div>
+          <div id="dns-lookup-results" class="dns-results-list" hidden></div>
+        </section>
+      </section>
+
+      <section class="dns-card dns-help-card">
+        <div class="dns-help-copy">
+          <h2 data-i18n="dns_lookup.help.title">Wofür du es nutzen kannst</h2>
+          <p data-i18n="dns_lookup.help.body">
+            Perfekt für schnelle Checks bei DNS-Propagation, Mail-Setups oder wenn ein externer Service behauptet, dass dein Record noch fehlt.
+          </p>
+        </div>
+        <div class="dns-help-list">
+          <div class="dns-help-item" data-i18n="dns_lookup.help.spf">TXT-Records für SPF, DKIM oder DMARC prüfen</div>
+          <div class="dns-help-item" data-i18n="dns_lookup.help.mx">Mailserver und Prioritäten für E-Mail-Setups kontrollieren</div>
+          <div class="dns-help-item" data-i18n="dns_lookup.help.service">SRV- oder CNAME-Targets bei Apps und Diensten verifizieren</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/i18n.js"></script>
+    <script src="/assets/dns-lookup.js"></script>
+  </body>
+</html>
