@@ -432,9 +432,14 @@ body.landing-page .border-slate-700 {
   transition-delay: 0.17s;
 }
 
+.landing-nav-product:hover .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(5),
+.landing-nav-product[open] .landing-nav-product-col-side .landing-nav-product-side-link:nth-child(5) {
+  transition-delay: 0.21s;
+}
+
 .landing-nav-product:hover .landing-nav-product-demo,
 .landing-nav-product[open] .landing-nav-product-demo {
-  transition-delay: 0.2s;
+  transition-delay: 0.25s;
 }
 
 .landing-nav-product-demo-avatar {
