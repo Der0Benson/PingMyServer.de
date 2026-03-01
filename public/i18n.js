@@ -31,8 +31,8 @@
           twitter_description: "Überwache Websites und APIs 24/7 und erhalte Alerts in Sekunden.",
         },
         dns_lookup: {
-          title: "DNS Lookup · PingMyServer",
-          description: "Kostenloser DNS Lookup für A-, AAAA-, MX-, TXT-, CNAME-, NS-, SRV- und SOA-Records.",
+          title: "DNS Lookup kostenlos | A, MX, TXT Records prüfen",
+          description: "DNS Lookup kostenlos: A-, AAAA-, MX-, TXT-, CNAME-, NS-, SRV- und SOA-Records online prüfen.",
         },
         app: {
           title: "Dashboard · PingMyServer",
@@ -538,9 +538,9 @@
       },
       dns_lookup: {
         badge: "Kostenloses Tool",
-        title: "DNS schnell prüfen, ohne Zusatztool.",
+        title: "DNS Lookup kostenlos",
         lead:
-          "Prüfe A-, AAAA-, MX-, TXT-, CNAME-, NS-, SRV- und SOA-Records direkt im Browser. Ideal für SPF, DKIM, MX-Checks und schnelle DNS-Fehlersuche.",
+          "Prüfe DNS-Records wie A, AAAA, MX, TXT, CNAME, NS, SRV und SOA kostenlos direkt im Browser. Ideal für SPF, DKIM, MX-Checks und schnelle DNS-Fehlersuche.",
         records: "Unterstützte Records",
         form: {
           host_label: "Domain oder Hostname",
@@ -1794,8 +1794,8 @@
           twitter_description: "Monitor websites and APIs 24/7 and receive alerts in seconds.",
         },
         dns_lookup: {
-          title: "DNS Lookup · PingMyServer",
-          description: "Free DNS lookup for A, AAAA, MX, TXT, CNAME, NS, SRV and SOA records.",
+          title: "Free DNS Lookup | Check A, MX, TXT Records",
+          description: "Free DNS lookup: check A, AAAA, MX, TXT, CNAME, NS, SRV and SOA records online.",
         },
         app: {
           title: "Dashboard · PingMyServer",
@@ -2300,9 +2300,9 @@
       },
       dns_lookup: {
         badge: "Free tool",
-        title: "Check DNS fast, without another tool.",
+        title: "Free DNS Lookup",
         lead:
-          "Query A, AAAA, MX, TXT, CNAME, NS, SRV and SOA records right in your browser. Useful for SPF, DKIM, MX checks and quick DNS troubleshooting.",
+          "Check DNS records like A, AAAA, MX, TXT, CNAME, NS, SRV and SOA for free right in your browser. Useful for SPF, DKIM, MX checks and quick DNS troubleshooting.",
         records: "Supported records",
         form: {
           host_label: "Domain or hostname",
