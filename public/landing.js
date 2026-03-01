@@ -156,14 +156,15 @@
     registerTargets(".landing-nav-main > *", { step: 45, baseDelay: 20, variant: "reveal-slide-down" });
     registerTargets(".landing-hero-copy > *", { step: 75, baseDelay: 60 });
     registerTargets(".landing-hero-editorial > *", { step: 65, baseDelay: 110 });
-    registerTargets(".landing-hero .floating > .glass-effect", { baseDelay: 250, variant: "reveal-pop" });
-    registerTargets(".landing-social-intro", { baseDelay: 30, variant: "reveal-pop" });
-    registerTargets(".landing-social-stat-card", { step: 85, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-hero .landing-hero-console", { baseDelay: 250, variant: "reveal-pop" });
+    registerTargets(".landing-social-rule", { baseDelay: 30, variant: "reveal-pop" });
+    registerTargets(".landing-social-copy", { baseDelay: 65 });
     registerTargets(".landing-rating .text-center", { baseDelay: 30, variant: "reveal-pop" });
     registerTargets(".landing-rating-grid > *", { step: 90, baseDelay: 70, variant: "reveal-pop" });
     registerTargets(".landing-rating-recent", { baseDelay: 110, variant: "reveal-pop" });
-    registerTargets(".landing-features .text-center", { baseDelay: 20 });
-    registerTargets(".landing-features .feature-card", { step: 75, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-features .landing-section-kicker", { baseDelay: 20 });
+    registerTargets(".landing-features-heading > *", { step: 70, baseDelay: 40 });
+    registerTargets(".landing-features .feature-card", { step: 75, baseDelay: 80, variant: "reveal-pop" });
     registerTargets(".landing-about .text-center", { baseDelay: 20 });
     registerTargets(".landing-about .glass-effect", { baseDelay: 70 });
     registerTargets(".landing-about .mt-12 > *", { step: 75, baseDelay: 70, variant: "reveal-pop" });
@@ -171,7 +172,8 @@
     registerTargets(".landing-pricing .grid > .glass-effect", { step: 80, baseDelay: 60, variant: "reveal-pop" });
     registerTargets(".landing-faq .text-center", { baseDelay: 20 });
     registerTargets(".landing-faq .faq-item", { step: 65, baseDelay: 60 });
-    registerTargets(".landing-final-cta .max-w-4xl > *", { step: 80, baseDelay: 45 });
+    registerTargets(".landing-final-cta-copy > *", { step: 80, baseDelay: 45 });
+    registerTargets(".landing-final-cta-actions > *", { step: 65, baseDelay: 90, variant: "reveal-pop" });
     registerTargets(".landing-footer .grid > div", { step: 85, baseDelay: 30 });
     registerTargets(".landing-footer .border-t", { baseDelay: 80 });
 
@@ -201,7 +203,7 @@
     if (prefersReducedMotion || !supportsFinePointer) return;
 
     const surfaces = document.querySelectorAll(
-      ".landing-features .feature-card, .landing-pricing .grid > .glass-effect, .landing-about .glass-effect"
+      ".landing-pricing .grid > .glass-effect, .landing-about .glass-effect"
     );
 
     surfaces.forEach((surface) => {
