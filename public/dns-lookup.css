@@ -291,6 +291,35 @@ html[lang="en"] .dns-lang-btn[data-set-lang="en"] {
     background-color 0.2s ease;
 }
 
+.dns-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 46px;
+  background-color: rgba(13, 27, 45, 0.96);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M3.5 5.25L7 8.75L10.5 5.25' stroke='%2395a5bc' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, right 14px center;
+  background-size: auto, 14px 14px;
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.dns-field select option,
+.dns-field select optgroup {
+  background: #0d1724;
+  color: var(--dns-text);
+}
+
+.dns-field select option:checked,
+.dns-field select option:hover,
+.dns-field select option:focus {
+  background: #15304b;
+  color: var(--dns-text);
+}
+
 .dns-field input::placeholder {
   color: rgba(149, 165, 188, 0.66);
 }
