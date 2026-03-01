@@ -154,10 +154,11 @@
     }
 
     registerTargets(".landing-nav-main > *", { step: 45, baseDelay: 20, variant: "reveal-slide-down" });
-    registerTargets(".landing-hero .max-w-7xl > .grid > div:first-child > *", { step: 75, baseDelay: 60 });
+    registerTargets(".landing-hero-copy > *", { step: 75, baseDelay: 60 });
+    registerTargets(".landing-hero-editorial > *", { step: 65, baseDelay: 110 });
     registerTargets(".landing-hero .floating > .glass-effect", { baseDelay: 250, variant: "reveal-pop" });
-    registerTargets(".landing-social-proof .text-center", { baseDelay: 30, variant: "reveal-pop" });
-    registerTargets(".landing-social-proof .grid > div", { step: 85, baseDelay: 60, variant: "reveal-pop" });
+    registerTargets(".landing-social-intro", { baseDelay: 30, variant: "reveal-pop" });
+    registerTargets(".landing-social-stat-card", { step: 85, baseDelay: 60, variant: "reveal-pop" });
     registerTargets(".landing-rating .text-center", { baseDelay: 30, variant: "reveal-pop" });
     registerTargets(".landing-rating-grid > *", { step: 90, baseDelay: 70, variant: "reveal-pop" });
     registerTargets(".landing-rating-recent", { baseDelay: 110, variant: "reveal-pop" });

@@ -215,64 +215,75 @@
     <!-- Hero Section -->
     <section class="landing-hero pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto">
-            <div class="grid lg:grid-cols-2 gap-12 items-center">
-                <div>
-                    <div
-                        class="inline-block mb-4 px-4 py-2 glass-effect rounded-full text-cyan-400 text-sm font-semibold"
-                        data-i18n="landing.hero.badge"
-                    >
-                        Jetzt im Early Access
-                    </div>
-                    <h1 class="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-                        <span data-i18n="landing.hero.h1.line1">Ausfälle früh erkennen,</span><br/>
-                        <span class="text-cyan-400" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
-                        <span data-i18n="landing.hero.h1.line2">sie melden</span>
-                    </h1>
-                    <p class="text-xl text-slate-300 mb-8" data-i18n="landing.hero.lead">
-                        PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr. 
-                        Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.
-                    </p>
-                    
-                    <!-- Benefits List -->
-                    <div class="space-y-3 mb-8">
-                        <div class="flex items-center space-x-3">
-                            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span class="text-slate-200" data-i18n="landing.hero.benefit.setup">Setup in unter 60 Sekunden</span>
+            <div class="grid landing-hero-grid lg:grid-cols-2 gap-12 items-start">
+                <div class="landing-hero-copy">
+                    <div class="landing-hero-topline">
+                        <div
+                            class="landing-hero-stamp glass-effect text-cyan-400 text-sm font-semibold"
+                            data-i18n="landing.hero.badge"
+                        >
+                            Jetzt im Early Access
                         </div>
-                        <div class="flex items-center space-x-3">
-                            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span class="text-slate-200" data-i18n="landing.hero.benefit.no_cc">Keine Kreditkarte erforderlich</span>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span class="text-slate-200" data-i18n="landing.hero.benefit.public_status">Öffentliche Statusseite inklusive</span>
+                        <div class="landing-hero-note-chip">
+                            <span class="text-sm text-slate-300" data-i18n="landing.hero.note">
+                                Komplett kostenlos während Early Access • Made in Germany
+                            </span>
                         </div>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row gap-4">
-                        <a href="/login?mode=register" class="bg-cyan-400 text-slate-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                            <span data-i18n="landing.hero.cta_primary">Early Access starten -></span>
-                        </a>
-                        <a href="/status" class="glass-effect px-8 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
-                            <span data-i18n="landing.hero.cta_secondary">Live-Demo ansehen</span>
-                        </a>
-                    </div>
+                    <div class="landing-hero-editorial glass-effect">
+                        <h1 class="text-5xl lg:text-6xl font-bold leading-tight">
+                            <span data-i18n="landing.hero.h1.line1">Ausfälle früh erkennen,</span><br/>
+                            <span class="text-cyan-400" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
+                            <span data-i18n="landing.hero.h1.line2">sie melden</span>
+                        </h1>
 
-                    <p class="text-sm text-slate-400 mt-4" data-i18n="landing.hero.note">
-                        Komplett kostenlos während Early Access • Made in Germany
-                    </p>
+                        <p class="text-xl text-slate-300" data-i18n="landing.hero.lead">
+                            PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr.
+                            Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.
+                        </p>
+
+                        <div class="landing-hero-benefits-grid">
+                            <div class="landing-hero-benefit-card">
+                                <span class="landing-hero-benefit-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </span>
+                                <span class="text-slate-200" data-i18n="landing.hero.benefit.setup">Setup in unter 60 Sekunden</span>
+                            </div>
+                            <div class="landing-hero-benefit-card">
+                                <span class="landing-hero-benefit-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </span>
+                                <span class="text-slate-200" data-i18n="landing.hero.benefit.no_cc">Keine Kreditkarte erforderlich</span>
+                            </div>
+                            <div class="landing-hero-benefit-card landing-hero-benefit-card-wide">
+                                <span class="landing-hero-benefit-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </span>
+                                <span class="text-slate-200" data-i18n="landing.hero.benefit.public_status">Öffentliche Statusseite inklusive</span>
+                            </div>
+                        </div>
+
+                        <div class="landing-hero-cta-bar">
+                            <a href="/login?mode=register" class="bg-cyan-400 text-slate-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
+                                <span data-i18n="landing.hero.cta_primary">Early Access starten -></span>
+                            </a>
+                            <a href="/status" class="glass-effect px-8 py-4 rounded-lg font-semibold text-lg hover:bg-slate-700 transition inline-flex items-center justify-center">
+                                <span data-i18n="landing.hero.cta_secondary">Live-Demo ansehen</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Dashboard Preview -->
-                <div class="floating">
-                    <div class="glass-effect rounded-2xl p-6 shadow-2xl">
-                        <div class="flex items-center justify-between mb-6">
+                <div class="floating landing-hero-stage">
+                    <div class="glass-effect rounded-2xl p-6 shadow-2xl landing-hero-console">
+                        <div class="landing-hero-console-head">
                             <div class="flex items-center space-x-3">
                                 <div id="landing-live-dot" class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
                                 <span class="font-semibold" data-i18n="landing.live.title">Live Status</span>
@@ -283,9 +294,9 @@
                                 data-i18n="landing.live.overall_loading"
                             >Lade Monitor-Daten ...</span>
                         </div>
-                        
-                        <div class="space-y-4">
-                            <div class="glass-effect rounded-lg p-4">
+
+                        <div class="landing-hero-console-stack">
+                            <div class="landing-live-primary glass-effect rounded-lg p-4">
                                 <div class="flex items-center justify-between mb-2">
                                     <span id="landing-monitor-1-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
                                     <span
@@ -311,28 +322,30 @@
                                 </div>
                             </div>
 
-                            <div id="landing-monitor-2-card" class="glass-effect rounded-lg p-4 hidden">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span id="landing-monitor-2-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
-                                    <span
-                                        id="landing-monitor-2-status"
-                                        class="text-slate-400 text-sm"
-                                        data-i18n="landing.live.checking"
-                                    >Prüfung ...</span>
+                            <div class="landing-hero-side-grid">
+                                <div id="landing-monitor-2-card" class="glass-effect rounded-lg p-4 hidden">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span id="landing-monitor-2-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
+                                        <span
+                                            id="landing-monitor-2-status"
+                                            class="text-slate-400 text-sm"
+                                            data-i18n="landing.live.checking"
+                                        >Prüfung ...</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2 text-sm text-slate-400">
+                                        <span id="landing-monitor-2-response" data-i18n="landing.live.response_placeholder">Response: --</span>
+                                        <span>•</span>
+                                        <span id="landing-monitor-2-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
+                                    </div>
                                 </div>
-                                <div class="flex items-center space-x-2 text-sm text-slate-400">
-                                    <span id="landing-monitor-2-response" data-i18n="landing.live.response_placeholder">Response: --</span>
-                                    <span>•</span>
-                                    <span id="landing-monitor-2-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
-                                </div>
-                            </div>
 
-                            <div class="glass-effect rounded-lg p-4 border-l-4 border-cyan-400">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="font-medium" data-i18n="landing.live.alert_title">Recent Alert</span>
-                                    <span id="landing-alert-time" class="text-cyan-400 text-sm" data-i18n="landing.live.alert_now">gerade eben</span>
+                                <div class="landing-live-alert glass-effect rounded-lg p-4 border-l-4 border-cyan-400">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-medium" data-i18n="landing.live.alert_title">Recent Alert</span>
+                                        <span id="landing-alert-time" class="text-cyan-400 text-sm" data-i18n="landing.live.alert_now">gerade eben</span>
+                                    </div>
+                                    <p id="landing-alert-text" class="text-sm text-slate-300" data-i18n="landing.live.alert_none">Noch keine Vorfälle gefunden.</p>
                                 </div>
-                                <p id="landing-alert-text" class="text-sm text-slate-300" data-i18n="landing.live.alert_none">Noch keine Vorfälle gefunden.</p>
                             </div>
                         </div>
                     </div>
@@ -344,26 +357,29 @@
     <!-- Social Proof Stats -->
     <section class="landing-social-proof py-16 px-4 sm:px-6 lg:px-8 border-y border-slate-700">
         <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-8">
-                <h3 class="text-2xl font-bold mb-2" data-i18n="landing.social.h3">Built by developers, for developers</h3>
-                <p class="text-slate-400" data-i18n="landing.social.sub">Ein Azubi-Projekt mit professionellem Anspruch</p>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                <div>
-                    <div class="stat-number">24/7</div>
-                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.monitoring">Monitoring</p>
+            <div class="landing-social-board grid lg:grid-cols-2 gap-6 items-stretch">
+                <div class="landing-social-intro glass-effect rounded-2xl p-8 text-center md:text-left">
+                    <h3 class="text-2xl font-bold mb-3" data-i18n="landing.social.h3">Built by developers, for developers</h3>
+                    <p class="text-slate-400" data-i18n="landing.social.sub">Ein Azubi-Projekt mit professionellem Anspruch</p>
                 </div>
-                <div>
-                    <div class="stat-number">&lt;60s</div>
-                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.interval">Check-Intervall</p>
-                </div>
-                <div>
-                    <div class="stat-number">99.9%</div>
-                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.uptime">Ziel-Uptime</p>
-                </div>
-                <div>
-                    <div class="stat-number">DE</div>
-                    <p class="text-slate-400 mt-2" data-i18n="landing.social.stat.made_in">Made in Germany</p>
+
+                <div class="landing-social-metrics grid grid-cols-2 gap-4">
+                    <div class="landing-social-stat-card glass-effect">
+                        <div class="stat-number">24/7</div>
+                        <p class="text-slate-400" data-i18n="landing.social.stat.monitoring">Monitoring</p>
+                    </div>
+                    <div class="landing-social-stat-card glass-effect">
+                        <div class="stat-number">&lt;60s</div>
+                        <p class="text-slate-400" data-i18n="landing.social.stat.interval">Check-Intervall</p>
+                    </div>
+                    <div class="landing-social-stat-card glass-effect">
+                        <div class="stat-number">99.9%</div>
+                        <p class="text-slate-400" data-i18n="landing.social.stat.uptime">Ziel-Uptime</p>
+                    </div>
+                    <div class="landing-social-stat-card glass-effect">
+                        <div class="stat-number">DE</div>
+                        <p class="text-slate-400" data-i18n="landing.social.stat.made_in">Made in Germany</p>
+                    </div>
                 </div>
             </div>
         </div>

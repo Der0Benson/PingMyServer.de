@@ -663,6 +663,331 @@ body.landing-page .border-slate-700 {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.008));
 }
 
+.landing-hero {
+  position: relative;
+  overflow: clip;
+}
+
+.landing-hero::before,
+.landing-hero::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-hero::before {
+  width: min(44vw, 520px);
+  height: min(44vw, 520px);
+  top: 88px;
+  right: -120px;
+  border-radius: 38% 62% 48% 52%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), transparent 36%),
+    radial-gradient(circle at 62% 38%, rgba(76, 201, 240, 0.22), transparent 48%),
+    linear-gradient(135deg, rgba(185, 242, 124, 0.08), rgba(76, 201, 240, 0.02));
+  filter: blur(1px);
+  opacity: 0.9;
+}
+
+.landing-hero::after {
+  left: 8%;
+  right: 24%;
+  top: 142px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(185, 242, 124, 0.22), rgba(255, 255, 255, 0));
+}
+
+.landing-hero-grid {
+  position: relative;
+  z-index: 1;
+  align-items: stretch;
+}
+
+.landing-hero-copy {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.landing-hero-topline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.landing-hero-stamp {
+  display: inline-flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 0 18px;
+  border-radius: 18px;
+  border-color: rgba(185, 242, 124, 0.2) !important;
+  background:
+    linear-gradient(135deg, rgba(185, 242, 124, 0.08), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, rgba(15, 21, 34, 0.92), rgba(9, 14, 24, 0.94));
+}
+
+.landing-hero-note-chip {
+  flex: 1 1 240px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.landing-hero-note-chip span {
+  margin: 0;
+}
+
+.landing-hero-editorial {
+  position: relative;
+  display: grid;
+  gap: 24px;
+  padding: 32px;
+  border-radius: 28px;
+  overflow: hidden;
+  background:
+    linear-gradient(160deg, rgba(20, 25, 38, 0.98), rgba(9, 13, 22, 0.98)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.landing-hero-editorial::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(76, 201, 240, 0.1), transparent 24%),
+    radial-gradient(circle at 88% 18%, rgba(185, 242, 124, 0.1), transparent 24%);
+}
+
+.landing-hero-editorial > * {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-hero-editorial h1 {
+  max-width: 10ch;
+  margin: 0;
+}
+
+.landing-hero-editorial p {
+  margin: 0;
+  max-width: 62ch;
+}
+
+.landing-hero-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.landing-hero-benefit-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.landing-hero-benefit-card-wide {
+  grid-column: span 2;
+}
+
+.landing-hero-benefit-card span:last-child {
+  line-height: 1.45;
+}
+
+.landing-hero-benefit-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--accent);
+  background: rgba(76, 201, 240, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(76, 201, 240, 0.14);
+}
+
+.landing-hero-benefit-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.landing-hero-cta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.landing-hero-cta-bar a {
+  min-height: 58px;
+  border-radius: 16px;
+}
+
+.landing-hero-stage {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  padding-top: 28px;
+}
+
+.landing-hero-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0 8% auto auto;
+  width: 160px;
+  height: 160px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transform: rotate(8deg);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.landing-hero-console {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border-radius: 30px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(17, 24, 37, 0.985), rgba(9, 13, 22, 0.985)),
+    linear-gradient(135deg, rgba(185, 242, 124, 0.03), rgba(76, 201, 240, 0.03));
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.landing-hero-console::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(76, 201, 240, 0.08), transparent 28%),
+    radial-gradient(circle at 80% 20%, rgba(185, 242, 124, 0.08), transparent 22%);
+}
+
+.landing-hero-console > * {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-hero-console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.landing-hero-console-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(220px, 0.82fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.landing-live-primary,
+.landing-hero-side-grid > .glass-effect {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    linear-gradient(180deg, rgba(12, 18, 28, 0.92), rgba(9, 13, 22, 0.94));
+}
+
+.landing-live-primary {
+  min-height: 100%;
+}
+
+.landing-hero-side-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.landing-live-alert {
+  min-height: 100%;
+}
+
+.landing-social-board {
+  align-items: stretch;
+}
+
+.landing-social-intro,
+.landing-social-stat-card {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.landing-social-intro {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(16, 22, 34, 0.96), rgba(9, 14, 24, 0.96)),
+    linear-gradient(90deg, rgba(185, 242, 124, 0.03), rgba(76, 201, 240, 0.04));
+}
+
+.landing-social-intro::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 18px;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(185, 242, 124, 0.9), rgba(76, 201, 240, 0.18));
+  border-radius: 999px;
+}
+
+.landing-social-intro h3,
+.landing-social-intro p {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-social-intro h3 {
+  max-width: 18ch;
+}
+
+.landing-social-intro p {
+  max-width: 40ch;
+  margin: 0;
+}
+
+.landing-social-metrics {
+  align-content: stretch;
+}
+
+.landing-social-stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 148px;
+  padding: 22px 20px;
+  border-radius: 22px;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
+    linear-gradient(180deg, rgba(12, 18, 28, 0.88), rgba(9, 13, 22, 0.9));
+}
+
+.landing-social-stat-card p {
+  margin: 0;
+}
+
 .landing-about,
 .landing-faq {
   background: linear-gradient(180deg, rgba(15, 21, 34, 0.8), rgba(11, 15, 20, 0.72));
@@ -1152,6 +1477,14 @@ button:focus-visible {
 }
 
 @media (max-width: 1024px) {
+  .landing-hero-editorial h1 {
+    max-width: none;
+  }
+
+  .landing-hero-console-stack {
+    grid-template-columns: 1fr;
+  }
+
   .landing-nav-main {
     min-height: 66px;
     gap: 14px;
@@ -1178,6 +1511,51 @@ button:focus-visible {
 @media (max-width: 767px) {
   .landing-rating-grid {
     grid-template-columns: 1fr;
+  }
+
+  .landing-hero-topline {
+    gap: 10px;
+  }
+
+  .landing-hero-stamp,
+  .landing-hero-note-chip {
+    width: 100%;
+  }
+
+  .landing-hero-editorial,
+  .landing-hero-console {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .landing-hero-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero-benefit-card-wide {
+    grid-column: auto;
+  }
+
+  .landing-hero-cta-bar a {
+    width: 100%;
+  }
+
+  .landing-hero-stage {
+    padding-top: 0;
+  }
+
+  .landing-hero-stage::before,
+  .landing-hero::after {
+    display: none;
+  }
+
+  .landing-social-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-social-stat-card {
+    min-height: 0;
+    padding: 18px;
   }
 
   .landing-rating-kpi {
@@ -1293,6 +1671,10 @@ button:focus-visible {
   .landing-page .rounded-2xl,
   .landing-page .rounded-xl {
     border-radius: 14px;
+  }
+
+  .landing-social-intro::before {
+    left: 14px;
   }
 
   .floating,
