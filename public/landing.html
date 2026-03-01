@@ -296,55 +296,59 @@
                         </div>
 
                         <div class="landing-hero-console-stack">
-                            <div class="landing-live-primary">
-                                <div class="landing-console-panel-head">
-                                    <span id="landing-monitor-1-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
-                                    <span
-                                        id="landing-monitor-1-status"
-                                        class="text-slate-400 text-sm"
-                                        data-i18n="landing.live.checking"
-                                    >Prüfung ...</span>
-                                </div>
-                                <div class="landing-console-meta text-sm text-slate-400">
-                                    <span id="landing-monitor-1-response" data-i18n="landing.live.response_placeholder">Response: --</span>
-                                    <span>•</span>
-                                    <span id="landing-monitor-1-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
-                                </div>
-                                <div id="landing-monitor-1-bars" class="landing-console-bars">
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                    <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                </div>
-                            </div>
-
-                            <div class="landing-hero-side-grid">
-                                <div id="landing-monitor-2-card" class="landing-console-mini hidden">
+                            <div class="landing-status-board">
+                                <div class="landing-live-primary">
                                     <div class="landing-console-panel-head">
-                                        <span id="landing-monitor-2-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
+                                        <span id="landing-monitor-1-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
                                         <span
-                                            id="landing-monitor-2-status"
+                                            id="landing-monitor-1-status"
                                             class="text-slate-400 text-sm"
                                             data-i18n="landing.live.checking"
                                         >Prüfung ...</span>
                                     </div>
                                     <div class="landing-console-meta text-sm text-slate-400">
-                                        <span id="landing-monitor-2-response" data-i18n="landing.live.response_placeholder">Response: --</span>
+                                        <span id="landing-monitor-1-response" data-i18n="landing.live.response_placeholder">Response: --</span>
                                         <span>•</span>
-                                        <span id="landing-monitor-2-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
+                                        <span id="landing-monitor-1-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
+                                    </div>
+                                    <div class="landing-console-bars-wrap">
+                                        <div id="landing-monitor-1-bars" class="landing-console-bars">
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="landing-live-alert">
-                                    <div class="landing-console-panel-head">
-                                        <span class="font-medium" data-i18n="landing.live.alert_title">Recent Alert</span>
-                                        <span id="landing-alert-time" class="text-cyan-400 text-sm" data-i18n="landing.live.alert_now">gerade eben</span>
+                                <div class="landing-status-board-lower">
+                                    <div id="landing-monitor-2-card" class="landing-console-mini hidden">
+                                        <div class="landing-console-panel-head">
+                                            <span id="landing-monitor-2-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
+                                            <span
+                                                id="landing-monitor-2-status"
+                                                class="text-slate-400 text-sm"
+                                                data-i18n="landing.live.checking"
+                                            >Prüfung ...</span>
+                                        </div>
+                                        <div class="landing-console-meta text-sm text-slate-400">
+                                            <span id="landing-monitor-2-response" data-i18n="landing.live.response_placeholder">Response: --</span>
+                                            <span>•</span>
+                                            <span id="landing-monitor-2-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
+                                        </div>
                                     </div>
-                                    <p id="landing-alert-text" class="text-sm text-slate-300" data-i18n="landing.live.alert_none">Noch keine Vorfälle gefunden.</p>
+
+                                    <div class="landing-live-alert">
+                                        <div class="landing-console-panel-head">
+                                            <span class="font-medium" data-i18n="landing.live.alert_title">Recent Alert</span>
+                                            <span id="landing-alert-time" class="text-cyan-400 text-sm" data-i18n="landing.live.alert_now">gerade eben</span>
+                                        </div>
+                                        <p id="landing-alert-text" class="text-sm text-slate-300" data-i18n="landing.live.alert_none">Noch keine Vorfälle gefunden.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
