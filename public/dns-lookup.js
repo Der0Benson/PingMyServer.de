@@ -1,11 +1,20 @@
 (() => {
   const I18N = window.PMS_I18N || null;
   const ALLOWED_TYPES = new Set(["A", "AAAA", "MX", "TXT", "CNAME", "NS", "SRV", "SOA"]);
+  const supportsFinePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
   const t = (key, vars, fallback) =>
     I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
 
   const locale = () => (I18N && typeof I18N.locale === "function" ? I18N.locale() : "de-DE");
+  const navLoginLinks = Array.from(document.querySelectorAll("[data-landing-login]"));
+  const navPrimaryCtas = Array.from(document.querySelectorAll("[data-landing-primary-cta]"));
+  const companyMenu = document.querySelector("[data-landing-product-menu]");
+  const companyMenuLinks = document.querySelectorAll("[data-landing-product-link]");
+  const mobileMenuToggle = document.getElementById("landing-mobile-menu-toggle");
+  const mobileMenu = document.getElementById("landing-mobile-menu");
+  const mobileCompanyMenu = document.querySelector("[data-landing-mobile-product]");
+  const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
 
   const form = document.getElementById("dns-lookup-form");
   const hostInput = document.getElementById("dns-lookup-host");
@@ -18,6 +27,189 @@
   const exampleButtons = Array.from(document.querySelectorAll("[data-example-host]"));
 
   let isSubmitting = false;
+
+  function setMobileMenuOpen(isOpen) {
+    if (!mobileMenu || !mobileMenuToggle) return;
+    mobileMenuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    mobileMenuToggle.classList.toggle("is-open", isOpen);
+    if (isOpen) {
+      mobileMenu.removeAttribute("hidden");
+      return;
+    }
+    mobileMenu.setAttribute("hidden", "");
+  }
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false);
+    if (mobileCompanyMenu) {
+      mobileCompanyMenu.removeAttribute("open");
+    }
+  }
+
+  function closeCompanyMenu() {
+    if (!companyMenu) return;
+    companyMenu.removeAttribute("open");
+  }
+
+  async function fetchJsonPayload(url) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function hasAuthenticatedSession() {
+    const payload = await fetchJsonPayload("/api/me");
+    return !!payload?.ok && !!payload?.user;
+  }
+
+  function renderNavigationAuthState(isAuthenticated) {
+    navLoginLinks.forEach((link) => {
+      link.classList.toggle("hidden", isAuthenticated);
+      link.setAttribute("aria-hidden", isAuthenticated ? "true" : "false");
+      if (isAuthenticated) {
+        link.setAttribute("hidden", "");
+      } else {
+        link.removeAttribute("hidden");
+      }
+    });
+
+    navPrimaryCtas.forEach((cta) => {
+      cta.setAttribute("href", isAuthenticated ? "/app" : "/login?mode=register");
+      cta.textContent = isAuthenticated
+        ? t("landing.nav.dashboard", null, "Dashboard")
+        : t("landing.nav.cta", null, "Kostenlos starten");
+    });
+
+    if (isAuthenticated) closeMobileMenu();
+  }
+
+  function initNavigation() {
+    if (mobileMenu && mobileMenuToggle) {
+      setMobileMenuOpen(false);
+
+      mobileMenuToggle.addEventListener("click", () => {
+        const isOpen = mobileMenuToggle.getAttribute("aria-expanded") === "true";
+        setMobileMenuOpen(!isOpen);
+      });
+
+      mobileMenuLinks.forEach((link) => {
+        link.addEventListener("click", () => {
+          closeMobileMenu();
+        });
+      });
+
+      document.addEventListener("click", (event) => {
+        if (mobileMenu.hasAttribute("hidden")) return;
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (mobileMenu.contains(target) || mobileMenuToggle.contains(target)) return;
+        closeMobileMenu();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        closeCompanyMenu();
+        closeMobileMenu();
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 768) closeMobileMenu();
+      });
+    }
+
+    if (companyMenu) {
+      const companySummary = companyMenu.querySelector("summary");
+      let closeCompanyMenuTimer = 0;
+
+      const shouldUseHoverMenu = () => supportsFinePointer && window.innerWidth >= 768;
+      const clearCompanyMenuTimer = () => {
+        if (!closeCompanyMenuTimer) return;
+        window.clearTimeout(closeCompanyMenuTimer);
+        closeCompanyMenuTimer = 0;
+      };
+      const openCompanyMenuOnHover = () => {
+        clearCompanyMenuTimer();
+        companyMenu.setAttribute("open", "");
+      };
+      const scheduleCompanyMenuClose = (delayMs = 170) => {
+        clearCompanyMenuTimer();
+        closeCompanyMenuTimer = window.setTimeout(() => {
+          closeCompanyMenuTimer = 0;
+          closeCompanyMenu();
+        }, delayMs);
+      };
+
+      if (supportsFinePointer) {
+        companyMenu.addEventListener("pointerenter", () => {
+          if (!shouldUseHoverMenu()) return;
+          openCompanyMenuOnHover();
+        });
+
+        companyMenu.addEventListener("pointerleave", (event) => {
+          if (!shouldUseHoverMenu()) return;
+          const nextTarget = event.relatedTarget;
+          if (nextTarget instanceof Node && companyMenu.contains(nextTarget)) return;
+          scheduleCompanyMenuClose();
+        });
+
+        companyMenu.addEventListener("focusin", () => {
+          if (!shouldUseHoverMenu()) return;
+          openCompanyMenuOnHover();
+        });
+
+        companyMenu.addEventListener("focusout", (event) => {
+          if (!shouldUseHoverMenu()) return;
+          const nextTarget = event.relatedTarget;
+          if (nextTarget instanceof Node && companyMenu.contains(nextTarget)) return;
+          scheduleCompanyMenuClose(120);
+        });
+      }
+
+      if (companySummary) {
+        companySummary.addEventListener("click", (event) => {
+          if (!shouldUseHoverMenu()) return;
+          event.preventDefault();
+          clearCompanyMenuTimer();
+          if (companyMenu.hasAttribute("open")) {
+            closeCompanyMenu();
+            return;
+          }
+          companyMenu.setAttribute("open", "");
+        });
+      }
+
+      companyMenuLinks.forEach((link) => {
+        link.addEventListener("click", () => {
+          clearCompanyMenuTimer();
+          closeCompanyMenu();
+        });
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (companyMenu.contains(target)) return;
+        clearCompanyMenuTimer();
+        closeCompanyMenu();
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 768) return;
+        clearCompanyMenuTimer();
+        closeCompanyMenu();
+      });
+    }
+
+    hasAuthenticatedSession().then((isAuthenticated) => {
+      renderNavigationAuthState(isAuthenticated);
+    });
+  }
+
+  initNavigation();
 
   if (!form || !hostInput || !typeSelect || !submitButton || !statusNote || !errorNote || !resultsList || !metaChips) return;
 
