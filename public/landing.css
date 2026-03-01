@@ -1992,22 +1992,49 @@ body.landing-page .border-slate-700 {
   }
 }
 
+.faq-item {
+  transition: border-color 0.28s ease, background 0.28s ease;
+}
+
 .faq-content {
-  max-height: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0.75;
+  transition:
+    grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease;
+}
+
+.faq-content > div {
+  min-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-in-out;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.24s ease,
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .faq-icon {
-  transition: transform 0.3s ease-in-out;
+  transition:
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.22s ease;
+  transform-origin: center;
 }
 
 .faq-item.is-open .faq-content {
-  max-height: 20rem;
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.faq-item.is-open .faq-content > div {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.04s;
 }
 
 .faq-item.is-open .faq-icon {
-  transform: rotate(180deg);
+  transform: rotate(180deg) scale(1.02);
 }
 
 .landing-faq button {
@@ -2388,6 +2415,7 @@ button:focus-visible {
   .landing-nav-product-demo,
   .shine-effect::before,
   .faq-content,
+  .faq-content > div,
   .faq-icon {
     animation: none !important;
     transition: none !important;
