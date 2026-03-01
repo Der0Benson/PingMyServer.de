@@ -581,6 +581,85 @@ html[lang="en"] .dns-lang-btn[data-set-lang="en"] {
   line-height: 1.6;
 }
 
+.port-reference-card {
+  margin-top: 24px;
+  padding: 28px;
+}
+
+.port-reference-head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 20px;
+  align-items: end;
+}
+
+.port-reference-head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: -0.04em;
+}
+
+.port-reference-lead {
+  margin: 0;
+  color: var(--dns-muted);
+  line-height: 1.7;
+}
+
+.port-reference-table-wrap {
+  margin-top: 22px;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.port-reference-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.port-reference-table th,
+.port-reference-table td {
+  padding: 16px 18px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: top;
+}
+
+.port-reference-table th {
+  color: var(--dns-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.port-reference-table td {
+  color: var(--dns-text);
+  line-height: 1.65;
+}
+
+.port-reference-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.port-reference-port {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(76, 201, 240, 0.14);
+  background: rgba(76, 201, 240, 0.08);
+  color: var(--dns-cyan);
+  font-family: "Consolas", "SFMono-Regular", "Menlo", monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 @media (max-width: 920px) {
   .dns-topbar,
   .dns-form-actions,
@@ -591,7 +670,8 @@ html[lang="en"] .dns-lang-btn[data-set-lang="en"] {
   }
 
   .dns-grid,
-  .dns-help-card {
+  .dns-help-card,
+  .port-reference-head {
     grid-template-columns: 1fr;
   }
 
@@ -629,7 +709,8 @@ html[lang="en"] .dns-lang-btn[data-set-lang="en"] {
 
   .dns-form-card,
   .dns-results-card,
-  .dns-help-card {
+  .dns-help-card,
+  .port-reference-card {
     padding: 20px;
     border-radius: 22px;
   }

@@ -6,13 +6,13 @@
     <meta
       name="description"
       data-i18n-content="meta.port_checker.description"
-      content="Port Checker kostenlos: Prüfe, ob ein öffentlicher TCP-Port auf deiner Domain erreichbar oder geschlossen ist."
+      content="Port Checker kostenlos: Pr?fe, ob ein ?ffentlicher TCP-Port auf deiner Domain erreichbar oder geschlossen ist."
     />
     <meta name="theme-color" content="#07111d" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title data-i18n="meta.port_checker.title">Port Checker kostenlos | Offene Ports online prüfen</title>
+    <title data-i18n="meta.port_checker.title">Port Checker kostenlos | Offene Ports online pr?fen</title>
     <link rel="stylesheet" href="/assets/landing-tailwind.css" />
     <link rel="stylesheet" href="/assets/landing.css" />
     <link rel="stylesheet" href="/assets/i18n.css" />
@@ -207,7 +207,7 @@
           </div>
           <h1 data-i18n="port_checker.title">Port Checker kostenlos</h1>
           <p class="dns-lead" data-i18n="port_checker.lead">
-            Prüfe kostenlos, ob ein öffentlicher TCP-Port auf deiner Domain offen, geschlossen oder nicht erreichbar ist. Ideal für Webserver,
+            Pr?fe kostenlos, ob ein ?ffentlicher TCP-Port auf deiner Domain offen, geschlossen oder nicht erreichbar ist. Ideal f?r Webserver,
             Game-Server, Mail-Ports und Firewall-Checks.
           </p>
         </div>
@@ -246,9 +246,9 @@
             </div>
 
             <div class="dns-form-actions">
-              <button id="port-checker-submit" class="dns-submit-btn" type="submit" data-i18n="port_checker.form.submit">Port prüfen</button>
+              <button id="port-checker-submit" class="dns-submit-btn" type="submit" data-i18n="port_checker.form.submit">Port pr?fen</button>
               <p class="dns-form-hint" data-i18n="port_checker.form.hint">
-                Aus Sicherheitsgründen sind nur öffentliche Ziele erlaubt. Lokale und private Netzwerke sind blockiert.
+                Aus Sicherheitsgr?nden sind nur ?ffentliche Ziele erlaubt. Lokale und private Netzwerke sind blockiert.
               </p>
             </div>
           </form>
@@ -293,15 +293,79 @@
 
       <section class="dns-card dns-help-card">
         <div class="dns-help-copy">
-          <h2 data-i18n="port_checker.help.title">Wofür du es nutzen kannst</h2>
+          <h2 data-i18n="port_checker.help.title">Wof?r du es nutzen kannst</h2>
           <p data-i18n="port_checker.help.body">
-            Perfekt für schnelle Live-Checks, wenn ein Service von außen erreichbar sein sollte, aber trotzdem nicht antwortet.
+            Perfekt f?r schnelle Live-Checks, wenn ein Service von au?en erreichbar sein sollte, aber trotzdem nicht antwortet.
           </p>
         </div>
         <div class="dns-help-list">
-          <div class="dns-help-item" data-i18n="port_checker.help.web">HTTP-, HTTPS- oder Reverse-Proxy-Ports prüfen</div>
-          <div class="dns-help-item" data-i18n="port_checker.help.mail">SMTP-, IMAP- oder andere Mail-Ports von außen testen</div>
+          <div class="dns-help-item" data-i18n="port_checker.help.web">HTTP-, HTTPS- oder Reverse-Proxy-Ports pr?fen</div>
+          <div class="dns-help-item" data-i18n="port_checker.help.mail">SMTP-, IMAP- oder andere Mail-Ports von au?en testen</div>
           <div class="dns-help-item" data-i18n="port_checker.help.infra">Firewall- und Freigabe-Probleme bei Servern schneller eingrenzen</div>
+        </div>
+      </section>
+      <section class="dns-card port-reference-card">
+        <div class="port-reference-head">
+          <div>
+            <p class="dns-results-kicker" data-i18n="port_checker.reference.kicker">Port Guide</p>
+            <h2 data-i18n="port_checker.reference.title">Häufige Ports im Überblick</h2>
+          </div>
+          <p class="port-reference-lead" data-i18n="port_checker.reference.body">
+            Praktische Standardports für Web, Datenbanken, Mail und Gameserver. So siehst du schneller, welcher Port zu deinem Dienst passt.
+          </p>
+        </div>
+        <div class="port-reference-table-wrap">
+          <table class="port-reference-table">
+            <thead>
+              <tr>
+                <th data-i18n="port_checker.reference.headers.port">Port</th>
+                <th data-i18n="port_checker.reference.headers.service">Dienst</th>
+                <th data-i18n="port_checker.reference.headers.usage">Häufige Verwendung</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="port-reference-port">80</span></td>
+                <td data-i18n="port_checker.reference.rows.http.service">HTTP</td>
+                <td data-i18n="port_checker.reference.rows.http.usage">Normale Websites, Healthchecks und Weiterleitungen vor HTTPS.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">443</span></td>
+                <td data-i18n="port_checker.reference.rows.https.service">HTTPS</td>
+                <td data-i18n="port_checker.reference.rows.https.usage">Verschlüsselte Websites, APIs, Dashboards und Webhooks.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">22</span></td>
+                <td data-i18n="port_checker.reference.rows.ssh.service">SSH / SFTP</td>
+                <td data-i18n="port_checker.reference.rows.ssh.usage">Serverzugriff, Deployments, Dateiuploads und Admin-Zugänge.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">53</span></td>
+                <td data-i18n="port_checker.reference.rows.dns.service">DNS</td>
+                <td data-i18n="port_checker.reference.rows.dns.usage">Nameserver, DNS-Auflösung und Infrastruktur-Checks.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">25 / 587</span></td>
+                <td data-i18n="port_checker.reference.rows.smtp.service">SMTP / Submission</td>
+                <td data-i18n="port_checker.reference.rows.smtp.usage">Mailversand, Relay-Server und ausgehende Systemmails.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">25565</span></td>
+                <td data-i18n="port_checker.reference.rows.minecraft.service">Minecraft</td>
+                <td data-i18n="port_checker.reference.rows.minecraft.usage">Java-Edition-Server für Spieler, Pings und Statusabfragen.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">3306</span></td>
+                <td data-i18n="port_checker.reference.rows.mysql.service">MySQL / MariaDB</td>
+                <td data-i18n="port_checker.reference.rows.mysql.usage">Datenbanken für Webapps, CMS-Systeme und interne Tools.</td>
+              </tr>
+              <tr>
+                <td><span class="port-reference-port">5432</span></td>
+                <td data-i18n="port_checker.reference.rows.postgres.service">PostgreSQL</td>
+                <td data-i18n="port_checker.reference.rows.postgres.usage">App-Datenbanken für APIs, SaaS-Backends und Analytik.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
     </main>

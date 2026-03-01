@@ -39,8 +39,8 @@
           description: "Port Checker kostenlos: PrÃ¼fe, ob ein Ã¶ffentlicher TCP-Port auf deiner Domain erreichbar oder geschlossen ist.",
         },
         port_checker: {
-          title: "Port Checker kostenlos | Offene Ports online pruefen",
-          description: "Port Checker kostenlos: Pruefe, ob ein oeffentlicher TCP-Port auf deiner Domain erreichbar oder geschlossen ist.",
+          title: "Port Checker kostenlos | Offene Ports online prüfen",
+          description: "Port Checker kostenlos: Prüfe, ob ein öffentlicher TCP-Port auf deiner Domain erreichbar oder geschlossen ist.",
         },
         app: {
           title: "Dashboard · PingMyServer",
@@ -282,7 +282,7 @@
             dns_title: "DNS Lookup Tool",
             dns_desc: "Prüfe A-, MX-, TXT- und weitere Records kostenlos.",
             port_title: "Port Checker",
-            port_desc: "Teste, ob oeffentliche TCP-Ports von aussen erreichbar sind.",
+            port_desc: "Teste, ob öffentliche TCP-Ports von außen erreichbar sind.",
             demo_title: "Live Demo",
             demo_desc: "Sieh dir die öffentliche Statusseite direkt an.",
           },
@@ -664,15 +664,15 @@
         badge: "Kostenloses Tool",
         title: "Port Checker kostenlos",
         lead:
-          "Pruefe kostenlos, ob ein oeffentlicher TCP-Port auf deiner Domain offen, geschlossen oder nicht erreichbar ist. Ideal fuer Webserver, Game-Server, Mail-Ports und Firewall-Checks.",
+          "Prüfe kostenlos, ob ein öffentlicher TCP-Port auf deiner Domain offen, geschlossen oder nicht erreichbar ist. Ideal für Webserver, Game-Server, Mail-Ports und Firewall-Checks.",
         form: {
           host_label: "Domain oder Hostname",
           host_placeholder: "example.com",
           port_label: "Port",
           port_placeholder: "443",
-          submit: "Port pruefen",
-          submitting: "Pruefung laeuft ...",
-          hint: "Aus Sicherheitsgruenden sind nur oeffentliche Ziele erlaubt. Lokale und private Netzwerke sind blockiert.",
+          submit: "Port prüfen",
+          submitting: "Prüfung läuft ...",
+          hint: "Aus Sicherheitsgründen sind nur öffentliche Ziele erlaubt. Lokale und private Netzwerke sind blockiert.",
         },
         examples: {
           label: "Schnelltests",
@@ -683,11 +683,11 @@
         results: {
           title: "Ergebnis",
           idle: "Starte einen Check, um den Port-Status zu sehen.",
-          loading: "Port wird geprueft ...",
+          loading: "Port wird geprüft ...",
           status_label: "Status",
           host: "Host",
           port: "Port",
-          address: "Gepruefte IP",
+          address: "Geprüfte IP",
           family: "IP-Version",
           duration: "Antwortzeit",
           reason: "Code",
@@ -695,18 +695,62 @@
           closed: "Port ist geschlossen",
           timeout: "Port antwortet nicht rechtzeitig",
           unreachable: "Ziel ist nicht erreichbar",
-          unresolved: "Domain konnte nicht aufgeloest werden",
-          invalid_host: "Bitte eine gueltige Domain oder einen Hostnamen eingeben.",
-          invalid_port: "Bitte einen gueltigen Port zwischen 1 und 65535 eingeben.",
-          blocked: "Private oder lokale Ziele sind fuer dieses Tool gesperrt.",
-          failed: "Port-Pruefung fehlgeschlagen. Bitte spaeter erneut versuchen.",
+          unresolved: "Domain konnte nicht aufgelöst werden",
+          invalid_host: "Bitte eine gültige Domain oder einen Hostnamen eingeben.",
+          invalid_port: "Bitte einen gültigen Port zwischen 1 und 65535 eingeben.",
+          blocked: "Private oder lokale Ziele sind für dieses Tool gesperrt.",
+          failed: "Port-Prüfung fehlgeschlagen. Bitte später erneut versuchen.",
         },
         help: {
-          title: "Wofuer du es nutzen kannst",
-          body: "Perfekt fuer schnelle Live-Checks, wenn ein Service von aussen erreichbar sein sollte, aber trotzdem nicht antwortet.",
-          web: "HTTP-, HTTPS- oder Reverse-Proxy-Ports pruefen",
-          mail: "SMTP-, IMAP- oder andere Mail-Ports von aussen testen",
+          title: "Wofür du es nutzen kannst",
+          body: "Perfekt für schnelle Live-Checks, wenn ein Service von außen erreichbar sein sollte, aber trotzdem nicht antwortet.",
+          web: "HTTP-, HTTPS- oder Reverse-Proxy-Ports prüfen",
+          mail: "SMTP-, IMAP- oder andere Mail-Ports von außen testen",
           infra: "Firewall- und Freigabe-Probleme bei Servern schneller eingrenzen",
+        },
+        reference: {
+          kicker: "Port Guide",
+          title: "Häufige Ports im Überblick",
+          body: "Praktische Standardports für Web, Datenbanken, Mail und Gameserver. So siehst du schneller, welcher Port zu deinem Dienst passt.",
+          headers: {
+            port: "Port",
+            service: "Dienst",
+            usage: "Häufige Verwendung",
+          },
+          rows: {
+            http: {
+              service: "HTTP",
+              usage: "Normale Websites, Healthchecks und Weiterleitungen vor HTTPS.",
+            },
+            https: {
+              service: "HTTPS",
+              usage: "Verschlüsselte Websites, APIs, Dashboards und Webhooks.",
+            },
+            ssh: {
+              service: "SSH / SFTP",
+              usage: "Serverzugriff, Deployments, Dateiuploads und Admin-Zugänge.",
+            },
+            dns: {
+              service: "DNS",
+              usage: "Nameserver, DNS-Auflösung und Infrastruktur-Checks.",
+            },
+            smtp: {
+              service: "SMTP / Submission",
+              usage: "Mailversand, Relay-Server und ausgehende Systemmails.",
+            },
+            minecraft: {
+              service: "Minecraft",
+              usage: "Java-Edition-Server für Spieler, Pings und Statusabfragen.",
+            },
+            mysql: {
+              service: "MySQL / MariaDB",
+              usage: "Datenbanken für Webapps, CMS-Systeme und interne Tools.",
+            },
+            postgres: {
+              service: "PostgreSQL",
+              usage: "App-Datenbanken für APIs, SaaS-Backends und Analytik.",
+            },
+          },
         },
       },
       app: {
@@ -2525,6 +2569,50 @@
           web: "Check HTTP, HTTPS or reverse proxy ports",
           mail: "Test SMTP, IMAP or other mail ports from the outside",
           infra: "Narrow down firewall and exposure issues faster",
+        },
+        reference: {
+          kicker: "Port guide",
+          title: "Common ports at a glance",
+          body: "Practical default ports for web, databases, mail and game servers, so you can match a service to the right port faster.",
+          headers: {
+            port: "Port",
+            service: "Service",
+            usage: "Common use",
+          },
+          rows: {
+            http: {
+              service: "HTTP",
+              usage: "Regular websites, health checks and redirects before HTTPS.",
+            },
+            https: {
+              service: "HTTPS",
+              usage: "Encrypted websites, APIs, dashboards and webhooks.",
+            },
+            ssh: {
+              service: "SSH / SFTP",
+              usage: "Server access, deployments, file uploads and admin access.",
+            },
+            dns: {
+              service: "DNS",
+              usage: "Nameservers, DNS resolution and infrastructure checks.",
+            },
+            smtp: {
+              service: "SMTP / Submission",
+              usage: "Mail delivery, relay servers and outbound system mail.",
+            },
+            minecraft: {
+              service: "Minecraft",
+              usage: "Java Edition servers for players, pings and status checks.",
+            },
+            mysql: {
+              service: "MySQL / MariaDB",
+              usage: "Databases for web apps, CMS setups and internal tools.",
+            },
+            postgres: {
+              service: "PostgreSQL",
+              usage: "Application databases for APIs, SaaS backends and analytics.",
+            },
+          },
         },
       },
       app: {
