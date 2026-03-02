@@ -65,9 +65,10 @@ function createLegacyRequestHandlerFactory(dependencies = {}) {
       pathname === "/api/game-agent/link" ||
       pathname === "/api/game-agent/heartbeat" ||
       pathname === "/api/game-agent/disconnect";
+    const isProbeAgentPath = pathname.startsWith("/api/probe-agent/");
     const isEmailUnsubscribePath = pathname === "/api/account/notifications/email/unsubscribe";
     const requiresOriginValidation =
-      (pathname.startsWith("/api/") && !isGameAgentIngestPath && !isEmailUnsubscribePath) ||
+      (pathname.startsWith("/api/") && !isGameAgentIngestPath && !isProbeAgentPath && !isEmailUnsubscribePath) ||
       pathname === "/monitor-create" ||
       pathname === "/create-monitor" ||
       pathname.startsWith("/monitor-create/") ||

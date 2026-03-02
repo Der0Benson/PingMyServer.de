@@ -1,6 +1,7 @@
 const { handleAuthRoutes } = require("../auth/auth.routes");
 const { handleAccountRoutes } = require("../account/account.routes");
 const { handleGameAgentRoutes } = require("../game-agent/game-agent.routes");
+const { handleProbeAgentRoutes } = require("../probe-agent/probe-agent.routes");
 const { handleMonitorApiRoutes } = require("../monitors/monitors.routes");
 const { handleOwnerRoutes } = require("../owner/owner.routes");
 const { handleStatusRoutes } = require("../status/status.routes");
@@ -96,6 +97,20 @@ async function handleDispatchedRoutes(context) {
     },
   });
   if (gameAgentHandled) return true;
+
+  const probeAgentHandled = await handleProbeAgentRoutes({
+    method,
+    pathname,
+    req,
+    res,
+    url,
+    handlers: {
+      handleProbeAgentJobs: handlers.handleProbeAgentJobs,
+      handleProbeAgentResults: handlers.handleProbeAgentResults,
+      handleProbeAgentHeartbeat: handlers.handleProbeAgentHeartbeat,
+    },
+  });
+  if (probeAgentHandled) return true;
 
   const ownerHandled = await handleOwnerRoutes({
     method,

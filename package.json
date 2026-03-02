@@ -5,7 +5,8 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "probe-agent": "node probe-agent.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

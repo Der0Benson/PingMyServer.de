@@ -117,3 +117,33 @@ For business inquiries, licensing, or collaboration:
 ---
 
 © PingMyServer.de — All rights reserved.
+---
+
+## Distributed Probe Agents
+
+You can run public probe workers without direct MySQL access now.
+
+Server-side env:
+
+- `PROBE_AGENT_TOKENS=ru:token-usually-long,us:another-token,hk:third-token`
+- `PROBE_AGENT_TOKEN_HASH_SECRET=separate-secret-for-hashing-agent-tokens`
+- `PROBE_AGENT_DEFAULT_BATCH_LIMIT=10`
+- `PROBE_AGENT_MAX_BATCH_LIMIT=50`
+- `PROBE_AGENT_RESULT_MAX_BATCH=50`
+- `PROBE_AGENT_PAYLOAD_MAX_BYTES=262144`
+
+Remote agent env (per probe server):
+
+- `PROBE_AGENT_API_URL=https://your-domain.tld`
+- `PROBE_AGENT_ID=ru`
+- `PROBE_AGENT_TOKEN=token-usually-long`
+- `PROBE_AGENT_LOOP_INTERVAL_MS=10000`
+- `PROBE_AGENT_JOB_LIMIT=10`
+- `PROBE_AGENT_CONCURRENCY=4`
+- `PROBE_AGENT_API_TIMEOUT_MS=15000`
+
+Start a remote probe agent with:
+
+`npm run probe-agent`
+
+The remote agent pulls jobs from `/api/probe-agent/jobs`, executes HTTP checks, and pushes results back to `/api/probe-agent/results`.

@@ -34,6 +34,7 @@ const { createMonitorWriteController } = require("../modules/monitors/monitor-wr
 const { createMonitorSettingsController } = require("../modules/monitors/monitor-settings.controller");
 const { createOwnerController } = require("../modules/owner/owner.controller");
 const { createGameAgentController } = require("../modules/game-agent/game-agent.controller");
+const { createProbeAgentController } = require("../modules/probe-agent/probe-agent.controller");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -371,6 +372,28 @@ function parseProbeLabelMap(value) {
     const label = part.slice(eq + 1).trim();
     if (!parseProbeIdParam(id) || !label) continue;
     map.set(id, label);
+  }
+
+  return map;
+}
+
+function parseProbeAgentTokenHashMap(value) {
+  const map = new Map();
+  const raw = String(value || "").trim();
+  if (!raw) return map;
+
+  for (const token of raw.split(",")) {
+    const part = String(token || "").trim();
+    if (!part) continue;
+
+    const separatorIndex = part.indexOf(":");
+    if (separatorIndex <= 0) continue;
+
+    const probeId = part.slice(0, separatorIndex).trim();
+    const secret = part.slice(separatorIndex + 1).trim();
+    if (!parseProbeIdParam(probeId) || !secret) continue;
+
+    map.set(probeId, hashProbeAgentApiToken(secret));
   }
 
   return map;
@@ -798,6 +821,9 @@ const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
 const SESSION_TOKEN_HASH_SECRET = readEnvString("SESSION_TOKEN_HASH_SECRET", MYSQL_PASSWORD, { trim: false });
+const PROBE_AGENT_TOKEN_HASH_SECRET = readEnvString("PROBE_AGENT_TOKEN_HASH_SECRET", SESSION_TOKEN_HASH_SECRET, {
+  trim: false,
+});
 const PASSWORD_PEPPER = readEnvString("PASSWORD_PEPPER", SESSION_TOKEN_HASH_SECRET, { trim: false });
 const PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED = readEnvBoolean("PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED", true);
 const LANDING_RATING_HASH_SECRET = readEnvString("LANDING_RATING_HASH_SECRET", SESSION_TOKEN_HASH_SECRET, { trim: false });
@@ -829,6 +855,37 @@ const EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS = readEnvNumber("EMAIL_UNSUBSCRIBE_TOKEN_
   min: 1,
   max: 36500,
 });
+const PROBE_AGENT_TOKENS = parseProbeAgentTokenHashMap(
+  readEnvString("PROBE_AGENT_TOKENS", "", { allowEmpty: true, trim: false })
+);
+const PROBE_AGENT_DEFAULT_BATCH_LIMIT = readEnvNumber("PROBE_AGENT_DEFAULT_BATCH_LIMIT", 10, {
+  integer: true,
+  min: 1,
+  max: 200,
+});
+const PROBE_AGENT_MAX_BATCH_LIMIT = readEnvNumber(
+  "PROBE_AGENT_MAX_BATCH_LIMIT",
+  Math.max(PROBE_AGENT_DEFAULT_BATCH_LIMIT, 50),
+  {
+    integer: true,
+    min: 1,
+    max: 500,
+  }
+);
+const PROBE_AGENT_PAYLOAD_MAX_BYTES = readEnvNumber("PROBE_AGENT_PAYLOAD_MAX_BYTES", 262144, {
+  integer: true,
+  min: 1024,
+  max: 1048576,
+});
+const PROBE_AGENT_RESULT_MAX_BATCH = readEnvNumber(
+  "PROBE_AGENT_RESULT_MAX_BATCH",
+  Math.max(PROBE_AGENT_DEFAULT_BATCH_LIMIT, PROBE_AGENT_MAX_BATCH_LIMIT),
+  {
+    integer: true,
+    min: 1,
+    max: 500,
+  }
+);
 const MYSQL_DATABASE = requireEnvString("MYSQL_DATABASE");
 const MYSQL_CONNECTION_LIMIT = requireEnvNumber("MYSQL_CONNECTION_LIMIT", { integer: true, min: 1 });
 const MYSQL_TIMEZONE = requireEnvString("MYSQL_TIMEZONE");
@@ -1787,6 +1844,43 @@ function hasMonitorCreateRequestHeader(req) {
   return String(req?.headers?.["x-pingmyserver-create"] || "").trim() === "1";
 }
 
+function readSingleHeaderValue(value) {
+  if (Array.isArray(value)) {
+    if (!value.length) return "";
+    return String(value[0] || "").trim();
+  }
+  return String(value || "").trim();
+}
+
+function readBearerTokenFromRequest(req) {
+  const authorization = readSingleHeaderValue(req?.headers?.authorization);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) return "";
+  return String(match[1] || "").trim();
+}
+
+function readProbeAgentIdFromRequest(req) {
+  return parseProbeIdParam(readSingleHeaderValue(req?.headers?.["x-probe-id"]));
+}
+
+function authenticateProbeAgentRequest(req) {
+  const probeId = readProbeAgentIdFromRequest(req);
+  if (!probeId) return null;
+
+  const expectedTokenHash = PROBE_AGENT_TOKENS.get(probeId);
+  if (!expectedTokenHash) return null;
+
+  const token = readBearerTokenFromRequest(req);
+  if (!token) return null;
+
+  const incomingTokenHash = hashProbeAgentApiToken(token);
+  if (!timingSafeEqualHex(incomingTokenHash, expectedTokenHash)) {
+    return null;
+  }
+
+  return { probeId };
+}
+
 function isValidOrigin(req) {
   const origin = normalizeOrigin(req.headers.origin);
   if (origin) {
@@ -2268,6 +2362,10 @@ function hashSessionToken(token) {
       SESSION_TOKEN_HASH_PBKDF2_DIGEST
     )
     .toString("hex");
+}
+
+function hashProbeAgentApiToken(token) {
+  return crypto.createHmac("sha256", PROBE_AGENT_TOKEN_HASH_SECRET).update(String(token || ""), "utf8").digest("hex");
 }
 
 function timingSafeEqualHex(leftHex, rightHex) {
@@ -5294,6 +5392,30 @@ function truncateErrorMessage(error) {
     .trim();
   if (!source) return null;
   return source.slice(0, 255);
+}
+
+function normalizeProbeAgentErrorMessage(value) {
+  const normalized = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return null;
+  return normalized.slice(0, 255);
+}
+
+function normalizeProbeAgentResponseMs(value) {
+  return clampMonitorHttpAssertionNumber(value, {
+    min: 0,
+    max: 600000,
+    fallback: 0,
+  });
+}
+
+function normalizeProbeAgentStatusCode(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  const rounded = Math.trunc(numeric);
+  if (rounded < 100 || rounded > 599) return null;
+  return rounded;
 }
 
 async function hasColumn(tableName, columnName) {
@@ -9873,6 +9995,20 @@ const {
   handleGameMonitorMinecraftStatus,
 } = gameAgentController;
 
+const probeAgentController = createProbeAgentController({
+  sendJson,
+  readJsonBody,
+  authenticateProbeAgentRequest,
+  getProbeAgentJobs,
+  persistProbeAgentResults,
+  probeAgentPayloadMaxBytes: PROBE_AGENT_PAYLOAD_MAX_BYTES,
+  probeAgentDefaultBatchLimit: PROBE_AGENT_DEFAULT_BATCH_LIMIT,
+  probeAgentMaxBatchLimit: PROBE_AGENT_MAX_BATCH_LIMIT,
+  logger: runtimeLogger,
+});
+
+const { handleProbeAgentJobs, handleProbeAgentResults, handleProbeAgentHeartbeat } = probeAgentController;
+
 async function cleanupOldChecks() {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await pool.query("DELETE FROM monitor_checks WHERE checked_at < ?", [cutoff]);
@@ -10946,9 +11082,15 @@ async function checkSingleMonitor(monitor) {
   }
 }
 
-async function checkSingleMonitorProbe(monitor, probeId = PROBE_ID) {
-  const { monitorId, ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
+async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = PROBE_ID) {
+  const monitorId = Number(monitor?.id);
   const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
+  if (!Number.isInteger(monitorId) || monitorId <= 0) return false;
+
+  const ok = payload?.ok === true;
+  const elapsedMs = normalizeProbeAgentResponseMs(payload?.elapsedMs ?? payload?.responseMs);
+  const statusCode = normalizeProbeAgentStatusCode(payload?.statusCode);
+  const errorMessage = normalizeProbeAgentErrorMessage(payload?.errorMessage);
   const nextStatus = ok ? "online" : "offline";
   const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus);
 
@@ -10997,6 +11139,133 @@ async function checkSingleMonitorProbe(monitor, probeId = PROBE_ID) {
         last_error_message = VALUES(last_error_message)
     `,
     [monitorId, probe, nextStatus, elapsedMs, statusCode, errorMessage]
+  );
+
+  return true;
+}
+
+async function persistProbeAgentResults(probeId, items = []) {
+  const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
+  const rawItems = Array.isArray(items) ? items.slice(0, PROBE_AGENT_RESULT_MAX_BATCH) : [];
+  if (!rawItems.length) {
+    return { received: 0, accepted: 0, ignored: 0 };
+  }
+
+  const monitorIds = Array.from(
+    new Set(
+      rawItems
+        .map((item) => Number(item?.monitorId))
+        .filter((monitorId) => Number.isInteger(monitorId) && monitorId > 0)
+    )
+  );
+
+  if (!monitorIds.length) {
+    return { received: rawItems.length, accepted: 0, ignored: rawItems.length };
+  }
+
+  const placeholders = monitorIds.map(() => "?").join(", ");
+  const [rows] = await pool.query(
+    `
+      SELECT id, created_at
+      FROM monitors
+      WHERE user_id IS NOT NULL
+        AND is_paused = 0
+        AND id IN (${placeholders})
+    `,
+    monitorIds
+  );
+  const monitorMap = new Map(rows.map((row) => [Number(row.id), row]));
+
+  let accepted = 0;
+  for (const item of rawItems) {
+    const monitorId = Number(item?.monitorId);
+    const monitor = monitorMap.get(monitorId);
+    if (!monitor) continue;
+
+    if (await persistSingleMonitorProbeResult(monitor, item, probe)) {
+      accepted += 1;
+    }
+  }
+
+  return {
+    received: rawItems.length,
+    accepted,
+    ignored: rawItems.length - accepted,
+  };
+}
+
+async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMIT) {
+  const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
+  const requestedLimit = Number(limit);
+  const safeLimit = Number.isFinite(requestedLimit)
+    ? Math.min(PROBE_AGENT_MAX_BATCH_LIMIT, Math.max(1, Math.trunc(requestedLimit)))
+    : PROBE_AGENT_DEFAULT_BATCH_LIMIT;
+  const dueMonitors = await getDueMonitorsForProbe(probe);
+
+  const jobs = [];
+  for (const monitor of dueMonitors.slice(0, safeLimit)) {
+    const monitorId = Number(monitor?.id);
+    if (!Number.isInteger(monitorId) || monitorId <= 0) continue;
+
+    const targetUrl = getMonitorUrl(monitor);
+    if (!targetUrl) continue;
+
+    const httpAssertions = getMonitorHttpAssertionsConfig(monitor);
+    const validation = await validateMonitorTarget(targetUrl, { useCache: true });
+    const normalizedReason = normalizeTargetValidationReasonForTelemetry(validation?.reason);
+    const connectAddress = getMonitorConnectAddress(validation);
+    const safeConnectAddress = connectAddress && isPublicIpAddress(connectAddress) ? connectAddress : null;
+
+    if (validation?.allowed && safeConnectAddress) {
+      jobs.push({
+        monitorId,
+        publicId: String(monitor.public_id || "").trim() || null,
+        targetUrl,
+        connectAddress: safeConnectAddress,
+        action: "http",
+        successStatusCodes: UP_HTTP_CODES,
+        httpAssertions: {
+          enabled: httpAssertions.enabled,
+          expectedStatusCodes: httpAssertions.expectedStatusCodes,
+          contentTypeContains: httpAssertions.contentTypeContains,
+          bodyContains: httpAssertions.bodyContains,
+          followRedirects: httpAssertions.followRedirects,
+          maxRedirects: httpAssertions.maxRedirects,
+          timeoutMs: httpAssertions.timeoutMs,
+        },
+      });
+      continue;
+    }
+
+    const blockedMessage = normalizedReason === "dns_unresolved" ? "dns_unresolved" : `target_blocked:${normalizedReason || "unknown"}`;
+    jobs.push({
+      monitorId,
+      publicId: String(monitor.public_id || "").trim() || null,
+      targetUrl,
+      action: "report",
+      result: {
+        ok: false,
+        responseMs: 0,
+        statusCode: null,
+        errorMessage: blockedMessage,
+      },
+    });
+  }
+
+  return jobs;
+}
+
+async function checkSingleMonitorProbe(monitor, probeId = PROBE_ID) {
+  const { ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
+  await persistSingleMonitorProbeResult(
+    monitor,
+    {
+      ok,
+      elapsedMs,
+      statusCode,
+      errorMessage,
+    },
+    probeId
   );
 }
 
@@ -13487,6 +13756,9 @@ const runtimeHandlers = {
   handleGameAgentLink,
   handleGameAgentHeartbeat,
   handleGameAgentDisconnect,
+  handleProbeAgentJobs,
+  handleProbeAgentResults,
+  handleProbeAgentHeartbeat,
   handleOwnerOverview,
   handleOwnerMonitors,
   handleOwnerSecurity,
