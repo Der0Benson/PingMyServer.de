@@ -48,19 +48,6 @@
     return ((angle % fullTurn) + fullTurn) % fullTurn;
   }
 
-  function shortestAngleDelta(from, to) {
-    const fullTurn = Math.PI * 2;
-    let delta = (to - from) % fullTurn;
-
-    if (delta > Math.PI) {
-      delta -= fullTurn;
-    } else if (delta < -Math.PI) {
-      delta += fullTurn;
-    }
-
-    return delta;
-  }
-
   function focusPhiForLon(lon) {
     return normalizeAngle((-90 - lon) * degToRad);
   }
@@ -126,10 +113,9 @@
       }
 
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const focusPhis = regions.map((region) => focusPhiForLon(region.lon));
-      let focusIndex = 0;
-      let holdFrames = 0;
-      let phi = focusPhis[0];
+      const rotationSpeed = 0.00007;
+      let lastFrameAt = performance.now();
+      let phi = focusPhiForLon(regions[0].lon);
       const theta = 0.24;
 
       globeInstance = createGlobe(canvas, {
@@ -161,15 +147,10 @@
             return;
           }
 
-          const targetPhi = focusPhis[focusIndex];
-          const delta = shortestAngleDelta(phi, targetPhi);
-          phi = normalizeAngle(phi + delta * 0.08);
-          holdFrames += 1;
-
-          if (Math.abs(delta) < 0.01 && holdFrames > 110) {
-            focusIndex = (focusIndex + 1) % focusPhis.length;
-            holdFrames = 0;
-          }
+          const now = performance.now();
+          const elapsed = Math.min(now - lastFrameAt, 48);
+          lastFrameAt = now;
+          phi = normalizeAngle(phi + elapsed * rotationSpeed);
         },
       });
     } catch (error) {
