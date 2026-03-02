@@ -179,7 +179,7 @@
     }
 
     try {
-      const cobeModule = await import("https://esm.sh/cobe@0.6.5?bundle");
+      const cobeModule = await import("/assets/vendor/cobe.esm.js");
       const createGlobe = cobeModule && cobeModule.default;
 
       if (typeof createGlobe !== "function") {
