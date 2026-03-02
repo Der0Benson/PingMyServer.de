@@ -1286,8 +1286,8 @@ body.landing-page .border-slate-700 {
   border-radius: 20px;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(7, 12, 20, 0.86), rgba(5, 9, 16, 0.92)),
-    radial-gradient(circle at 22% 28%, rgba(76, 201, 240, 0.08), transparent 28%);
+    linear-gradient(180deg, rgba(2, 2, 2, 0.98), rgba(7, 7, 7, 0.96)),
+    radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.06), transparent 28%);
 }
 
 .landing-traffic-shell::before {
@@ -1296,8 +1296,8 @@ body.landing-page .border-slate-700 {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 80px 100%, 100% 64px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.06));
 }
@@ -1333,7 +1333,7 @@ body.landing-page .border-slate-700 {
 }
 
 .landing-traffic-kicker {
-  color: rgba(152, 166, 191, 0.68);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .landing-traffic-heading {
@@ -1350,9 +1350,9 @@ body.landing-page .border-slate-700 {
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(76, 201, 240, 0.22);
-  background: rgba(76, 201, 240, 0.08);
-  color: rgba(223, 248, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
   font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
@@ -1378,16 +1378,16 @@ body.landing-page .border-slate-700 {
 .landing-traffic-globe-wrap::before {
   inset: 14%;
   background:
-    radial-gradient(circle, rgba(76, 201, 240, 0.2), rgba(76, 201, 240, 0.06) 48%, transparent 74%);
-  filter: blur(18px);
+    radial-gradient(circle, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05) 48%, transparent 74%);
+  filter: blur(20px);
 }
 
 .landing-traffic-globe-wrap::after {
   inset: 6%;
-  border: 1px solid rgba(76, 201, 240, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    inset 0 0 24px rgba(76, 201, 240, 0.03),
-    0 0 26px rgba(76, 201, 240, 0.06);
+    inset 0 0 24px rgba(255, 255, 255, 0.03),
+    0 0 26px rgba(255, 255, 255, 0.06);
 }
 
 .landing-traffic-globe {
@@ -1398,17 +1398,18 @@ body.landing-page .border-slate-700 {
   height: 100%;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 34% 30%, rgba(130, 226, 255, 0.22), rgba(14, 52, 80, 0.78) 42%, rgba(6, 18, 30, 0.96) 68%);
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.12), rgba(24, 24, 24, 0.72) 38%, rgba(0, 0, 0, 0.98) 68%);
   box-shadow:
-    inset 0 0 34px rgba(76, 201, 240, 0.06),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    inset 0 0 34px rgba(255, 255, 255, 0.02),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 34px rgba(255, 255, 255, 0.04);
 }
 
 .landing-traffic-feed {
   display: grid;
   align-content: stretch;
   border-left: 1px solid rgba(255, 255, 255, 0.04);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
 }
 
 .landing-traffic-route {
@@ -1461,18 +1462,18 @@ body.landing-page .border-slate-700 {
 }
 
 .landing-traffic-route[data-region="us"] .landing-traffic-route-dot {
-  background: #4cc9f0;
-  box-shadow: 0 0 12px rgba(76, 201, 240, 0.42);
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.28);
 }
 
 .landing-traffic-route[data-region="hk"] .landing-traffic-route-dot {
-  background: #f9c74f;
-  box-shadow: 0 0 12px rgba(249, 199, 79, 0.42);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.24);
 }
 
 .landing-traffic-route[data-region="de"] .landing-traffic-route-dot {
-  background: #b9f27c;
-  box-shadow: 0 0 12px rgba(185, 242, 124, 0.42);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .landing-status-board {

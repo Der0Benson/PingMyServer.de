@@ -24,9 +24,10 @@
       baseRate: 186,
       baseLatency: 34,
       baseNodes: 8,
-      markerSize: 0.15,
+      markerSize: 0.072,
       pulseOffset: 0.4,
-      color: [0.298, 0.788, 0.941],
+      haloColor: [0.72, 0.72, 0.72],
+      coreColor: [1, 1, 1],
     },
     {
       id: "hk",
@@ -37,9 +38,10 @@
       baseRate: 141,
       baseLatency: 128,
       baseNodes: 5,
-      markerSize: 0.135,
+      markerSize: 0.076,
       pulseOffset: 1.8,
-      color: [0.976, 0.78, 0.31],
+      haloColor: [0.78, 0.78, 0.78],
+      coreColor: [1, 1, 1],
     },
     {
       id: "de",
@@ -50,9 +52,10 @@
       baseRate: 214,
       baseLatency: 22,
       baseNodes: 6,
-      markerSize: 0.145,
+      markerSize: 0.07,
       pulseOffset: 3.1,
-      color: [0.725, 0.949, 0.486],
+      haloColor: [0.68, 0.68, 0.68],
+      coreColor: [1, 1, 1],
     },
   ];
 
@@ -149,14 +152,24 @@
   }
 
   function buildMarkers(pulse) {
-    return regions.map((region) => {
-      const size = region.markerSize + Math.sin(pulse + region.pulseOffset) * 0.018;
+    return regions.flatMap((region) => {
+      const wave = (Math.sin(pulse + region.pulseOffset) + 1) / 2;
+      const haloSize = region.markerSize + wave * 0.035;
+      const coreSize = Math.max(0.028, region.markerSize * 0.48);
+      const location = [region.lat, region.lon];
 
-      return {
-        location: [region.lat, region.lon],
-        size: Math.max(0.1, size),
-        color: region.color,
-      };
+      return [
+        {
+          location,
+          size: haloSize,
+          color: region.haloColor,
+        },
+        {
+          location,
+          size: coreSize,
+          color: region.coreColor,
+        },
+      ];
     });
   }
 
@@ -179,7 +192,7 @@
       canvas.width = renderSize;
       canvas.height = renderSize;
 
-      let phi = 0.75;
+      let phi = 1.1;
       let pulse = 0;
 
       globeInstance = createGlobe(canvas, {
@@ -187,16 +200,18 @@
         width: renderSize,
         height: renderSize,
         phi,
-        theta: 0.32,
+        theta: 0.18,
         dark: 1,
-        diffuse: 1.25,
-        mapSamples: 16000,
-        mapBrightness: 4.2,
-        baseColor: [0.024, 0.125, 0.204],
-        markerColor: [0.298, 0.788, 0.941],
-        glowColor: [0.039, 0.42, 0.6],
+        diffuse: 1.4,
+        mapSamples: 22000,
+        mapBrightness: 8.8,
+        mapBaseBrightness: 0.02,
+        baseColor: [0.015, 0.015, 0.015],
+        markerColor: [1, 1, 1],
+        glowColor: [0.92, 0.92, 0.92],
         scale: 1,
         offset: [0, 0],
+        opacity: 0.96,
         markers: buildMarkers(0),
         onRender: (state) => {
           state.phi = phi;
@@ -206,7 +221,7 @@
             return;
           }
 
-          phi += 0.0028;
+          phi += 0.0018;
           pulse += 0.06;
         },
       });
