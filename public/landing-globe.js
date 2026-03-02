@@ -25,10 +25,7 @@
       baseRate: 186,
       baseLatency: 34,
       baseNodes: 8,
-      markerSize: 0.072,
-      pulseOffset: 0.4,
-      haloColor: [0.72, 0.72, 0.72],
-      coreColor: [1, 1, 1],
+      markerSize: 0.06,
     },
     {
       id: "hk",
@@ -39,10 +36,7 @@
       baseRate: 141,
       baseLatency: 128,
       baseNodes: 5,
-      markerSize: 0.076,
-      pulseOffset: 1.8,
-      haloColor: [0.78, 0.78, 0.78],
-      coreColor: [1, 1, 1],
+      markerSize: 0.045,
     },
     {
       id: "de",
@@ -53,10 +47,7 @@
       baseRate: 214,
       baseLatency: 22,
       baseNodes: 6,
-      markerSize: 0.07,
-      pulseOffset: 3.1,
-      haloColor: [0.68, 0.68, 0.68],
-      coreColor: [1, 1, 1],
+      markerSize: 0.05,
     },
   ];
 
@@ -152,26 +143,11 @@
     });
   }
 
-  function buildMarkers(pulse) {
-    return regions.flatMap((region) => {
-      const wave = (Math.sin(pulse + region.pulseOffset) + 1) / 2;
-      const haloSize = region.markerSize + wave * 0.035;
-      const coreSize = Math.max(0.028, region.markerSize * 0.48);
-      const location = [region.lat, region.lon];
-
-      return [
-        {
-          location,
-          size: haloSize,
-          color: region.haloColor,
-        },
-        {
-          location,
-          size: coreSize,
-          color: region.coreColor,
-        },
-      ];
-    });
+  function buildMarkers() {
+    return regions.map((region) => ({
+      location: [region.lat, region.lon],
+      size: region.markerSize,
+    }));
   }
 
   async function initGlobe() {
@@ -191,39 +167,36 @@
       const renderWidth = Math.max(1, Math.round(globeWrap.clientWidth * devicePixelRatio));
       const renderHeight = Math.max(1, Math.round(globeWrap.clientHeight * devicePixelRatio));
 
-      let phi = 1.1;
-      let pulse = 0;
+      let phi = 0;
 
       globeInstance = createGlobe(canvas, {
         devicePixelRatio,
         width: renderWidth,
         height: renderHeight,
-        phi,
-        theta: 0.18,
+        phi: 0,
+        theta: 0,
         dark: 1,
-        diffuse: 1.4,
-        mapSamples: 22000,
-        mapBrightness: 8.8,
-        mapBaseBrightness: 0.02,
-        baseColor: [0.015, 0.015, 0.015],
-        markerColor: [1, 1, 1],
-        glowColor: [0.92, 0.92, 0.92],
+        diffuse: 1.2,
+        mapSamples: 16000,
+        mapBrightness: 6,
+        baseColor: [0.3, 0.3, 0.3],
+        markerColor: [0.1, 0.8, 1],
+        glowColor: [1, 1, 1],
         scale: 1,
         offset: [0, 0],
-        opacity: 0.96,
-        markers: buildMarkers(0),
+        opacity: 1,
+        markers: buildMarkers(),
         onRender: (state) => {
           state.width = canvas.width;
           state.height = canvas.height;
           state.phi = phi;
-          state.markers = buildMarkers(pulse);
+          state.markers = buildMarkers();
 
           if (prefersReducedMotion) {
             return;
           }
 
-          phi += 0.0018;
-          pulse += 0.06;
+          phi += 0.01;
         },
       });
     } catch (error) {
