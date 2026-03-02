@@ -1859,6 +1859,16 @@ function readBearerTokenFromRequest(req) {
   return String(match[1] || "").trim();
 }
 
+function readProbeAgentTokenFromRequest(req) {
+  const bearerToken = readBearerTokenFromRequest(req);
+  if (bearerToken) return bearerToken;
+
+  const directHeader = readSingleHeaderValue(req?.headers?.["x-pingmyserver-probe-token"]);
+  if (directHeader) return directHeader;
+
+  return "";
+}
+
 function readProbeAgentIdFromRequest(req) {
   return parseProbeIdParam(readSingleHeaderValue(req?.headers?.["x-probe-id"]));
 }
@@ -1870,7 +1880,7 @@ function authenticateProbeAgentRequest(req) {
   const expectedTokenHash = PROBE_AGENT_TOKENS.get(probeId);
   if (!expectedTokenHash) return null;
 
-  const token = readBearerTokenFromRequest(req);
+  const token = readProbeAgentTokenFromRequest(req);
   if (!token) return null;
 
   const incomingTokenHash = hashProbeAgentApiToken(token);
@@ -11216,12 +11226,12 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     const connectAddress = getMonitorConnectAddress(validation);
     const safeConnectAddress = connectAddress && isPublicIpAddress(connectAddress) ? connectAddress : null;
 
-    if (validation?.allowed && safeConnectAddress) {
+    if (validation?.allowed) {
       jobs.push({
         monitorId,
         publicId: String(monitor.public_id || "").trim() || null,
         targetUrl,
-        connectAddress: safeConnectAddress,
+        connectAddress: safeConnectAddress || null,
         action: "http",
         successStatusCodes: UP_HTTP_CODES,
         httpAssertions: {
@@ -11237,7 +11247,8 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
       continue;
     }
 
-    const blockedMessage = normalizedReason === "dns_unresolved" ? "dns_unresolved" : `target_blocked:${normalizedReason || "unknown"}`;
+    const blockedMessage =
+      normalizedReason === "dns_unresolved" ? "dns_unresolved" : `target_blocked:${normalizedReason || "unknown"}`;
     jobs.push({
       monitorId,
       publicId: String(monitor.public_id || "").trim() || null,

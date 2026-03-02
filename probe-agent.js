@@ -152,6 +152,7 @@ async function requestJson(method, targetUrl, options = {}) {
     Accept: "application/json",
     Authorization: `Bearer ${PROBE_AGENT_TOKEN}`,
     "X-Probe-Id": PROBE_AGENT_ID,
+    "X-PingMyServer-Probe-Token": PROBE_AGENT_TOKEN,
     "User-Agent": "PingMyServer-ProbeAgent/1.0",
     ...options.headers,
   };
@@ -472,15 +473,6 @@ async function executeHttpJob(job) {
     clampNumber(assertions.timeoutMs, { fallback: DEFAULT_HTTP_TIMEOUT_MS, min: 0, max: 120000 }) || DEFAULT_HTTP_TIMEOUT_MS;
   const collectBody = !!String(assertions.bodyContains || "").trim();
   const baseConnectAddress = net.isIP(String(job?.connectAddress || "").trim()) ? String(job.connectAddress).trim() : "";
-  if (!baseConnectAddress) {
-    return {
-      monitorId,
-      ok: false,
-      responseMs: 0,
-      statusCode: null,
-      errorMessage: "missing_connect_address",
-    };
-  }
 
   const startedAt = performance.now();
   let currentUrl = String(job?.targetUrl || "");
