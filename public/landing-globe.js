@@ -1,8 +1,9 @@
 (() => {
   const canvas = document.getElementById("landing-traffic-globe");
   const feed = document.getElementById("landing-traffic-feed");
+  const globeWrap = canvas instanceof HTMLCanvasElement ? canvas.closest(".landing-traffic-globe-wrap") : null;
 
-  if (!(canvas instanceof HTMLCanvasElement) || !(feed instanceof HTMLElement)) {
+  if (!(canvas instanceof HTMLCanvasElement) || !(feed instanceof HTMLElement) || !(globeWrap instanceof HTMLElement)) {
     return;
   }
 
@@ -187,8 +188,8 @@
       }
 
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const renderWidth = Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio));
-      const renderHeight = Math.max(1, Math.round(canvas.clientHeight * devicePixelRatio));
+      const renderWidth = Math.max(1, Math.round(globeWrap.clientWidth * devicePixelRatio));
+      const renderHeight = Math.max(1, Math.round(globeWrap.clientHeight * devicePixelRatio));
 
       let phi = 1.1;
       let pulse = 0;
