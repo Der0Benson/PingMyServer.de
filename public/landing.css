@@ -1273,8 +1273,206 @@ body.landing-page .border-slate-700 {
 
 .landing-hero-console-stack {
   grid-template-columns: 1fr;
-  gap: 0;
+  gap: 16px;
   align-items: stretch;
+}
+
+.landing-traffic-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 20, 0.86), rgba(5, 9, 16, 0.92)),
+    radial-gradient(circle at 22% 28%, rgba(76, 201, 240, 0.08), transparent 28%);
+}
+
+.landing-traffic-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 80px 100%, 100% 64px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.06));
+}
+
+.landing-traffic-globe-panel,
+.landing-traffic-feed {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-traffic-globe-panel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.landing-traffic-panel-head {
+  align-items: flex-start;
+}
+
+.landing-traffic-heading-wrap {
+  display: grid;
+  gap: 8px;
+  max-width: 30ch;
+}
+
+.landing-traffic-kicker,
+.landing-traffic-route-status {
+  font-family: "SF Mono", "Fira Code", "Fira Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing-traffic-kicker {
+  color: rgba(152, 166, 191, 0.68);
+}
+
+.landing-traffic-heading {
+  font-family: "Syne", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.landing-traffic-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(76, 201, 240, 0.22);
+  background: rgba(76, 201, 240, 0.08);
+  color: rgba(223, 248, 255, 0.92);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.landing-traffic-globe-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(100%, 360px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+
+.landing-traffic-globe-wrap::before,
+.landing-traffic-globe-wrap::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.landing-traffic-globe-wrap::before {
+  inset: 14%;
+  background:
+    radial-gradient(circle, rgba(76, 201, 240, 0.2), rgba(76, 201, 240, 0.06) 48%, transparent 74%);
+  filter: blur(18px);
+}
+
+.landing-traffic-globe-wrap::after {
+  inset: 6%;
+  border: 1px solid rgba(76, 201, 240, 0.14);
+  box-shadow:
+    inset 0 0 24px rgba(76, 201, 240, 0.03),
+    0 0 26px rgba(76, 201, 240, 0.06);
+}
+
+.landing-traffic-globe {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(130, 226, 255, 0.22), rgba(14, 52, 80, 0.78) 42%, rgba(6, 18, 30, 0.96) 68%);
+  box-shadow:
+    inset 0 0 34px rgba(76, 201, 240, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.landing-traffic-feed {
+  display: grid;
+  align-content: stretch;
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0));
+}
+
+.landing-traffic-route {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.landing-traffic-route:first-child {
+  border-top: 0;
+}
+
+.landing-traffic-route-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-traffic-route-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 999px;
+}
+
+.landing-traffic-route-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(235, 243, 252, 0.95);
+}
+
+.landing-traffic-route-rate {
+  font-family: "Syne", sans-serif;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.landing-traffic-route-meta {
+  font-size: 0.78rem;
+  color: rgba(152, 166, 191, 0.88);
+}
+
+.landing-traffic-route-status {
+  color: rgba(152, 166, 191, 0.66);
+}
+
+.landing-traffic-route[data-region="us"] .landing-traffic-route-dot {
+  background: #4cc9f0;
+  box-shadow: 0 0 12px rgba(76, 201, 240, 0.42);
+}
+
+.landing-traffic-route[data-region="hk"] .landing-traffic-route-dot {
+  background: #f9c74f;
+  box-shadow: 0 0 12px rgba(249, 199, 79, 0.42);
+}
+
+.landing-traffic-route[data-region="de"] .landing-traffic-route-dot {
+  background: #b9f27c;
+  box-shadow: 0 0 12px rgba(185, 242, 124, 0.42);
 }
 
 .landing-status-board {
@@ -2179,6 +2377,15 @@ button:focus-visible {
     padding-left: 0.9rem;
     padding-right: 0.9rem;
   }
+
+  .landing-traffic-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-traffic-feed {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
 }
 
 @media (max-width: 767px) {
@@ -2204,6 +2411,30 @@ button:focus-visible {
 
   .landing-hero-console {
     padding: 18px;
+  }
+
+  .landing-traffic-globe-panel,
+  .landing-live-primary,
+  .landing-console-mini,
+  .landing-live-alert {
+    padding: 16px;
+  }
+
+  .landing-traffic-panel-head,
+  .landing-traffic-route-head {
+    flex-wrap: wrap;
+  }
+
+  .landing-traffic-panel-head {
+    justify-content: flex-start;
+  }
+
+  .landing-traffic-badge {
+    align-self: flex-start;
+  }
+
+  .landing-traffic-route {
+    padding: 14px 16px;
   }
 
   .landing-hero-editorial {
