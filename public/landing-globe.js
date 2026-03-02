@@ -1,153 +1,69 @@
 (() => {
   const canvas = document.getElementById("landing-traffic-globe");
-  const feed = document.getElementById("landing-traffic-feed");
   const globeWrap = canvas instanceof HTMLCanvasElement ? canvas.closest(".landing-traffic-globe-wrap") : null;
 
-  if (!(canvas instanceof HTMLCanvasElement) || !(feed instanceof HTMLElement) || !(globeWrap instanceof HTMLElement)) {
+  if (!(canvas instanceof HTMLCanvasElement) || !(globeWrap instanceof HTMLElement)) {
     return;
   }
 
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const I18N = window.PMS_I18N || null;
-  const t = (key, vars, fallback) =>
-    I18N && typeof I18N.t === "function" ? I18N.t(key, vars, fallback) : typeof fallback === "string" ? fallback : "";
-  const locale = () =>
-    I18N && typeof I18N.locale === "function" ? I18N.locale() : document.documentElement.lang || "en-US";
-  const formatNumber = (value) => new Intl.NumberFormat(locale()).format(value);
-
   const regions = [
     {
-      id: "us",
-      labelKey: "landing.live.traffic_regions.us",
-      fallbackLabel: "USA / Virginia",
       lat: 37.4316,
       lon: -78.6569,
-      baseRate: 186,
-      baseLatency: 34,
-      baseNodes: 8,
-      markerSize: 0.06,
+      markerSize: 0.058,
+      pulseOffset: 0.2,
+      glowColor: [0.298, 0.788, 0.941],
+      coreColor: [0.88, 0.98, 1],
     },
     {
-      id: "hk",
-      labelKey: "landing.live.traffic_regions.hk",
-      fallbackLabel: "Hong Kong / Central",
       lat: 22.3193,
       lon: 114.1694,
-      baseRate: 141,
-      baseLatency: 128,
-      baseNodes: 5,
-      markerSize: 0.045,
+      markerSize: 0.05,
+      pulseOffset: 2.1,
+      glowColor: [0.725, 0.949, 0.486],
+      coreColor: [0.95, 1, 0.88],
     },
     {
-      id: "de",
-      labelKey: "landing.live.traffic_regions.de",
-      fallbackLabel: "Germany / Frankfurt",
       lat: 50.1109,
       lon: 8.6821,
-      baseRate: 214,
-      baseLatency: 22,
-      baseNodes: 6,
-      markerSize: 0.05,
+      markerSize: 0.054,
+      pulseOffset: 4,
+      glowColor: [0.38, 0.86, 1],
+      coreColor: [0.92, 0.99, 1],
     },
   ];
 
   let globeInstance = null;
-  let trafficTimer = 0;
 
-  function formatRate(value) {
-    const count = formatNumber(value);
-    return t("landing.live.traffic_rate", { count }, `${count} req/s`);
+  function renderWidth(devicePixelRatio) {
+    return Math.max(1, Math.round(globeWrap.clientWidth * devicePixelRatio));
   }
 
-  function formatNodes(value) {
-    const count = formatNumber(value);
-    return t("landing.live.traffic_nodes", { count }, `${count} active nodes`);
+  function renderHeight(devicePixelRatio) {
+    return Math.max(1, Math.round(globeWrap.clientHeight * devicePixelRatio));
   }
 
-  function formatLatency(value) {
-    const ms = formatNumber(value);
-    return t("landing.live.traffic_latency", { ms }, `${ms} ms median`);
-  }
+  function buildMarkers(pulseTick) {
+    return regions.flatMap((region) => {
+      const pulse = (Math.sin(pulseTick + region.pulseOffset) + 1) / 2;
+      const haloSize = region.markerSize + pulse * 0.024;
+      const coreSize = Math.max(0.022, region.markerSize * 0.42);
+      const location = [region.lat, region.lon];
 
-  function regionLabel(region) {
-    return t(region.labelKey, null, region.fallbackLabel);
-  }
-
-  function buildTrafficSnapshot(timestamp) {
-    const time = Number(timestamp || Date.now());
-
-    return regions.map((region, index) => {
-      const phase = time / 900 + index * 1.75;
-      const rate =
-        region.baseRate +
-        Math.round(Math.sin(phase) * 14 + Math.cos(phase * 0.6) * 7 + Math.sin(phase * 0.24) * 4);
-      const latency =
-        region.baseLatency +
-        Math.round(Math.sin(phase * 0.72) * 4 + Math.cos(phase * 0.48) * 2);
-      const nodes = region.baseNodes + (Math.sin(phase * 0.42) > 0.45 ? 1 : 0);
-
-      return {
-        id: region.id,
-        label: regionLabel(region),
-        rate: Math.max(48, rate),
-        latency: Math.max(12, latency),
-        nodes: Math.max(3, nodes),
-      };
+      return [
+        {
+          location,
+          size: haloSize,
+          color: region.glowColor,
+        },
+        {
+          location,
+          size: coreSize,
+          color: region.coreColor,
+        },
+      ];
     });
-  }
-
-  function buildTrafficRoute(snapshot) {
-    const item = document.createElement("article");
-    item.className = "landing-traffic-route";
-    item.dataset.region = snapshot.id;
-
-    const head = document.createElement("div");
-    head.className = "landing-traffic-route-head";
-
-    const dot = document.createElement("span");
-    dot.className = "landing-traffic-route-dot";
-    dot.setAttribute("aria-hidden", "true");
-
-    const name = document.createElement("span");
-    name.className = "landing-traffic-route-name";
-    name.textContent = snapshot.label;
-
-    const rate = document.createElement("span");
-    rate.className = "landing-traffic-route-rate";
-    rate.textContent = formatRate(snapshot.rate);
-
-    head.appendChild(dot);
-    head.appendChild(name);
-    head.appendChild(rate);
-
-    const meta = document.createElement("div");
-    meta.className = "landing-traffic-route-meta";
-    meta.textContent = `${formatNodes(snapshot.nodes)} | ${formatLatency(snapshot.latency)}`;
-
-    const status = document.createElement("div");
-    status.className = "landing-traffic-route-status";
-    status.textContent = t("landing.live.traffic_status", null, "sending live traffic");
-
-    item.appendChild(head);
-    item.appendChild(meta);
-    item.appendChild(status);
-
-    return item;
-  }
-
-  function renderTrafficFeed() {
-    const snapshot = buildTrafficSnapshot(Date.now());
-    feed.innerHTML = "";
-    snapshot.forEach((entry) => {
-      feed.appendChild(buildTrafficRoute(entry));
-    });
-  }
-
-  function buildMarkers() {
-    return regions.map((region) => ({
-      location: [region.lat, region.lon],
-      size: region.markerSize,
-    }));
   }
 
   async function initGlobe() {
@@ -164,39 +80,40 @@
       }
 
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const renderWidth = Math.max(1, Math.round(globeWrap.clientWidth * devicePixelRatio));
-      const renderHeight = Math.max(1, Math.round(globeWrap.clientHeight * devicePixelRatio));
-
-      let phi = 0;
+      let phi = 0.62;
+      let pulseTick = 0;
 
       globeInstance = createGlobe(canvas, {
         devicePixelRatio,
-        width: renderWidth,
-        height: renderHeight,
-        phi: 0,
-        theta: 0,
+        width: renderWidth(devicePixelRatio),
+        height: renderHeight(devicePixelRatio),
+        phi,
+        theta: 0.28,
         dark: 1,
-        diffuse: 1.2,
-        mapSamples: 16000,
-        mapBrightness: 6,
-        baseColor: [0.3, 0.3, 0.3],
-        markerColor: [0.1, 0.8, 1],
-        glowColor: [1, 1, 1],
-        scale: 1,
+        diffuse: 1.15,
+        mapSamples: 20000,
+        mapBrightness: 5.6,
+        mapBaseBrightness: 0.08,
+        baseColor: [0.028, 0.11, 0.18],
+        markerColor: [0.298, 0.788, 0.941],
+        glowColor: [0.18, 0.65, 0.95],
+        scale: 1.02,
         offset: [0, 0],
         opacity: 1,
-        markers: buildMarkers(),
+        markers: buildMarkers(0),
         onRender: (state) => {
-          state.width = canvas.width;
-          state.height = canvas.height;
+          state.width = renderWidth(devicePixelRatio);
+          state.height = renderHeight(devicePixelRatio);
           state.phi = phi;
-          state.markers = buildMarkers();
+          state.theta = 0.28;
+          state.markers = buildMarkers(pulseTick);
 
           if (prefersReducedMotion) {
             return;
           }
 
-          phi += 0.01;
+          phi += 0.0035;
+          pulseTick += 0.08;
         },
       });
     } catch (error) {
@@ -205,23 +122,12 @@
   }
 
   function cleanup() {
-    if (trafficTimer) {
-      window.clearInterval(trafficTimer);
-      trafficTimer = 0;
-    }
-
     if (globeInstance && typeof globeInstance.destroy === "function") {
       globeInstance.destroy();
       globeInstance = null;
     }
   }
 
-  renderTrafficFeed();
-  if (!prefersReducedMotion) {
-    trafficTimer = window.setInterval(renderTrafficFeed, 1600);
-  }
-
   initGlobe();
-
   window.addEventListener("pagehide", cleanup, { once: true });
 })();

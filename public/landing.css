@@ -1280,14 +1280,15 @@ body.landing-page .border-slate-700 {
 .landing-traffic-shell {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
+  grid-template-columns: 1fr;
   gap: 0;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 20px;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(2, 2, 2, 0.98), rgba(7, 7, 7, 0.96)),
-    radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.06), transparent 28%);
+    radial-gradient(circle at 22% 18%, rgba(76, 201, 240, 0.16), transparent 28%),
+    radial-gradient(circle at 74% 72%, rgba(185, 242, 124, 0.09), transparent 32%),
+    linear-gradient(180deg, rgba(4, 10, 18, 0.96), rgba(2, 6, 12, 0.98));
 }
 
 .landing-traffic-shell::before {
@@ -1302,71 +1303,24 @@ body.landing-page .border-slate-700 {
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.06));
 }
 
-.landing-traffic-globe-panel,
-.landing-traffic-feed {
+.landing-traffic-globe-panel {
   position: relative;
   z-index: 1;
-}
-
-.landing-traffic-globe-panel {
   display: grid;
-  gap: 18px;
-  padding: 20px;
-  align-content: start;
-}
-
-.landing-traffic-panel-head {
-  align-items: flex-start;
-}
-
-.landing-traffic-heading-wrap {
-  display: grid;
-  gap: 8px;
-  max-width: 30ch;
-}
-
-.landing-traffic-kicker,
-.landing-traffic-route-status {
-  font-family: "SF Mono", "Fira Code", "Fira Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.landing-traffic-kicker {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.landing-traffic-heading {
-  font-family: "Syne", sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--text);
-}
-
-.landing-traffic-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
+  min-height: 410px;
+  padding: 24px;
+  align-content: center;
+  justify-items: center;
 }
 
 .landing-traffic-globe-wrap {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(100%, 320px);
+  width: min(100%, 360px);
   aspect-ratio: 1 / 1;
   margin: 0 auto;
-  align-self: start;
+  align-self: center;
   justify-self: center;
   overflow: hidden;
 }
@@ -1380,18 +1334,18 @@ body.landing-page .border-slate-700 {
 }
 
 .landing-traffic-globe-wrap::before {
-  inset: 14%;
+  inset: 12%;
   background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05) 48%, transparent 74%);
-  filter: blur(20px);
+    radial-gradient(circle, rgba(76, 201, 240, 0.28), rgba(76, 201, 240, 0.08) 46%, transparent 72%);
+  filter: blur(24px);
 }
 
 .landing-traffic-globe-wrap::after {
-  inset: 6%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  inset: 5%;
+  border: 1px solid rgba(76, 201, 240, 0.16);
   box-shadow:
-    inset 0 0 24px rgba(255, 255, 255, 0.03),
-    0 0 26px rgba(255, 255, 255, 0.06);
+    inset 0 0 30px rgba(76, 201, 240, 0.04),
+    0 0 34px rgba(76, 201, 240, 0.08);
 }
 
 .landing-traffic-globe {
@@ -1403,82 +1357,11 @@ body.landing-page .border-slate-700 {
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.12), rgba(24, 24, 24, 0.72) 38%, rgba(0, 0, 0, 0.98) 68%);
+    radial-gradient(circle at 34% 30%, rgba(198, 243, 255, 0.18), rgba(20, 49, 78, 0.54) 34%, rgba(4, 11, 18, 0.98) 70%);
   box-shadow:
-    inset 0 0 34px rgba(255, 255, 255, 0.02),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 0 34px rgba(255, 255, 255, 0.04);
-}
-
-.landing-traffic-feed {
-  display: grid;
-  align-content: stretch;
-  border-left: 1px solid rgba(255, 255, 255, 0.04);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
-}
-
-.landing-traffic-route {
-  display: grid;
-  gap: 10px;
-  padding: 18px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.landing-traffic-route:first-child {
-  border-top: 0;
-}
-
-.landing-traffic-route-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.landing-traffic-route-dot {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 10px;
-  border-radius: 999px;
-}
-
-.landing-traffic-route-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: rgba(235, 243, 252, 0.95);
-}
-
-.landing-traffic-route-rate {
-  font-family: "Syne", sans-serif;
-  font-size: 0.96rem;
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.landing-traffic-route-meta {
-  font-size: 0.78rem;
-  color: rgba(152, 166, 191, 0.88);
-}
-
-.landing-traffic-route-status {
-  color: rgba(152, 166, 191, 0.66);
-}
-
-.landing-traffic-route[data-region="us"] .landing-traffic-route-dot {
-  background: #ffffff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.28);
-}
-
-.landing-traffic-route[data-region="hk"] .landing-traffic-route-dot {
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.24);
-}
-
-.landing-traffic-route[data-region="de"] .landing-traffic-route-dot {
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    inset 0 0 38px rgba(76, 201, 240, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 42px rgba(76, 201, 240, 0.06);
 }
 
 .landing-status-board {
@@ -2384,13 +2267,8 @@ button:focus-visible {
     padding-right: 0.9rem;
   }
 
-  .landing-traffic-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .landing-traffic-feed {
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  .landing-traffic-globe-wrap {
+    width: min(100%, 340px);
   }
 }
 
@@ -2426,21 +2304,12 @@ button:focus-visible {
     padding: 16px;
   }
 
-  .landing-traffic-panel-head,
-  .landing-traffic-route-head {
-    flex-wrap: wrap;
+  .landing-traffic-globe-panel {
+    min-height: 320px;
   }
 
-  .landing-traffic-panel-head {
-    justify-content: flex-start;
-  }
-
-  .landing-traffic-badge {
-    align-self: flex-start;
-  }
-
-  .landing-traffic-route {
-    padding: 14px 16px;
+  .landing-traffic-globe-wrap {
+    width: min(100%, 260px);
   }
 
   .landing-hero-editorial {
