@@ -187,18 +187,16 @@
       }
 
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const renderSize = Math.round(720 * devicePixelRatio);
-
-      canvas.width = renderSize;
-      canvas.height = renderSize;
+      const renderWidth = Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio));
+      const renderHeight = Math.max(1, Math.round(canvas.clientHeight * devicePixelRatio));
 
       let phi = 1.1;
       let pulse = 0;
 
       globeInstance = createGlobe(canvas, {
         devicePixelRatio,
-        width: renderSize,
-        height: renderSize,
+        width: renderWidth,
+        height: renderHeight,
         phi,
         theta: 0.18,
         dark: 1,
@@ -214,6 +212,8 @@
         opacity: 0.96,
         markers: buildMarkers(0),
         onRender: (state) => {
+          state.width = canvas.width;
+          state.height = canvas.height;
           state.phi = phi;
           state.markers = buildMarkers(pulse);
 
