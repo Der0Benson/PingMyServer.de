@@ -1377,6 +1377,10 @@ body.landing-page .border-slate-700 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.035);
 }
 
+.landing-console-mini.hidden {
+  display: none;
+}
+
 .landing-live-alert {
   align-content: start;
   background: linear-gradient(180deg, rgba(11, 18, 30, 0.32), rgba(8, 13, 22, 0));
