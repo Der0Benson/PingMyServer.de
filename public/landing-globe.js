@@ -1,11 +1,38 @@
 (() => {
   const canvas = document.getElementById("landing-traffic-globe");
   const globeWrap = canvas instanceof HTMLCanvasElement ? canvas.closest(".landing-traffic-globe-wrap") : null;
+  const pingElements = {
+    us: globeWrap instanceof HTMLElement ? globeWrap.querySelector(".landing-traffic-ping-us") : null,
+    de: globeWrap instanceof HTMLElement ? globeWrap.querySelector(".landing-traffic-ping-de") : null,
+    hk: globeWrap instanceof HTMLElement ? globeWrap.querySelector(".landing-traffic-ping-hk") : null,
+  };
 
   if (!(canvas instanceof HTMLCanvasElement) || !(globeWrap instanceof HTMLElement)) {
     return;
   }
 
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const degToRad = Math.PI / 180;
+  const globeRadius = 0.8;
+  const globeScale = 1.04;
+  const globeOffset = [0, 0.02];
+  const regions = [
+    {
+      id: "de",
+      lat: 50.1109,
+      lon: 8.6821,
+    },
+    {
+      id: "hk",
+      lat: 22.3193,
+      lon: 114.1694,
+    },
+    {
+      id: "us",
+      lat: 37.4316,
+      lon: -78.6569,
+    },
+  ];
   let globeInstance = null;
 
   function renderWidth(devicePixelRatio) {
@@ -14,6 +41,75 @@
 
   function renderHeight(devicePixelRatio) {
     return Math.max(1, Math.round(globeWrap.clientHeight * devicePixelRatio));
+  }
+
+  function normalizeAngle(angle) {
+    const fullTurn = Math.PI * 2;
+    return ((angle % fullTurn) + fullTurn) % fullTurn;
+  }
+
+  function shortestAngleDelta(from, to) {
+    const fullTurn = Math.PI * 2;
+    let delta = (to - from) % fullTurn;
+
+    if (delta > Math.PI) {
+      delta -= fullTurn;
+    } else if (delta < -Math.PI) {
+      delta += fullTurn;
+    }
+
+    return delta;
+  }
+
+  function focusPhiForLon(lon) {
+    return normalizeAngle((-90 - lon) * degToRad);
+  }
+
+  function projectRegion(region, phi, theta) {
+    const lat = region.lat * degToRad;
+    const lon = region.lon * degToRad;
+    const cosLat = Math.cos(lat);
+    const point = {
+      x: cosLat * Math.cos(lon),
+      y: Math.sin(lat),
+      z: -cosLat * Math.sin(lon),
+    };
+    const cosPhi = Math.cos(phi);
+    const sinPhi = Math.sin(phi);
+    const cosTheta = Math.cos(theta);
+    const sinTheta = Math.sin(theta);
+    const local = {
+      x: point.x * cosPhi + point.z * sinPhi,
+      y: point.x * sinPhi * sinTheta + point.y * cosTheta - point.z * cosPhi * sinTheta,
+      z: -point.x * sinPhi * cosTheta + point.y * sinTheta + point.z * cosPhi * cosTheta,
+    };
+    const width = Math.max(globeWrap.clientWidth, 1);
+    const height = Math.max(globeWrap.clientHeight, 1);
+    const offsetX = ((globeOffset[0] / width) || 0) * globeScale;
+    const offsetY = ((-globeOffset[1] / height) || 0) * globeScale;
+    const projectedX = local.x * globeRadius * globeScale + offsetX;
+    const projectedY = local.y * globeRadius * globeScale + offsetY;
+
+    return {
+      left: ((projectedX + 1) * 50),
+      top: ((1 - projectedY) * 50),
+      visible: local.z > -0.16,
+    };
+  }
+
+  function updatePingOverlay(phi, theta) {
+    regions.forEach((region) => {
+      const pingElement = pingElements[region.id];
+
+      if (!(pingElement instanceof HTMLElement)) {
+        return;
+      }
+
+      const projected = projectRegion(region, phi, theta);
+      pingElement.style.left = `${projected.left}%`;
+      pingElement.style.top = `${projected.top}%`;
+      pingElement.style.display = projected.visible ? "block" : "none";
+    });
   }
 
   async function initGlobe() {
@@ -30,7 +126,10 @@
       }
 
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const phi = 1.08;
+      const focusPhis = regions.map((region) => focusPhiForLon(region.lon));
+      let focusIndex = 0;
+      let holdFrames = 0;
+      let phi = focusPhis[0];
       const theta = 0.24;
 
       globeInstance = createGlobe(canvas, {
@@ -56,6 +155,21 @@
           state.height = renderHeight(devicePixelRatio);
           state.phi = phi;
           state.theta = theta;
+          updatePingOverlay(phi, theta);
+
+          if (prefersReducedMotion) {
+            return;
+          }
+
+          const targetPhi = focusPhis[focusIndex];
+          const delta = shortestAngleDelta(phi, targetPhi);
+          phi = normalizeAngle(phi + delta * 0.08);
+          holdFrames += 1;
+
+          if (Math.abs(delta) < 0.01 && holdFrames > 110) {
+            focusIndex = (focusIndex + 1) % focusPhis.length;
+            holdFrames = 0;
+          }
         },
       });
     } catch (error) {

@@ -1375,6 +1375,9 @@ body.landing-page .border-slate-700 {
   --ping-rgb: 76, 201, 240;
   --ping-delay: 0s;
   position: absolute;
+  left: 50%;
+  top: 50%;
+  display: none;
   width: clamp(14px, 4.2%, 18px);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
@@ -1415,22 +1418,16 @@ body.landing-page .border-slate-700 {
 }
 
 .landing-traffic-ping-us {
-  left: 28%;
-  top: 38%;
   --ping-rgb: 76, 201, 240;
   --ping-delay: 0s;
 }
 
 .landing-traffic-ping-de {
-  left: 52%;
-  top: 31%;
   --ping-rgb: 124, 242, 200;
   --ping-delay: 0.9s;
 }
 
 .landing-traffic-ping-hk {
-  left: 70%;
-  top: 46%;
   --ping-rgb: 185, 242, 124;
   --ping-delay: 1.6s;
 }
