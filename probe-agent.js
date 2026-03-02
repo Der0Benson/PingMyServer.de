@@ -44,6 +44,16 @@ function readEnvNumber(name, options = {}) {
   return rounded;
 }
 
+function readEnvBoolean(name, fallback = false) {
+  const raw = readEnvString(name, {
+    fallback: fallback ? "true" : "false",
+    allowEmpty: true,
+  });
+  const normalized = String(raw || "").trim().toLowerCase();
+  if (!normalized) return !!fallback;
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
 let PROBE_AGENT_API_URL = "";
 let PROBE_AGENT_ID = "";
 let PROBE_AGENT_TOKEN = "";
@@ -51,6 +61,7 @@ let PROBE_AGENT_LOOP_INTERVAL_MS = 10000;
 let PROBE_AGENT_JOB_LIMIT = 10;
 let PROBE_AGENT_CONCURRENCY = 4;
 let PROBE_AGENT_API_TIMEOUT_MS = 15000;
+let PROBE_AGENT_RUN_ONCE = false;
 
 try {
   PROBE_AGENT_API_URL = readEnvString("PROBE_AGENT_API_URL");
@@ -76,9 +87,15 @@ try {
     min: 1000,
     max: 120000,
   });
+  PROBE_AGENT_RUN_ONCE = readEnvBoolean("PROBE_AGENT_RUN_ONCE", false);
 } catch (error) {
   logger.error("config_failed", error);
   process.exit(1);
+}
+
+const cliArgs = new Set(process.argv.slice(2));
+if (cliArgs.has("--once")) {
+  PROBE_AGENT_RUN_ONCE = true;
 }
 
 function sleep(ms) {
@@ -687,7 +704,13 @@ async function main() {
     intervalMs: PROBE_AGENT_LOOP_INTERVAL_MS,
     concurrency: PROBE_AGENT_CONCURRENCY,
     jobLimit: PROBE_AGENT_JOB_LIMIT,
+    runOnce: PROBE_AGENT_RUN_ONCE,
   });
+
+  if (PROBE_AGENT_RUN_ONCE) {
+    await pollOnce();
+    return;
+  }
 
   while (true) {
     const startedAt = Date.now();

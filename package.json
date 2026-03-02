@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "probe-agent": "node probe-agent.js"
+    "probe-agent": "node probe-agent.js",
+    "probe-agent:once": "node probe-agent.js --once"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

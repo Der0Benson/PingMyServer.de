@@ -141,9 +141,16 @@ Remote agent env (per probe server):
 - `PROBE_AGENT_JOB_LIMIT=10`
 - `PROBE_AGENT_CONCURRENCY=4`
 - `PROBE_AGENT_API_TIMEOUT_MS=15000`
+- `PROBE_AGENT_RUN_ONCE=false`
 
 Start a remote probe agent with:
 
 `npm run probe-agent`
 
 The remote agent pulls jobs from `/api/probe-agent/jobs`, executes HTTP checks, and pushes results back to `/api/probe-agent/results`.
+
+If your host only starts Node apps on incoming web requests (for example some cPanel Passenger setups), run the agent from Cron instead:
+
+`npm run probe-agent:once`
+
+You can also force one-shot mode with `PROBE_AGENT_RUN_ONCE=true`.
