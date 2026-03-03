@@ -260,7 +260,17 @@
                     <div class="card-title" data-i18n="app.response.title">Antwortzeit.</div>
                     <div class="muted" data-i18n="app.response.last_hour">Letzte Stunde</div>
                   </div>
-                  <div class="response-help">
+                  <div class="response-tools">
+                    <button
+                      id="open-chart-settings-modal"
+                      class="btn ghost response-config-btn"
+                      type="button"
+                      aria-controls="chart-settings-modal"
+                      aria-haspopup="dialog"
+                      data-i18n="app.response.view_button"
+                    >
+                      Anzeige
+                    </button>
                     <button
                       id="response-help-btn"
                       class="response-help-btn"
@@ -276,10 +286,13 @@
                     </button>
                   </div>
                 </div>
-                <div class="chart">
-                  <svg id="response-chart" viewBox="0 0 960 240" preserveAspectRatio="none"></svg>
+                <div class="response-visualization">
+                  <div class="chart" id="response-chart-panel">
+                    <svg id="response-chart" viewBox="0 0 960 240" preserveAspectRatio="none"></svg>
+                  </div>
+                  <div class="response-compare-grid" id="response-compare-grid" hidden></div>
                 </div>
-                <div class="stat-row">
+                <div class="stat-row" id="response-stats">
                   <div>
                     <div class="stat-title" data-i18n="app.response.avg">Durchschnitt</div>
                     <div class="stat-value" id="stat-avg">-- ms</div>
@@ -389,6 +402,23 @@
                       data-i18n="app.advanced.card.open_maintenance"
                     >
                       Wartungen öffnen
+                    </button>
+                  </article>
+
+                  <article class="settings-launch-card">
+                    <div class="card-title" data-i18n="app.response.view_settings_title">Chart-Ansicht.</div>
+                    <p class="muted card-copy" data-i18n="app.response.view_settings_desc">
+                      Zwischen Einzel-Chart und einem Dashboard je Probe-Standort wechseln.
+                    </p>
+                    <button
+                      class="btn ghost settings-launch-btn"
+                      id="open-chart-settings-modal-secondary"
+                      type="button"
+                      aria-controls="chart-settings-modal"
+                      aria-haspopup="dialog"
+                      data-i18n="app.response.view_button"
+                    >
+                      Anzeige
                     </button>
                   </article>
                 </div>
@@ -624,6 +654,54 @@
               <div class="muted" data-i18n="app.maintenance.empty_body">Sobald du eine Wartung planst, erscheint sie hier.</div>
             </div>
           </div>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="chart-settings-modal" class="settings-modal" aria-labelledby="chart-settings-modal-title">
+      <div class="settings-modal-card">
+        <div class="settings-modal-head">
+          <h3 id="chart-settings-modal-title" class="response-help-title" data-i18n="app.response.view_settings_title">Chart-Ansicht</h3>
+          <span class="settings-modal-status" id="chart-settings-modal-status" hidden></span>
+          <button id="chart-settings-modal-close" class="btn ghost response-help-modal-close" type="button" data-i18n="app.response.help_close">
+            SchlieÃŸen
+          </button>
+        </div>
+        <section class="settings-modal-section chart-settings-card">
+          <div class="card-title" data-i18n="app.response.view_settings_title">Chart-Ansicht.</div>
+          <p class="muted card-copy" data-i18n="app.response.view_settings_desc">
+            Lege fest, ob du einen einzelnen Verlauf oder alle Probe-Standorte parallel sehen willst.
+          </p>
+
+          <form class="chart-settings-form" id="chart-settings-form" autocomplete="off">
+            <label class="chart-mode-option" for="chart-view-mode-single">
+              <input id="chart-view-mode-single" type="radio" name="chart-view-mode" value="single" />
+              <span class="chart-mode-copy">
+                <span class="chart-mode-title" data-i18n="app.response.mode.single_title">Einzel-Chart</span>
+                <span class="muted" data-i18n="app.response.mode.single_desc">
+                  Ein Verlauf fÃ¼r den aktuell gewÃ¤hlten Standort oder die Gesamtansicht.
+                </span>
+              </span>
+            </label>
+
+            <label class="chart-mode-option" for="chart-view-mode-compare">
+              <input id="chart-view-mode-compare" type="radio" name="chart-view-mode" value="compare" />
+              <span class="chart-mode-copy">
+                <span class="chart-mode-title" data-i18n="app.response.mode.compare_title">Standort-Dashboard</span>
+                <span class="muted" data-i18n="app.response.mode.compare_desc">
+                  Ein separater Verlauf pro Probe-Standort, damit Last und Fehler parallel sichtbar werden.
+                </span>
+              </span>
+            </label>
+
+            <p class="muted chart-settings-note" data-i18n="app.response.mode.compare_note">
+              Im Standort-Dashboard werden immer alle aktuell verfÃ¼gbaren Probe-Standorte geladen.
+            </p>
+
+            <div class="chart-settings-actions">
+              <button class="btn primary" id="chart-settings-save" type="submit" data-i18n="common.save">Speichern</button>
+            </div>
+          </form>
         </section>
       </div>
     </dialog>

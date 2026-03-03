@@ -61,6 +61,9 @@ const locationSelect = document.getElementById("location-select");
 const intervalSelect = document.getElementById("interval-select");
 const monitorList = document.getElementById("monitor-list");
 const responseCard = document.querySelector(".response-card");
+const responseChartPanel = document.getElementById("response-chart-panel");
+const responseCompareGrid = document.getElementById("response-compare-grid");
+const responseStatsRow = document.getElementById("response-stats");
 const responseHelpButton = document.getElementById("response-help-btn");
 const responseHelpPopover = document.getElementById("response-help-popover");
 let responseHelpModal = document.getElementById("response-help-modal");
@@ -102,15 +105,23 @@ const sloMessageEl = document.getElementById("slo-message");
 const openSloSettingsModalButton = document.getElementById("open-slo-settings-modal");
 const openAssertionsSettingsModalButton = document.getElementById("open-assertions-settings-modal");
 const openMaintenanceSettingsModalButton = document.getElementById("open-maintenance-settings-modal");
+const openChartSettingsModalButton = document.getElementById("open-chart-settings-modal");
+const openChartSettingsModalSecondaryButton = document.getElementById("open-chart-settings-modal-secondary");
 const sloSettingsModal = document.getElementById("slo-settings-modal");
 const assertionsSettingsModal = document.getElementById("assertions-settings-modal");
 const maintenanceSettingsModal = document.getElementById("maintenance-settings-modal");
+const chartSettingsModal = document.getElementById("chart-settings-modal");
 const sloSettingsModalCloseButton = document.getElementById("slo-settings-modal-close");
 const assertionsSettingsModalCloseButton = document.getElementById("assertions-settings-modal-close");
 const maintenanceSettingsModalCloseButton = document.getElementById("maintenance-settings-modal-close");
+const chartSettingsModalCloseButton = document.getElementById("chart-settings-modal-close");
 const sloSettingsModalStatusEl = document.getElementById("slo-settings-modal-status");
 const assertionsSettingsModalStatusEl = document.getElementById("assertions-settings-modal-status");
 const maintenanceSettingsModalStatusEl = document.getElementById("maintenance-settings-modal-status");
+const chartSettingsModalStatusEl = document.getElementById("chart-settings-modal-status");
+const chartSettingsForm = document.getElementById("chart-settings-form");
+const chartViewModeSingleInput = document.getElementById("chart-view-mode-single");
+const chartViewModeCompareInput = document.getElementById("chart-view-mode-compare");
 
 let user = null;
 let monitors = [];
@@ -118,10 +129,13 @@ let activeMonitorId = null;
 let activeLocation = "aggregate";
 let availableProbes = [];
 let latestMetrics = null;
+let responseChartMode = "single";
+let responseChartRenderToken = 0;
 let statusSince = Date.now();
   let lastCheckTime = null;
   const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
   const LOCATION_STORAGE_KEY = "pms.location";
+  const RESPONSE_CHART_MODE_STORAGE_KEY = "pms.responseChartMode";
   const MONITOR_GROUP_COLLAPSED_STORAGE_KEY = "pms.monitorGroupsCollapsed";
   const RECENT_MONITOR_STORAGE_KEY = "pms.recentMonitorIds";
   const MAX_RECENT_MONITORS = 3;
@@ -429,6 +443,47 @@ function setupSettingsModals() {
     isDirty: () => !!(maintenanceSettingsController?.hasDraft?.() || maintenanceSettingsController?.isDirty?.()),
     getUnsavedMessage,
   });
+
+  settingsModalManager.bind({
+    key: "chart",
+    openButton: openChartSettingsModalButton,
+    modal: chartSettingsModal,
+    closeButton: chartSettingsModalCloseButton,
+    focusTarget: chartViewModeSingleInput || chartViewModeCompareInput,
+    statusEl: chartSettingsModalStatusEl,
+    isDirty: () => readResponseChartModeFromInputs() !== normalizeResponseChartMode(responseChartMode),
+    getUnsavedMessage,
+  });
+}
+
+function readResponseChartModeFromInputs() {
+  if (chartViewModeCompareInput?.checked) return "compare";
+  return "single";
+}
+
+function syncResponseChartModeInputs(mode = responseChartMode) {
+  const normalized = normalizeResponseChartMode(mode);
+  if (chartViewModeSingleInput) chartViewModeSingleInput.checked = normalized !== "compare";
+  if (chartViewModeCompareInput) chartViewModeCompareInput.checked = normalized === "compare";
+}
+
+function hasResponseComparisonCharts() {
+  return Array.isArray(availableProbes) && availableProbes.length > 0;
+}
+
+function isResponseComparisonModeActive() {
+  return normalizeResponseChartMode(responseChartMode) === "compare" && hasResponseComparisonCharts();
+}
+
+function applyResponseChartMode(mode, options = {}) {
+  const { persist = true } = options;
+  const normalized = normalizeResponseChartMode(mode);
+  responseChartMode = normalized;
+  if (persist) {
+    writeStoredResponseChartMode(normalized);
+  }
+  syncResponseChartModeInputs(normalized);
+  void renderResponseCharts();
 }
 
 function setAssertionsMessage(message, variant = "") {
@@ -1116,6 +1171,27 @@ function writeStoredLocation(location) {
   }
 }
 
+function normalizeResponseChartMode(value) {
+  return String(value || "").trim().toLowerCase() === "compare" ? "compare" : "single";
+}
+
+function readStoredResponseChartMode() {
+  try {
+    return normalizeResponseChartMode(window.localStorage.getItem(RESPONSE_CHART_MODE_STORAGE_KEY));
+  } catch (error) {
+    return "single";
+  }
+}
+
+function writeStoredResponseChartMode(mode) {
+  const value = normalizeResponseChartMode(mode);
+  try {
+    window.localStorage.setItem(RESPONSE_CHART_MODE_STORAGE_KEY, value);
+  } catch (error) {
+    // ignore
+  }
+}
+
   function writeStoredMonitorId(monitorId) {
     const value = String(monitorId || "").trim();
     if (!value) return;
@@ -1289,7 +1365,7 @@ function syncOwnerLinks() {
 
 function syncCardHeights() {
   if (!responseCard || !incidentsCard) return;
-  if (window.innerWidth <= 980) {
+  if (window.innerWidth <= 980 || isResponseComparisonModeActive()) {
     incidentsCard.style.height = "";
     return;
   }
@@ -1752,7 +1828,9 @@ async function loadMetrics() {
     updateStatus(data);
     updateStats(data.stats, data.series || []);
     updateUptimeBars(data.last24h);
-    renderChart(chart, data.series || []);
+    renderResponseCharts(data).catch(() => {
+      // ignore
+    });
     renderHeatmap(data.heatmap);
     updateRangeSummaries(data.ranges);
     updateSloCard(data.slo);
@@ -2072,8 +2150,231 @@ function updateRangeCell(summary, uptimeEl, metaEl) {
   );
 }
 
-function renderChart(svg, series) {
+function setResponseChartLayout(compareMode) {
+  const isCompare = !!compareMode;
+  if (responseChartPanel) responseChartPanel.hidden = isCompare;
+  if (responseStatsRow) responseStatsRow.hidden = isCompare;
+  if (responseCompareGrid) responseCompareGrid.hidden = !isCompare;
+}
+
+function getResponseComparisonProbes() {
+  return Array.isArray(availableProbes)
+    ? availableProbes
+        .map((probe) => ({
+          id: String(probe?.id || "").trim(),
+          label: String(probe?.label || "").trim(),
+        }))
+        .filter((probe) => Boolean(probe.id))
+    : [];
+}
+
+function getResponseProbeLabel(probeId) {
+  const probeKey = String(probeId || "").trim();
+  if (!probeKey) {
+    return t("app.response.compare_no_probe", null, "Unknown location");
+  }
+
+  const match = getResponseComparisonProbes().find((probe) => probe.id === probeKey);
+  if (match?.label) return match.label;
+  return probeKey;
+}
+
+function setResponseComparisonLoadingState() {
+  if (!responseCompareGrid) return;
+
+  responseCompareGrid.innerHTML = `
+    <div class="response-compare-empty">
+      <div class="title">${escapeHtml(t("common.loading", null, "Loading..."))}</div>
+      <div class="muted">${escapeHtml(t("app.response.compare_loading", null, "Loading location charts..."))}</div>
+    </div>
+  `;
+}
+
+function setResponseComparisonEmptyState() {
+  if (!responseCompareGrid) return;
+
+  responseCompareGrid.innerHTML = `
+    <div class="response-compare-empty">
+      <div class="title">${escapeHtml(t("app.response.compare_empty_title", null, "No location charts available."))}</div>
+      <div class="muted">${escapeHtml(
+        t(
+          "app.response.compare_empty_body",
+          null,
+          "As soon as probe data is available, a separate response chart will appear here for each location."
+        )
+      )}</div>
+    </div>
+  `;
+}
+
+function createResponseComparisonStat(label, value) {
+  const item = document.createElement("div");
+  item.className = "response-location-stat";
+  item.innerHTML = `
+    <span>${escapeHtml(label)}</span>
+    <strong>${escapeHtml(value)}</strong>
+  `;
+  return item;
+}
+
+function renderResponseComparisonCards(items) {
+  if (!responseCompareGrid) return;
+  responseCompareGrid.textContent = "";
+
+  if (!Array.isArray(items) || !items.length) {
+    setResponseComparisonEmptyState();
+    return;
+  }
+
+  const now = Date.now();
+
+  items.forEach((item, index) => {
+    const probeId = String(item?.probeId || "").trim();
+    const label = String(item?.label || "").trim() || getResponseProbeLabel(probeId);
+    const metrics = item?.metrics || null;
+    const hasMetrics = !!metrics;
+    const status = String(metrics?.status || "").trim().toLowerCase();
+    const isOffline = hasMetrics && status === "offline";
+    const badgeClass = !hasMetrics ? "neutral" : isOffline ? "offline" : "online";
+    const badgeText = !hasMetrics
+      ? t("common.no_data", null, "No data")
+      : isOffline
+        ? t("app.state.offline", null, "Offline")
+        : t("app.state.online", null, "Online");
+    const lastCheckAt = Number(metrics?.lastCheckAt);
+    const lastCheckLabel = Number.isFinite(lastCheckAt)
+      ? t(
+          "app.response.compare_last_check",
+          { value: formatTimeAgo(now - lastCheckAt) },
+          `Last check: ${formatTimeAgo(now - lastCheckAt)}`
+        )
+      : t("app.dashboard.waiting_first_check", null, "Waiting for first check");
+
+    const card = document.createElement("article");
+    card.className = "response-location-card";
+
+    const head = document.createElement("div");
+    head.className = "response-location-head";
+    head.innerHTML = `
+      <div>
+        <div class="response-location-title">${escapeHtml(label)}</div>
+        <div class="response-location-meta">${escapeHtml(lastCheckLabel)}</div>
+      </div>
+      <span class="response-location-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
+    `;
+    card.appendChild(head);
+
+    const chartWrap = document.createElement("div");
+    chartWrap.className = "chart response-location-chart";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 960 240");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.dataset.chartKey = `probe-${probeId || index + 1}`;
+    chartWrap.appendChild(svg);
+    card.appendChild(chartWrap);
+
+    renderChart(svg, metrics?.series || [], {
+      idPrefix: `probe-${probeId || index + 1}`,
+      emptyText: t("app.response.no_data_chart", null, "No response data in the selected window."),
+    });
+
+    const stats = document.createElement("div");
+    stats.className = "response-location-stats";
+    stats.appendChild(createResponseComparisonStat(t("app.response.avg", null, "Average"), formatMs(metrics?.stats?.avg)));
+    stats.appendChild(createResponseComparisonStat(t("app.response.p50", null, "P50 (median)"), formatMs(metrics?.stats?.p50)));
+    stats.appendChild(createResponseComparisonStat(t("app.response.p95", null, "P95"), formatMs(metrics?.stats?.p95)));
+    card.appendChild(stats);
+
+    responseCompareGrid.appendChild(card);
+  });
+}
+
+async function fetchMetricsForResponseProbe(monitorId, probeId) {
+  try {
+    const response = await fetch(
+      `/api/monitors/${encodeURIComponent(monitorId)}/metrics?location=${encodeURIComponent(`probe:${probeId}`)}`,
+      { cache: "no-store" }
+    );
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return null;
+    }
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!payload?.ok || !payload.data) {
+      return null;
+    }
+
+    return payload.data;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function renderResponseCharts(data = latestMetrics) {
+  const metrics = data || latestMetrics;
+  if (!metrics) return;
+
+  const compareMode = isResponseComparisonModeActive();
+  if (!compareMode) {
+    responseChartRenderToken += 1;
+    setResponseChartLayout(false);
+    renderChart(chart, metrics.series || [], {
+      idPrefix: "primary",
+      emptyText: t("app.response.no_data_chart", null, "No response data in the selected window."),
+    });
+    syncCardHeights();
+    return;
+  }
+
+  const probes = getResponseComparisonProbes();
+  if (!probes.length || !activeMonitorId) {
+    setResponseChartLayout(false);
+    renderChart(chart, metrics.series || [], {
+      idPrefix: "primary",
+      emptyText: t("app.response.no_data_chart", null, "No response data in the selected window."),
+    });
+    syncCardHeights();
+    return;
+  }
+
+  const renderToken = responseChartRenderToken + 1;
+  responseChartRenderToken = renderToken;
+  setResponseChartLayout(true);
+  setResponseComparisonLoadingState();
+
+  const results = await Promise.all(
+    probes.map(async (probe) => ({
+      probeId: probe.id,
+      label: probe.label || getResponseProbeLabel(probe.id),
+      metrics: await fetchMetricsForResponseProbe(activeMonitorId, probe.id),
+    }))
+  );
+
+  if (renderToken !== responseChartRenderToken) return;
+  if (!isResponseComparisonModeActive()) return;
+
+  renderResponseComparisonCards(results);
+  syncCardHeights();
+}
+
+function renderChart(svg, series, options = {}) {
   if (!svg) return;
+  const emptyText = String(options?.emptyText || "").trim() || t("app.response.no_data_chart", null, "No response data in the selected window.");
+  const chartKey = String(options?.idPrefix || svg.dataset.chartKey || svg.id || "response")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "response";
 
   if (typeof svg.__chartCleanup === "function") {
     svg.__chartCleanup();
@@ -2104,7 +2405,16 @@ function renderChart(svg, series) {
     .filter((point) => Number.isFinite(point.ms) && point.ms >= 0);
 
   if (!normalizedSeries.length) {
-    svg.innerHTML = "";
+    svg.innerHTML = `
+      <text
+        x="50%"
+        y="50%"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        fill="rgba(239, 246, 255, 0.7)"
+        font-size="15"
+      >${escapeHtml(emptyText)}</text>
+    `;
     return;
   }
 
@@ -2169,8 +2479,8 @@ function renderChart(svg, series) {
     `<line x1="${plotLeft}" y1="${yWarn}" x2="${plotRight}" y2="${yWarn}" stroke="rgba(255,199,95,0.35)" stroke-dasharray="5 5" />`,
   ];
 
-  const gradientId = "lineGradientResponse";
-  const clipId = "chartPlotClip";
+  const gradientId = `lineGradientResponse-${chartKey}`;
+  const clipId = `chartPlotClip-${chartKey}`;
   const lastPoint = points[points.length - 1] || null;
   const lastCx = lastPoint ? lastPoint.x : plotLeft;
   const lastCy = lastPoint ? lastPoint.y : plotBottom;
@@ -2812,9 +3122,42 @@ async function init() {
   setupResponseHelp();
   setupSettingsModals();
   activeLocation = readStoredLocation();
+  responseChartMode = readStoredResponseChartMode();
+  syncResponseChartModeInputs(responseChartMode);
   availableProbes = await fetchProbes();
   renderLocationPicker();
   applySloEnabledState(false);
+
+  if (openChartSettingsModalSecondaryButton && openChartSettingsModalButton) {
+    openChartSettingsModalSecondaryButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      syncResponseChartModeInputs(responseChartMode);
+      openChartSettingsModalButton.click();
+    });
+  }
+
+  if (openChartSettingsModalButton) {
+    openChartSettingsModalButton.addEventListener("click", () => {
+      syncResponseChartModeInputs(responseChartMode);
+    });
+  }
+
+  for (const el of [chartViewModeSingleInput, chartViewModeCompareInput].filter(Boolean)) {
+    el.addEventListener("change", () => {
+      if (settingsModalManager) {
+        settingsModalManager.clearStatus("chart");
+      }
+    });
+  }
+
+  if (chartSettingsForm) {
+    chartSettingsForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const nextMode = readResponseChartModeFromInputs();
+      applyResponseChartMode(nextMode, { persist: true });
+      showSettingsModalSavedState("chart");
+    });
+  }
 
   if (sloTargetInput) {
     sloTargetInput.addEventListener("input", () => {
