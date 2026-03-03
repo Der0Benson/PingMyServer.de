@@ -2192,6 +2192,12 @@ function setResponseComparisonLoadingState() {
   `;
 }
 
+function shouldShowResponseComparisonLoadingState() {
+  if (!responseCompareGrid) return false;
+  if (!responseCompareGrid.childElementCount) return true;
+  return !!responseCompareGrid.querySelector(".response-compare-empty");
+}
+
 function setResponseComparisonEmptyState() {
   if (!responseCompareGrid) return;
 
@@ -2667,7 +2673,9 @@ async function renderResponseCharts(data = latestMetrics) {
   const renderToken = responseChartRenderToken + 1;
   responseChartRenderToken = renderToken;
   setResponseChartLayout(true);
-  setResponseComparisonLoadingState();
+  if (shouldShowResponseComparisonLoadingState()) {
+    setResponseComparisonLoadingState();
+  }
 
   const results = await Promise.all(
     probes.map(async (probe) => ({
