@@ -9874,6 +9874,8 @@ const ownerController = createOwnerController({
   OWNER_SMTP_FROM,
   OWNER_SMTP_HOST,
   OWNER_SMTP_PORT,
+  probeLabelMap: PROBE_LABEL_MAP,
+  probeId: PROBE_ID,
   runtimeLogger,
 });
 
@@ -13895,4 +13897,3 @@ module.exports = {
   createLegacyRequestHandler,
   startLegacyRuntime,
 };
-

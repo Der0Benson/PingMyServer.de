@@ -308,3 +308,25 @@ tbody td {
     width: 100%;
   }
 }
+
+
+.owner-probe-table-wrap {
+  margin-top: 10px;
+}
+
+.owner-probe-name {
+  font-weight: 700;
+}
+
+.owner-probe-flags {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status-pill.owner-probe-focus {
+  border-color: rgba(76, 201, 240, 0.4);
+  background: rgba(76, 201, 240, 0.12);
+  color: #b7efff;
+}

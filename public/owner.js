@@ -6,6 +6,8 @@ const ownerUserBadge = document.getElementById("owner-user-badge");
 const processStatsEl = document.getElementById("process-stats");
 const checksStatsEl = document.getElementById("checks-stats");
 const dbStatsEl = document.getElementById("db-stats");
+const probeLocationStatsEl = document.getElementById("probe-location-stats");
+const probeLocationBody = document.getElementById("probe-location-body");
 const monitorCostsBody = document.getElementById("monitor-costs-body");
 const runtimeSecurityList = document.getElementById("runtime-security-list");
 const topErrorsList = document.getElementById("top-errors-list");
@@ -451,6 +453,7 @@ function renderOverview(data) {
     },
   ]);
 
+  renderProbeLocations(data?.probeLocations || []);
   renderOwnerEmailTest(data?.emailTest || null);
 }
 
@@ -477,6 +480,115 @@ function monitorStatusText(monitor) {
   if (status === "online") return t("app.state.online", null, "Online");
   if (status === "offline") return t("app.state.offline", null, "Offline");
   return t("common.unknown", null, "unknown");
+}
+
+function formatProbeLocationLabel(location) {
+  const probeId = String(location?.probeId || "").trim();
+  const custom = String(location?.label || "").trim();
+  if (custom) return `${custom} (${probeId || "n/a"})`;
+  if (probeId.toLowerCase() === "hk") return "Hong Kong (HK)";
+  if (probeId.toLowerCase() === "celle") return "Celle (DE)";
+  return probeId || t("common.not_available", null, "n/a");
+}
+
+function renderProbeLocations(items) {
+  const rows = Array.isArray(items) ? items : [];
+
+  if (probeLocationStatsEl) {
+    const locations = rows.length;
+    const monitorTotal = rows.reduce((sum, row) => sum + Number(row?.monitorCount || 0), 0);
+    const checks10m = rows.reduce((sum, row) => sum + Number(row?.checks10m || 0), 0);
+    const failed10m = rows.reduce((sum, row) => sum + Number(row?.failed10m || 0), 0);
+    const failureRate10m = checks10m > 0 ? (failed10m / checks10m) * 100 : 0;
+
+    renderStats(probeLocationStatsEl, [
+      { label: "Standorte", value: formatInt(locations) },
+      { label: "Monitore", value: formatInt(monitorTotal) },
+      { label: "Checks (10m)", value: formatInt(checks10m) },
+      { label: "Fehlerrate (10m)", value: formatPercent(failureRate10m) },
+    ]);
+  }
+
+  if (!probeLocationBody) return;
+  probeLocationBody.textContent = "";
+
+  if (!rows.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 9;
+    cell.className = "muted";
+    cell.textContent = "Noch keine Standortdaten verfügbar (Probe-Checks laufen evtl. noch nicht).";
+    row.appendChild(cell);
+    probeLocationBody.appendChild(row);
+    return;
+  }
+
+  for (const location of rows) {
+    const row = document.createElement("tr");
+
+    const locationCell = document.createElement("td");
+    const name = document.createElement("div");
+    name.className = "owner-probe-name";
+    name.textContent = formatProbeLocationLabel(location);
+    locationCell.appendChild(name);
+
+    const flags = document.createElement("div");
+    flags.className = "owner-probe-flags";
+    if (location?.isCurrentInstance) {
+      const current = document.createElement("span");
+      current.className = "status-pill online";
+      current.textContent = "Diese Instanz";
+      flags.appendChild(current);
+    }
+    const probeId = String(location?.probeId || "").trim().toLowerCase();
+    if (probeId === "hk" || probeId === "celle") {
+      const strategic = document.createElement("span");
+      strategic.className = "status-pill owner-probe-focus";
+      strategic.textContent = "Fokus";
+      flags.appendChild(strategic);
+    }
+    if (flags.children.length) locationCell.appendChild(flags);
+
+    const monitorCell = document.createElement("td");
+    monitorCell.textContent = formatInt(location?.monitorCount || 0);
+
+    const stateCell = document.createElement("td");
+    const online = formatInt(location?.onlineCount || 0);
+    const offline = formatInt(location?.offlineCount || 0);
+    stateCell.textContent = `${online} / ${offline}`;
+
+    const avgCell = document.createElement("td");
+    avgCell.textContent = formatMs(location?.avgResponseMs);
+
+    const checks10Cell = document.createElement("td");
+    checks10Cell.textContent = formatInt(location?.checks10m || 0);
+
+    const fail10Cell = document.createElement("td");
+    fail10Cell.textContent = formatPercent(location?.failureRate10mPercent || 0);
+
+    const checks24Cell = document.createElement("td");
+    checks24Cell.textContent = formatInt(location?.checks24h || 0);
+
+    const fail24Cell = document.createElement("td");
+    fail24Cell.textContent = formatPercent(location?.failureRate24hPercent || 0);
+
+    const lastCell = document.createElement("td");
+    lastCell.textContent = formatDateTime(location?.lastCheckedAt || 0);
+
+    row.append(
+      locationCell,
+      monitorCell,
+      stateCell,
+      avgCell,
+      checks10Cell,
+      fail10Cell,
+      checks24Cell,
+      fail24Cell,
+      lastCell
+    );
+
+    probeLocationBody.appendChild(row);
+  }
 }
 
 function renderMonitorCosts(items) {

@@ -38,6 +38,8 @@ function createOwnerController(dependencies = {}) {
     OWNER_SMTP_FROM,
     OWNER_SMTP_HOST,
     OWNER_SMTP_PORT,
+    probeLabelMap,
+    probeId,
     runtimeLogger,
   } = dependencies;
 
@@ -406,6 +408,113 @@ function createOwnerController(dependencies = {}) {
       .sort((left, right) => right.costScore - left.costScore)
       .slice(0, Math.max(1, Math.min(OWNER_TOP_MONITOR_LIMIT, Number(limit) || OWNER_TOP_MONITOR_LIMIT)));
   }
+
+  function normalizeProbeLocationLabel(probeIdValue) {
+    const probeKey = String(probeIdValue || "").trim();
+    if (!probeKey) return "";
+
+    if (probeLabelMap && typeof probeLabelMap.get === "function") {
+      const mapped = String(probeLabelMap.get(probeKey) || "").trim();
+      if (mapped) return mapped;
+    }
+
+    if (probeKey.toLowerCase() === "hk") return "Hong Kong (HK)";
+    if (probeKey.toLowerCase() === "celle") return "Celle (DE)";
+    return probeKey;
+  }
+
+  async function fetchOwnerProbeLocationRows() {
+    try {
+      const [stateRows] = await pool.query(
+        `
+          SELECT
+            ps.probe_id,
+            COUNT(*) AS monitor_count,
+            SUM(CASE WHEN ps.last_status = 'online' THEN 1 ELSE 0 END) AS online_count,
+            SUM(CASE WHEN ps.last_status = 'offline' THEN 1 ELSE 0 END) AS offline_count,
+            AVG(ps.last_response_ms) AS avg_response_ms,
+            MAX(ps.last_checked_at) AS last_checked_at
+          FROM monitor_probe_state ps
+          JOIN monitors m
+            ON m.id = ps.monitor_id
+           AND m.user_id IS NOT NULL
+          GROUP BY ps.probe_id
+        `
+      );
+
+      const [recentRows] = await pool.query(
+        `
+          SELECT
+            pc.probe_id,
+            COUNT(*) AS checks_10m,
+            SUM(CASE WHEN pc.ok = 0 THEN 1 ELSE 0 END) AS failed_10m,
+            COUNT(CASE WHEN pc.checked_at >= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 24 HOUR) THEN 1 END) AS checks_24h,
+            SUM(CASE WHEN pc.checked_at >= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 24 HOUR) AND pc.ok = 0 THEN 1 ELSE 0 END) AS failed_24h
+          FROM monitor_probe_checks pc
+          JOIN monitors m
+            ON m.id = pc.monitor_id
+           AND m.user_id IS NOT NULL
+          WHERE pc.checked_at >= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 24 HOUR)
+          GROUP BY pc.probe_id
+        `
+      );
+
+      const recentByProbeId = new Map();
+      for (const row of recentRows || []) {
+        const rowProbeId = String(row.probe_id || "").trim();
+        if (!rowProbeId) continue;
+        recentByProbeId.set(rowProbeId, row);
+      }
+
+      const combinedRows = [];
+      for (const row of stateRows || []) {
+        const rowProbeId = String(row.probe_id || "").trim();
+        if (!rowProbeId) continue;
+        const recent = recentByProbeId.get(rowProbeId) || {};
+        const checks10m = Number(recent.checks_10m || 0);
+        const failed10m = Number(recent.failed_10m || 0);
+        const checks24h = Number(recent.checks_24h || 0);
+        const failed24h = Number(recent.failed_24h || 0);
+        const failureRate10mPercent = checks10m > 0 ? (failed10m / checks10m) * 100 : 0;
+        const failureRate24hPercent = checks24h > 0 ? (failed24h / checks24h) * 100 : 0;
+        combinedRows.push({
+          probeId: rowProbeId,
+          label: normalizeProbeLocationLabel(rowProbeId),
+          monitorCount: Number(row.monitor_count || 0),
+          onlineCount: Number(row.online_count || 0),
+          offlineCount: Number(row.offline_count || 0),
+          avgResponseMs: roundTo(row.avg_response_ms, 2),
+          lastCheckedAt: toTimestampMs(row.last_checked_at),
+          checks10m,
+          failed10m,
+          checks24h,
+          failed24h,
+          failureRate10mPercent: roundTo(failureRate10mPercent, 2),
+          failureRate24hPercent: roundTo(failureRate24hPercent, 2),
+          isCurrentInstance: String(probeId || "").trim() === rowProbeId,
+        });
+      }
+
+      const preferredOrder = ["hk", "celle"];
+      combinedRows.sort((left, right) => {
+        const leftPriority = preferredOrder.indexOf(String(left.probeId || "").toLowerCase());
+        const rightPriority = preferredOrder.indexOf(String(right.probeId || "").toLowerCase());
+        if (leftPriority !== rightPriority) {
+          if (leftPriority === -1) return 1;
+          if (rightPriority === -1) return -1;
+          return leftPriority - rightPriority;
+        }
+        return String(left.probeId || "").localeCompare(String(right.probeId || ""));
+      });
+
+      return combinedRows;
+    } catch (error) {
+      if (String(error?.code || "") === "ER_NO_SUCH_TABLE") {
+        return [];
+      }
+      throw error;
+    }
+  }
   
   async function handleOwnerOverview(req, res) {
     const owner = await requireOwner(req, res);
@@ -435,6 +544,7 @@ function createOwnerController(dependencies = {}) {
         `
       );
       const activeSessions = await countActiveSessions();
+      const probeLocations = await fetchOwnerProbeLocationRows();
   
       const monitorSummary = monitorRows[0] || {};
       const recentSummary = recentRows[0] || {};
@@ -459,6 +569,7 @@ function createOwnerController(dependencies = {}) {
             maxResponseMs10m: roundTo(recentSummary.max_response_ms_10m, 2),
           },
           activeSessions,
+          probeLocations,
           emailTest: getOwnerSmtpPublicConfig(),
           runtime,
         },
