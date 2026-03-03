@@ -2179,6 +2179,8 @@ function getResponseProbeLabel(probeId) {
   return probeKey;
 }
 
+const RESPONSE_COMPARE_LINE_COLORS = ["#4cc9f0", "#f4b45a", "#b9f27c", "#ff7aa2", "#7bdff6"];
+
 function setResponseComparisonLoadingState() {
   if (!responseCompareGrid) return;
 
@@ -2200,21 +2202,57 @@ function setResponseComparisonEmptyState() {
         t(
           "app.response.compare_empty_body",
           null,
-          "As soon as probe data is available, a separate response chart will appear here for each location."
+          "As soon as probe data is available, all locations will appear here as colored lines in one shared chart."
         )
       )}</div>
     </div>
   `;
 }
 
-function createResponseComparisonStat(label, value) {
-  const item = document.createElement("div");
-  item.className = "response-location-stat";
-  item.innerHTML = `
-    <span>${escapeHtml(label)}</span>
-    <strong>${escapeHtml(value)}</strong>
+function normalizeChartSeries(series) {
+  return (Array.isArray(series) ? series : [])
+    .map((point) => {
+      const rawStatusCode = point?.statusCode;
+      const parsedStatusCode = Number(rawStatusCode);
+      const statusCode =
+        rawStatusCode === null ||
+        rawStatusCode === undefined ||
+        !Number.isFinite(parsedStatusCode) ||
+        parsedStatusCode < 100 ||
+        parsedStatusCode > 599
+          ? null
+          : Math.round(parsedStatusCode);
+
+      return {
+        ts: Number(point?.ts),
+        ms: Number(point?.ms),
+        ok: point?.ok !== false,
+        statusCode,
+        errorMessage: String(point?.errorMessage || "").trim() || null,
+      };
+    })
+    .filter((point) => Number.isFinite(point.ms) && point.ms >= 0);
+}
+
+function createResponseComparisonLegendItem(item) {
+  const element = document.createElement("div");
+  element.className = "response-compare-legend-item";
+  const avgLabel = `${t("app.response.avg", null, "Average")}: ${formatMs(item.metrics?.stats?.avg)}`;
+  const status = String(item.metrics?.status || "").trim().toLowerCase();
+  const statusLabel = !item.hasSeries
+    ? t("common.no_data", null, "No data")
+    : status === "offline"
+      ? t("app.state.offline", null, "Offline")
+      : t("app.state.online", null, "Online");
+
+  element.innerHTML = `
+    <span class="response-compare-swatch" style="--response-compare-color: ${escapeHtml(item.color)}"></span>
+    <span class="response-compare-legend-copy">
+      <span class="response-compare-legend-label">${escapeHtml(item.label)}</span>
+      <span class="response-compare-legend-meta">${escapeHtml(`${avgLabel} · ${statusLabel}`)}</span>
+    </span>
   `;
-  return item;
+  return element;
 }
 
 function renderResponseComparisonCards(items) {
@@ -2226,67 +2264,346 @@ function renderResponseComparisonCards(items) {
     return;
   }
 
-  const now = Date.now();
+  const comparisonItems = items.map((entry, index) => {
+    const probeId = String(entry?.probeId || "").trim();
+    const metrics = entry?.metrics || null;
+    const series = normalizeChartSeries(metrics?.series || []);
+    return {
+      key: probeId || `probe-${index + 1}`,
+      label: String(entry?.label || "").trim() || getResponseProbeLabel(probeId),
+      metrics,
+      series,
+      hasSeries: series.length > 0,
+      color: RESPONSE_COMPARE_LINE_COLORS[index % RESPONSE_COMPARE_LINE_COLORS.length],
+    };
+  });
 
-  items.forEach((item, index) => {
-    const probeId = String(item?.probeId || "").trim();
-    const label = String(item?.label || "").trim() || getResponseProbeLabel(probeId);
-    const metrics = item?.metrics || null;
-    const hasMetrics = !!metrics;
-    const status = String(metrics?.status || "").trim().toLowerCase();
-    const isOffline = hasMetrics && status === "offline";
-    const badgeClass = !hasMetrics ? "neutral" : isOffline ? "offline" : "online";
-    const badgeText = !hasMetrics
-      ? t("common.no_data", null, "No data")
-      : isOffline
-        ? t("app.state.offline", null, "Offline")
-        : t("app.state.online", null, "Online");
-    const lastCheckAt = Number(metrics?.lastCheckAt);
-    const lastCheckLabel = Number.isFinite(lastCheckAt)
-      ? t(
-          "app.response.compare_last_check",
-          { value: formatTimeAgo(now - lastCheckAt) },
-          `Last check: ${formatTimeAgo(now - lastCheckAt)}`
-        )
-      : t("app.dashboard.waiting_first_check", null, "Waiting for first check");
+  const visibleSeries = comparisonItems.filter((item) => item.hasSeries);
+  if (!visibleSeries.length) {
+    setResponseComparisonEmptyState();
+    return;
+  }
 
-    const card = document.createElement("article");
-    card.className = "response-location-card";
+  const dashboard = document.createElement("section");
+  dashboard.className = "response-compare-dashboard";
 
-    const head = document.createElement("div");
-    head.className = "response-location-head";
-    head.innerHTML = `
-      <div>
-        <div class="response-location-title">${escapeHtml(label)}</div>
-        <div class="response-location-meta">${escapeHtml(lastCheckLabel)}</div>
-      </div>
-      <span class="response-location-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
+  const head = document.createElement("div");
+  head.className = "response-compare-head";
+  head.innerHTML = `
+    <div class="response-compare-title">${escapeHtml(t("app.response.mode.compare_title", null, "Location comparison"))}</div>
+    <div class="response-compare-subtitle">${escapeHtml(
+      t(
+        "app.response.mode.compare_desc",
+        null,
+        "All probe locations are shown together as colored lines in one shared chart."
+      )
+    )}</div>
+  `;
+  dashboard.appendChild(head);
+
+  const legend = document.createElement("div");
+  legend.className = "response-compare-legend";
+  comparisonItems.forEach((item) => {
+    legend.appendChild(createResponseComparisonLegendItem(item));
+  });
+  dashboard.appendChild(legend);
+
+  const chartWrap = document.createElement("div");
+  chartWrap.className = "chart response-compare-chart";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 960 240");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.dataset.chartKey = "response-compare";
+  chartWrap.appendChild(svg);
+  dashboard.appendChild(chartWrap);
+
+  renderMultiSeriesChart(svg, visibleSeries, {
+    idPrefix: "response-compare",
+    emptyText: t("app.response.no_data_chart", null, "No response data in the selected window."),
+  });
+
+  responseCompareGrid.appendChild(dashboard);
+}
+
+function renderMultiSeriesChart(svg, groups, options = {}) {
+  if (!svg) return;
+  const emptyText =
+    String(options?.emptyText || "").trim() || t("app.response.no_data_chart", null, "No response data in the selected window.");
+  const chartKey = String(options?.idPrefix || svg.dataset.chartKey || svg.id || "response-compare")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "response-compare";
+
+  if (typeof svg.__chartCleanup === "function") {
+    svg.__chartCleanup();
+    svg.__chartCleanup = null;
+  }
+
+  const normalizedGroups = (Array.isArray(groups) ? groups : [])
+    .map((group, index) => ({
+      key: String(group?.key || `group-${index + 1}`).trim() || `group-${index + 1}`,
+      label: String(group?.label || `Series ${index + 1}`).trim(),
+      color: String(group?.color || RESPONSE_COMPARE_LINE_COLORS[index % RESPONSE_COMPARE_LINE_COLORS.length]),
+      series: normalizeChartSeries(group?.series || []),
+    }))
+    .filter((group) => group.series.length > 0);
+
+  if (!normalizedGroups.length) {
+    svg.innerHTML = `
+      <text
+        x="50%"
+        y="50%"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        fill="rgba(239, 246, 255, 0.7)"
+        font-size="15"
+      >${escapeHtml(emptyText)}</text>
     `;
-    card.appendChild(head);
+    return;
+  }
 
-    const chartWrap = document.createElement("div");
-    chartWrap.className = "chart response-location-chart";
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 960 240");
-    svg.setAttribute("preserveAspectRatio", "none");
-    svg.dataset.chartKey = `probe-${probeId || index + 1}`;
-    chartWrap.appendChild(svg);
-    card.appendChild(chartWrap);
+  const width = 960;
+  const height = 240;
+  const padding = 32;
+  const plotLeft = padding;
+  const plotRight = width - padding;
+  const plotTop = padding;
+  const plotBottom = height - padding;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
+  const clamp = (value, lower, upper) => Math.max(lower, Math.min(upper, value));
 
-    renderChart(svg, metrics?.series || [], {
-      idPrefix: `probe-${probeId || index + 1}`,
-      emptyText: t("app.response.no_data_chart", null, "No response data in the selected window."),
+  const allValues = normalizedGroups.flatMap((group) => group.series.map((point) => point.ms));
+  const minVal = Math.min(...allValues);
+  const maxVal = Math.max(...allValues);
+  const paddingVal = Math.max(20, (maxVal - minVal) * 0.2);
+  const min = Math.max(0, minVal - paddingVal);
+  const max = Math.max(min + 1, maxVal + paddingVal);
+  const yForValue = (value) => plotBottom - ((value - min) / (max - min)) * plotHeight;
+
+  const groupsWithPoints = normalizedGroups.map((group) => {
+    const points = group.series.map((point, index) => {
+      const x =
+        group.series.length > 1
+          ? plotLeft + (index / (group.series.length - 1)) * plotWidth
+          : plotLeft + plotWidth / 2;
+      const y = yForValue(point.ms);
+      return { x, y, point, index };
     });
 
-    const stats = document.createElement("div");
-    stats.className = "response-location-stats";
-    stats.appendChild(createResponseComparisonStat(t("app.response.avg", null, "Average"), formatMs(metrics?.stats?.avg)));
-    stats.appendChild(createResponseComparisonStat(t("app.response.p50", null, "P50 (median)"), formatMs(metrics?.stats?.p50)));
-    stats.appendChild(createResponseComparisonStat(t("app.response.p95", null, "P95"), formatMs(metrics?.stats?.p95)));
-    card.appendChild(stats);
-
-    responseCompareGrid.appendChild(card);
+    return {
+      ...group,
+      points,
+      path: smoothPath(points.map((point) => [point.x, point.y])),
+    };
   });
+
+  const ticks = 5;
+  const grid = [];
+  for (let i = 0; i < ticks; i += 1) {
+    const ratio = i / (ticks - 1);
+    const value = max - (max - min) * ratio;
+    const y = plotTop + plotHeight * ratio;
+    grid.push(`<line x1="${plotLeft}" y1="${y}" x2="${plotRight}" y2="${y}" stroke="rgba(255,255,255,0.07)" />`);
+    grid.push(`<text x="6" y="${y + 4}" fill="rgba(255,255,255,0.45)" font-size="11">${Math.round(value)} ms</text>`);
+  }
+
+  const thresholdGoodMs = 100;
+  const thresholdWarnMs = 250;
+  const yGood = clamp(yForValue(thresholdGoodMs), plotTop, plotBottom);
+  const yWarn = clamp(yForValue(thresholdWarnMs), plotTop, plotBottom);
+  const ySlowTop = Math.min(yWarn, yGood);
+  const yModerateTop = Math.max(yWarn, plotTop);
+  const yModerateBottom = Math.min(yGood, plotBottom);
+  const yFastTop = Math.max(yGood, plotTop);
+
+  const thresholdBands = [
+    `<rect x="${plotLeft}" y="${plotTop}" width="${plotWidth}" height="${Math.max(0, ySlowTop - plotTop)}" fill="rgba(255, 104, 104, 0.12)" />`,
+    `<rect x="${plotLeft}" y="${yModerateTop}" width="${plotWidth}" height="${Math.max(0, yModerateBottom - yModerateTop)}" fill="rgba(255, 199, 95, 0.1)" />`,
+    `<rect x="${plotLeft}" y="${yFastTop}" width="${plotWidth}" height="${Math.max(0, plotBottom - yFastTop)}" fill="rgba(122, 242, 166, 0.08)" />`,
+  ];
+
+  const thresholdGuides = [
+    `<line x1="${plotLeft}" y1="${yGood}" x2="${plotRight}" y2="${yGood}" stroke="rgba(122,242,166,0.35)" stroke-dasharray="5 5" />`,
+    `<line x1="${plotLeft}" y1="${yWarn}" x2="${plotRight}" y2="${yWarn}" stroke="rgba(255,199,95,0.35)" stroke-dasharray="5 5" />`,
+  ];
+
+  const clipId = `chartPlotClip-${chartKey}`;
+  const lineMarkup = groupsWithPoints
+    .map(
+      (group) => `
+        <path
+          d="${group.path}"
+          fill="none"
+          stroke="${group.color}"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          clip-path="url(#${clipId})"
+        />
+        <circle
+          cx="${group.points[group.points.length - 1].x}"
+          cy="${group.points[group.points.length - 1].y}"
+          r="4.5"
+          fill="${group.color}"
+        />
+      `
+    )
+    .join("\n");
+
+  const initialHoverLine = groupsWithPoints[0]?.points[groupsWithPoints[0].points.length - 1] || null;
+  const hoverDots = groupsWithPoints
+    .map((group) => {
+      const lastPoint = group.points[group.points.length - 1];
+      return `<circle data-chart-hover-dot="${escapeHtml(group.key)}" cx="${lastPoint.x}" cy="${lastPoint.y}" r="4.5" fill="${group.color}" opacity="0" />`;
+    })
+    .join("\n");
+
+  svg.innerHTML = `
+    <defs>
+      <clipPath id="${clipId}">
+        <rect x="${plotLeft}" y="${plotTop}" width="${plotWidth}" height="${plotHeight}" />
+      </clipPath>
+    </defs>
+    <g clip-path="url(#${clipId})">
+      ${thresholdBands.join("\n")}
+    </g>
+    ${grid.join("\n")}
+    ${thresholdGuides.join("\n")}
+    ${lineMarkup}
+    <line
+      data-chart-hover-line
+      x1="${initialHoverLine ? initialHoverLine.x : plotLeft}"
+      y1="${plotTop}"
+      x2="${initialHoverLine ? initialHoverLine.x : plotLeft}"
+      y2="${plotBottom}"
+      stroke="rgba(255,255,255,0.4)"
+      stroke-width="1"
+      opacity="0"
+    />
+    ${hoverDots}
+  `;
+
+  const chartWrapper = svg.closest(".chart");
+  if (!chartWrapper) return;
+
+  let tooltip = chartWrapper.querySelector(".chart-tooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.className = "chart-tooltip";
+    tooltip.hidden = true;
+    chartWrapper.appendChild(tooltip);
+  }
+
+  const hoverLine = svg.querySelector("[data-chart-hover-line]");
+  const hoverDotsMap = new Map(
+    Array.from(svg.querySelectorAll("[data-chart-hover-dot]")).map((dot) => [String(dot.getAttribute("data-chart-hover-dot") || ""), dot])
+  );
+
+  const hideHover = () => {
+    if (hoverLine) hoverLine.setAttribute("opacity", "0");
+    hoverDotsMap.forEach((dot) => {
+      dot.setAttribute("opacity", "0");
+    });
+    tooltip.hidden = true;
+  };
+
+  const formatTs = (value) => {
+    if (!Number.isFinite(value)) return t("common.not_available", null, "n/a");
+    return new Intl.DateTimeFormat(i18nLocale(), {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(new Date(value));
+  };
+
+  const handlePointerMove = (event) => {
+    const svgRect = svg.getBoundingClientRect();
+    if (!svgRect.width || !svgRect.height) return;
+
+    const relativeX = ((event.clientX - svgRect.left) / svgRect.width) * width;
+    const ratio = clamp((relativeX - plotLeft) / Math.max(1, plotWidth), 0, 1);
+    const selectedItems = groupsWithPoints
+      .map((group) => {
+        const index = Math.round(ratio * (group.points.length - 1));
+        const selectedPoint = group.points[index];
+        return selectedPoint ? { group, selectedPoint } : null;
+      })
+      .filter(Boolean);
+
+    if (!selectedItems.length) return;
+
+    const referencePoint = selectedItems[0].selectedPoint;
+    tooltip.innerHTML = `
+      <div class="chart-tooltip-title">${escapeHtml(formatTs(referencePoint.point.ts))}</div>
+      ${selectedItems
+        .map(
+          ({ group, selectedPoint }) => `
+            <div class="chart-tooltip-row">
+              <span style="color: ${escapeHtml(group.color)}">${escapeHtml(group.label)}</span>
+              <strong>${escapeHtml(formatMs(selectedPoint.point.ms))}</strong>
+            </div>
+          `
+        )
+        .join("")}
+    `;
+
+    tooltip.hidden = false;
+    if (hoverLine) {
+      hoverLine.setAttribute("x1", String(referencePoint.x));
+      hoverLine.setAttribute("x2", String(referencePoint.x));
+      hoverLine.setAttribute("opacity", "1");
+    }
+
+    hoverDotsMap.forEach((dot, key) => {
+      const match = selectedItems.find(({ group }) => group.key === key);
+      if (!match) {
+        dot.setAttribute("opacity", "0");
+        return;
+      }
+      dot.setAttribute("cx", String(match.selectedPoint.x));
+      dot.setAttribute("cy", String(match.selectedPoint.y));
+      dot.setAttribute("opacity", "1");
+    });
+
+    const wrapperRect = chartWrapper.getBoundingClientRect();
+    const localX = event.clientX - wrapperRect.left;
+    const localY = event.clientY - wrapperRect.top;
+    const tooltipWidth = tooltip.offsetWidth || 180;
+    const tooltipHeight = tooltip.offsetHeight || 96;
+
+    let tooltipX = localX + 14;
+    if (tooltipX + tooltipWidth + 8 > wrapperRect.width) {
+      tooltipX = localX - tooltipWidth - 14;
+    }
+    tooltipX = clamp(tooltipX, 8, Math.max(8, wrapperRect.width - tooltipWidth - 8));
+
+    let tooltipY = localY - tooltipHeight - 12;
+    if (tooltipY < 8) {
+      tooltipY = localY + 12;
+    }
+    tooltipY = clamp(tooltipY, 8, Math.max(8, wrapperRect.height - tooltipHeight - 8));
+
+    tooltip.style.left = `${Math.round(tooltipX)}px`;
+    tooltip.style.top = `${Math.round(tooltipY)}px`;
+  };
+
+  svg.addEventListener("pointermove", handlePointerMove);
+  svg.addEventListener("pointerdown", handlePointerMove);
+  svg.addEventListener("pointerleave", hideHover);
+  svg.addEventListener("pointercancel", hideHover);
+
+  svg.__chartCleanup = () => {
+    svg.removeEventListener("pointermove", handlePointerMove);
+    svg.removeEventListener("pointerdown", handlePointerMove);
+    svg.removeEventListener("pointerleave", hideHover);
+    svg.removeEventListener("pointercancel", hideHover);
+    hideHover();
+  };
 }
 
 async function fetchMetricsForResponseProbe(monitorId, probeId) {
