@@ -129,6 +129,51 @@
               <div class="stats-grid" id="checks-stats"></div>
             </section>
 
+            <section class="card wide">
+              <div class="card-title">Probe-Standorte</div>
+              <p class="muted card-subtitle">Live-Übersicht pro Standort (inkl. HK & Celle) über Health, Last und Fehlerrate.</p>
+              <div class="stats-grid" id="probe-location-stats">
+                <article class="stat-item">
+                  <div class="stat-label">Standorte</div>
+                  <div class="stat-value">-</div>
+                </article>
+                <article class="stat-item">
+                  <div class="stat-label">Monitore</div>
+                  <div class="stat-value">-</div>
+                </article>
+                <article class="stat-item">
+                  <div class="stat-label">Checks (10m)</div>
+                  <div class="stat-value">-</div>
+                </article>
+                <article class="stat-item">
+                  <div class="stat-label">Fehlerrate (10m)</div>
+                  <div class="stat-value">-</div>
+                </article>
+              </div>
+              <div class="table-wrap owner-probe-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Standort</th>
+                      <th>Monitore</th>
+                      <th>Online / Offline</th>
+                      <th>Avg ms</th>
+                      <th>Checks 10m</th>
+                      <th>Fehlerrate 10m</th>
+                      <th>Checks 24h</th>
+                      <th>Fehlerrate 24h</th>
+                      <th>Letzter Check</th>
+                    </tr>
+                  </thead>
+                  <tbody id="probe-location-body">
+                    <tr>
+                      <td colspan="9" class="muted">Lade Standortdaten...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
             <section class="card">
               <div class="card-title" data-i18n="owner.cards.database.title">Datenbank</div>
               <p class="muted card-subtitle" data-i18n="owner.cards.database.sub">Pool-Auslastung und Query-Verhalten</p>
