@@ -1325,29 +1325,6 @@ body.landing-page .border-slate-700 {
   overflow: hidden;
 }
 
-.landing-traffic-globe-wrap::before,
-.landing-traffic-globe-wrap::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.landing-traffic-globe-wrap::before {
-  inset: 12%;
-  background:
-    radial-gradient(circle, rgba(76, 201, 240, 0.28), rgba(76, 201, 240, 0.08) 46%, transparent 72%);
-  filter: blur(24px);
-}
-
-.landing-traffic-globe-wrap::after {
-  inset: 5%;
-  border: 1px solid rgba(76, 201, 240, 0.16);
-  box-shadow:
-    inset 0 0 30px rgba(76, 201, 240, 0.04),
-    0 0 34px rgba(76, 201, 240, 0.08);
-}
-
 .landing-traffic-globe {
   position: relative;
   z-index: 1;
@@ -1358,10 +1335,7 @@ body.landing-page .border-slate-700 {
   border-radius: 50%;
   background:
     radial-gradient(circle at 34% 30%, rgba(198, 243, 255, 0.18), rgba(20, 49, 78, 0.54) 34%, rgba(4, 11, 18, 0.98) 70%);
-  box-shadow:
-    inset 0 0 38px rgba(76, 201, 240, 0.06),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 0 42px rgba(76, 201, 240, 0.06);
+  box-shadow: inset 0 0 38px rgba(76, 201, 240, 0.05);
 }
 
 .landing-traffic-pings {
