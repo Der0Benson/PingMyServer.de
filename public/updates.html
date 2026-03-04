@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="__PMS_PRIMARY_LANG__">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      id="updates-meta-description"
+      name="description"
+      content="Neueste Produkt-Updates, Releases und Verbesserungen von PingMyServer in einer oeffentlichen Uebersicht."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#081521" />
+    <link rel="canonical" href="__PMS_ORIGIN__/updates" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title id="updates-meta-title">Updates | PingMyServer</title>
+    <link rel="stylesheet" href="/assets/landing-tailwind.css" />
+    <link rel="stylesheet" href="/assets/i18n.css" />
+    <link rel="stylesheet" href="/assets/updates.css" />
+  </head>
+  <body class="updates-page text-white">
+    <div class="updates-background" aria-hidden="true"></div>
+
+    <header class="updates-topbar-shell">
+      <div class="updates-shell">
+        <div class="updates-topbar">
+          <a class="updates-brand" href="/" data-i18n-aria-label="common.aria.home" aria-label="PingMyServer homepage">
+            <img class="updates-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+            <span class="updates-brand-name">PingMyServer.de</span>
+          </a>
+
+          <nav class="updates-nav" aria-label="Primary navigation">
+            <a href="/" id="updates-nav-home">Start</a>
+            <a href="/updates" class="is-active" id="updates-nav-updates">Updates</a>
+            <a href="/status" id="updates-nav-status">Status</a>
+          </nav>
+
+          <div class="updates-topbar-actions">
+            <div class="lang-picker">
+              <span class="sr-only" data-i18n="common.language">Sprache</span>
+              <details class="lang-menu">
+                <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                  <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                  <img class="lang-flag-img" data-lang-block="en" src="/assets/flags/gb.svg" alt="" aria-hidden="true" hidden />
+                </summary>
+                <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                  <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                    <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                  </button>
+                  <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                    <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                  </button>
+                </div>
+              </details>
+            </div>
+
+            <a class="updates-auth-link" href="/login" data-updates-auth-link>Anmelden</a>
+            <a class="updates-primary-link" href="/login?mode=register" data-updates-primary-link>Kostenlos starten</a>
+
+            <button
+              id="updates-mobile-toggle"
+              class="updates-mobile-toggle"
+              type="button"
+              aria-controls="updates-mobile-menu"
+              aria-expanded="false"
+              aria-label="Navigation"
+            >
+              <span class="updates-mobile-toggle-line"></span>
+              <span class="updates-mobile-toggle-line"></span>
+              <span class="updates-mobile-toggle-line"></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="updates-mobile-menu" class="updates-mobile-menu" hidden>
+          <nav class="updates-mobile-nav" aria-label="Mobile navigation">
+            <a href="/" id="updates-mobile-home">Start</a>
+            <a href="/updates" class="is-active" id="updates-mobile-updates">Updates</a>
+            <a href="/status" id="updates-mobile-status">Status</a>
+          </nav>
+          <div class="updates-mobile-actions">
+            <a class="updates-auth-link" href="/login" data-updates-auth-link>Anmelden</a>
+            <a class="updates-primary-link" href="/login?mode=register" data-updates-primary-link>Kostenlos starten</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="updates-main">
+      <section class="updates-shell updates-hero">
+        <div class="updates-hero-copy">
+          <div class="updates-kicker">
+            <span class="updates-kicker-line"></span>
+            <span id="updates-badge">Produkt-Updates</span>
+          </div>
+          <h1 id="updates-title">Was sich zuletzt bei PingMyServer geaendert hat</h1>
+          <p class="updates-lead" id="updates-lead">
+            Hier stehen neue Releases, UX-Verbesserungen und frisch freigeschaltete Tools in einer oeffentlichen Uebersicht.
+          </p>
+
+          <div class="updates-stat-row">
+            <div class="updates-stat-card">
+              <span class="updates-stat-label" id="updates-stat-label-entries">Eintraege</span>
+              <strong class="updates-stat-value" id="updates-stat-entries">0</strong>
+            </div>
+            <div class="updates-stat-card">
+              <span class="updates-stat-label" id="updates-stat-label-latest">Letztes Update</span>
+              <strong class="updates-stat-value" id="updates-stat-latest">--</strong>
+            </div>
+          </div>
+        </div>
+
+        <aside class="updates-hero-side">
+          <div class="updates-hero-panel">
+            <p class="updates-panel-kicker" id="updates-panel-kicker">Live-Changelog</p>
+            <h2 id="updates-panel-title">Neue Eintraege stehen immer oben</h2>
+            <p id="updates-panel-body">
+              Du kannst diese Seite spaeter einfach erweitern. Fuer neue Meldungen kommt nur ein weiterer Eintrag in die Datenliste.
+            </p>
+            <div class="updates-hero-actions">
+              <a class="updates-primary-link updates-primary-link-wide" href="/login?mode=register" data-updates-primary-link>Kostenlos starten</a>
+              <a class="updates-secondary-link" href="/status" id="updates-secondary-link">Status ansehen</a>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="updates-shell updates-content">
+        <section class="updates-feed-panel">
+          <div class="updates-section-head">
+            <p class="updates-section-kicker" id="updates-feed-kicker">Release-Feed</p>
+            <h2 id="updates-feed-title">Neueste Eintraege</h2>
+            <p class="updates-section-sub" id="updates-feed-sub">
+              Die Karten unten sind absichtlich chronologisch aufgebaut. Die juengste Aenderung bleibt immer zuerst sichtbar.
+            </p>
+          </div>
+          <div id="updates-feed" class="updates-feed" role="feed" aria-live="polite"></div>
+          <noscript>
+            <p class="updates-noscript">Bitte JavaScript aktivieren, damit die Update-Eintraege geladen werden.</p>
+          </noscript>
+        </section>
+
+        <aside class="updates-side">
+          <section class="updates-side-card">
+            <p class="updates-side-kicker" id="updates-side-kicker">Was hier landet</p>
+            <h2 id="updates-side-title">Kurz und produktnah</h2>
+            <p class="updates-side-body" id="updates-side-body">
+              Diese Seite ist fuer sichtbare Releases gedacht, nicht fuer jeden internen Commit. Dadurch bleibt sie fuer Nutzer klar lesbar.
+            </p>
+            <ul class="updates-side-list" id="updates-side-list"></ul>
+          </section>
+
+          <section class="updates-side-card updates-side-card-accent">
+            <p class="updates-side-kicker" id="updates-maintenance-kicker">Pflege</p>
+            <h2 id="updates-maintenance-title">Einfach erweiterbar</h2>
+            <p class="updates-side-body" id="updates-maintenance-body">
+              Neue Eintraege kannst du spaeter direkt in der Datei fuer diese Seite hinterlegen. Die Reihenfolge bleibt bewusst manuell.
+            </p>
+            <a
+              class="updates-ghost-link"
+              href="https://github.com/Der0Benson/PingMyServer.de/commits/main"
+              target="_blank"
+              rel="noreferrer"
+              id="updates-maintenance-link"
+            >Commits auf GitHub</a>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="updates-footer">
+      <div class="updates-shell updates-footer-inner">
+        <p class="updates-footer-copy">&copy; 2026 PingMyServer</p>
+        <nav class="updates-footer-links" aria-label="Footer navigation">
+          <a href="/" id="updates-footer-home">Start</a>
+          <a href="/updates" id="updates-footer-updates">Updates</a>
+          <a href="/status" id="updates-footer-status">Status</a>
+          <a href="/impressum" data-i18n="common.imprint">Impressum</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="/assets/i18n.js"></script>
+    <script src="/assets/updates.js"></script>
+  </body>
+</html>
