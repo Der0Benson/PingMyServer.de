@@ -18,7 +18,6 @@
       },
       hero: {
         badge: "Release-Blog",
-        subtle: "GitHub-inspiriert",
         title: "Klare Release-Notizen statt versteckter Änderungen",
         lead:
           "Diese Seite sammelt sichtbare Produkt-Updates im Stil eines Repository-Feeds: chronologisch, direkt und mit den wichtigsten Änderungen auf einen Blick.",
@@ -123,7 +122,6 @@
       },
       hero: {
         badge: "Release blog",
-        subtle: "GitHub-inspired",
         title: "Clear release notes instead of hidden changes",
         lead:
           "This page collects visible product updates in the style of a repository feed: chronological, direct and focused on the changes that matter most.",
@@ -231,7 +229,6 @@
 
   const repoHintEl = document.getElementById("blog-repo-hint");
   const badgeEl = document.getElementById("blog-badge");
-  const subtleBadgeEl = document.getElementById("blog-badge-subtle");
   const titleEl = document.getElementById("blog-title");
   const leadEl = document.getElementById("blog-lead");
   const statPostsLabelEl = document.getElementById("blog-stat-label-posts");
@@ -557,7 +554,6 @@
     });
 
     if (badgeEl) badgeEl.textContent = pageCopy.hero.badge;
-    if (subtleBadgeEl) subtleBadgeEl.textContent = pageCopy.hero.subtle;
     if (titleEl) titleEl.textContent = pageCopy.hero.title;
     if (leadEl) leadEl.textContent = pageCopy.hero.lead;
     if (statPostsLabelEl) statPostsLabelEl.textContent = pageCopy.hero.statPosts;
