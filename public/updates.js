@@ -4,7 +4,7 @@
   const COPY = {
     de: {
       metaTitle: "Updates | PingMyServer",
-      metaDescription: "Neueste Produkt-Updates, Releases und Verbesserungen von PingMyServer in einer oeffentlichen Uebersicht.",
+      metaDescription: "Neueste Produkt-Updates, Releases und Verbesserungen von PingMyServer in einer öffentlichen Übersicht.",
       nav: {
         home: "Start",
         updates: "Updates",
@@ -17,34 +17,34 @@
       },
       hero: {
         badge: "Produkt-Updates",
-        title: "Was sich zuletzt bei PingMyServer geaendert hat",
-        lead: "Hier stehen neue Releases, UX-Verbesserungen und frisch freigeschaltete Tools in einer oeffentlichen Uebersicht.",
-        statEntries: "Eintraege",
+        title: "Was sich zuletzt bei PingMyServer geändert hat",
+        lead: "Sichtbare Releases, Verbesserungen und neue Werkzeuge an einem Ort, damit sofort klar ist, was zuletzt live gegangen ist.",
+        statEntries: "Einträge",
         statLatest: "Letztes Update",
         panelKicker: "Live-Changelog",
-        panelTitle: "Neue Eintraege stehen immer oben",
-        panelBody: "Die Seite bleibt absichtlich einfach: neue Karte oben ergaenzen, fertig. Dadurch ist auf einen Blick klar, was zuletzt live gegangen ist.",
+        panelTitle: "Neue Einträge stehen immer oben",
+        panelBody: "Die Seite funktioniert bewusst wie ein kompaktes Release-Journal: oben die neueste Änderung, darunter der Verlauf.",
         statusLink: "Status ansehen",
       },
       feed: {
-        kicker: "Release-Feed",
-        title: "Neueste Eintraege",
-        sub: "Die juengste Aenderung bleibt immer zuerst sichtbar. Fuer neue Meldungen musst du spaeter nur einen weiteren Eintrag in dieser Datei ergaenzen.",
+        kicker: "Release-Journal",
+        title: "Neueste Einträge",
+        sub: "Keine Commit-Wand, sondern die Änderungen, die für Nutzer wirklich sichtbar und relevant sind.",
         featured: "Neu",
         empty: "Noch keine Updates vorhanden.",
       },
       side: {
         kicker: "Was hier landet",
-        title: "Kurz und produktnah",
-        body: "Diese Seite ist fuer sichtbare Releases gedacht, nicht fuer jeden internen Commit. So bleibt sie fuer Besucher und Kunden schnell erfassbar.",
+        title: "Kurz, klar und produktnah",
+        body: "Diese Seite ist für echte Releases gedacht. So sehen Besucher sofort, was sich am Produkt konkret verbessert hat.",
         items: [
-          "Neue Features und freigeschaltete Tools",
-          "Spuerbare UX-Verbesserungen im Login und Dashboard",
-          "Sicherheits- und Stabilitaetsupdates mit Nutzerwirkung",
+          "Neue Features und freigeschaltete Werkzeuge",
+          "Spürbare UX-Verbesserungen in Login, Dashboard und Statusansichten",
+          "Sicherheits- und Stabilitätsupdates mit direkter Nutzerwirkung",
         ],
         maintenanceKicker: "Pflege",
-        maintenanceTitle: "Einfach erweiterbar",
-        maintenanceBody: "Neue Eintraege pflegst du direkt in public/updates.js. Die Sortierung ist bewusst manuell, damit du Headlines priorisieren kannst.",
+        maintenanceTitle: "Leicht zu erweitern",
+        maintenanceBody: "Neue Einträge pflegst du zentral in einer Liste. Dadurch bleibt die Seite schnell änderbar und inhaltlich sortiert.",
         maintenanceLink: "Commits auf GitHub",
       },
       footer: {
@@ -58,38 +58,41 @@
       posts: [
         {
           date: "2026-03-04",
+          type: "Login",
           title: "E-Mail-Login fragt den Verifizierungscode nur noch beim ersten Mal ab",
           summary:
-            "Wer sich per E-Mail und Passwort anmeldet, muss den Code jetzt nur noch bei der ersten erfolgreichen Verifizierung bestaetigen. Danach laeuft der Login wieder direkt ueber die Session.",
-          tags: ["UX", "Login", "Security"],
+            "Wer sich per E-Mail und Passwort anmeldet, muss den Code jetzt nur noch bei der ersten erfolgreichen Verifizierung bestätigen. Danach läuft der Login wieder direkt über die Session.",
+          tags: ["UX", "Sicherheit", "Anmeldung"],
           points: [
-            "Nach der ersten bestaetigten Code-Pruefung merkt sich das System den verifizierten E-Mail-Login dauerhaft.",
+            "Nach der ersten bestätigten Code-Prüfung merkt sich das System den verifizierten E-Mail-Login dauerhaft.",
             "Wiederkehrende Anmeldungen mit derselben E-Mail und korrektem Passwort landen danach direkt in der Session.",
-            "Die Verifikation bleibt fuer neue Accounts und beim allerersten Login weiterhin aktiv.",
+            "Die Verifikation bleibt für neue Accounts und beim allerersten Login weiterhin aktiv.",
           ],
         },
         {
           date: "2026-03-03",
-          title: "Game-Monitor Bereich zeigt verbundene Mod-Sessions und Live-Metriken",
+          type: "Monitoring",
+          title: "Game-Monitor zeigt verbundene Mod-Sessions und Live-Metriken",
           summary:
-            "Der Game-Monitor deckt jetzt verbundene Sessions, Heartbeats und technische Live-Daten sauber in einer eigenen Uebersicht ab.",
-          tags: ["Game Monitor", "Live", "Dashboard"],
+            "Der Game-Monitor bündelt jetzt verbundene Sessions, Heartbeats und technische Live-Daten in einer eigenen, klareren Übersicht.",
+          tags: ["Live-Daten", "Dashboard", "Game-Monitor"],
           points: [
-            "Verbundene Mod-Sessions werden getrennt angezeigt und koennen direkt getrennt werden.",
+            "Verbundene Mod-Sessions werden getrennt angezeigt und können direkt getrennt werden.",
             "TPS, Ping, Heartbeat und weitere Live-Werte sind sichtbar, sobald Daten eintreffen.",
-            "Der Bereich ist als eigene Seite aufgebaut und bleibt klar von klassischem Website-Monitoring getrennt.",
+            "Der Bereich bleibt klar vom klassischen Website-Monitoring getrennt.",
           ],
         },
         {
           date: "2026-02-26",
-          title: "Oeffentliche Tool-Seiten fuer DNS Lookup und Port Checker sind live",
+          type: "Tools",
+          title: "Öffentliche Tool-Seiten für DNS Lookup und Port Checker sind live",
           summary:
-            "Zusatztools koennen jetzt direkt ohne Login genutzt werden. Das macht schnelle Checks fuer DNS-Fehler und erreichbare TCP-Ports einfacher.",
-          tags: ["Tools", "DNS", "Networking"],
+            "Zusatztools können jetzt direkt ohne Login genutzt werden. Damit werden schnelle Checks für DNS-Fehler und erreichbare TCP-Ports deutlich einfacher.",
+          tags: ["DNS", "Netzwerk", "Öffentlich"],
           points: [
             "DNS Lookup deckt A, AAAA, MX, TXT, CNAME, NS, SRV und SOA direkt im Browser ab.",
-            "Der Port Checker prueft, ob ein oeffentlicher TCP-Port von aussen erreichbar ist.",
-            "Beide Seiten sind oeffentlich, teilen sich denselben Sprachumschalter und passen optisch zur Landing Page.",
+            "Der Port Checker prüft, ob ein öffentlicher TCP-Port von außen erreichbar ist.",
+            "Beide Seiten teilen sich denselben Sprachumschalter und passen optisch zur öffentlichen Produktseite.",
           ],
         },
       ],
@@ -110,33 +113,33 @@
       hero: {
         badge: "Product updates",
         title: "What changed recently in PingMyServer",
-        lead: "This page highlights new releases, UX improvements and newly launched tools in one public feed.",
+        lead: "Visible releases, improvements and new tools in one place so it is immediately clear what went live most recently.",
         statEntries: "Entries",
         statLatest: "Latest update",
         panelKicker: "Live changelog",
         panelTitle: "Newest entries always stay on top",
-        panelBody: "The page is intentionally simple: add the next card at the top and it stays readable. That keeps the latest release visible immediately.",
+        panelBody: "The page is intentionally structured like a compact release journal: newest change first, timeline below.",
         statusLink: "View status",
       },
       feed: {
-        kicker: "Release feed",
+        kicker: "Release journal",
         title: "Latest entries",
-        sub: "The newest change stays first. To publish more notes later, you only need to add another entry in this file.",
+        sub: "Not a raw commit wall, but the changes that are actually visible and relevant for users.",
         featured: "Latest",
         empty: "No updates yet.",
       },
       side: {
         kicker: "What gets posted here",
-        title: "Short and product-facing",
-        body: "This page is meant for visible releases, not every internal commit. That keeps it easy to scan for visitors and customers.",
+        title: "Short, clear and product-facing",
+        body: "This page is meant for real releases so visitors can instantly see what improved in the product.",
         items: [
-          "New features and newly launched tools",
-          "Noticeable UX improvements across sign-in and dashboard flows",
-          "Security and stability updates that affect users directly",
+          "New features and newly released tools",
+          "Noticeable UX improvements across sign-in, dashboard and status views",
+          "Security and stability updates with direct user impact",
         ],
         maintenanceKicker: "Maintenance",
         maintenanceTitle: "Easy to extend",
-        maintenanceBody: "Add future entries directly in public/updates.js. The ordering is kept manual on purpose so you can prioritize headlines.",
+        maintenanceBody: "Future entries live in one central list. That keeps the page fast to edit and easy to keep sorted.",
         maintenanceLink: "Commits on GitHub",
       },
       footer: {
@@ -150,10 +153,11 @@
       posts: [
         {
           date: "2026-03-04",
+          type: "Login",
           title: "Email login now asks for the verification code only once",
           summary:
-            "If someone signs in with email and password, the code is now required only for the first successful verification. After that, sign-in continues directly through the normal session flow.",
-          tags: ["UX", "Login", "Security"],
+            "Users signing in with email and password now need the code only for the first successful verification. After that, sign-in continues directly through the normal session flow.",
+          tags: ["UX", "Security", "Sign-in"],
           points: [
             "After the first confirmed code check, the system remembers that the email login was verified.",
             "Future sign-ins with the same email and a valid password go straight into the session.",
@@ -162,26 +166,28 @@
         },
         {
           date: "2026-03-03",
+          type: "Monitoring",
           title: "Game monitor now shows connected mod sessions and live metrics",
           summary:
-            "The game monitor now exposes connected sessions, heartbeats and core live metrics in a dedicated view.",
-          tags: ["Game Monitor", "Live", "Dashboard"],
+            "The game monitor now groups connected sessions, heartbeats and technical live data in a cleaner dedicated view.",
+          tags: ["Live data", "Dashboard", "Game monitor"],
           points: [
             "Connected mod sessions are listed separately and can be disconnected directly.",
             "TPS, ping, heartbeat and related live values become visible as soon as data arrives.",
-            "The area is structured as its own page and stays clearly separate from classic website monitoring.",
+            "The area stays clearly separated from classic website monitoring.",
           ],
         },
         {
           date: "2026-02-26",
+          type: "Tools",
           title: "Public DNS lookup and port checker pages are now live",
           summary:
             "Extra tools can now be used without signing in, making quick checks for DNS issues and reachable TCP ports much easier.",
-          tags: ["Tools", "DNS", "Networking"],
+          tags: ["DNS", "Network", "Public"],
           points: [
             "DNS lookup covers A, AAAA, MX, TXT, CNAME, NS, SRV and SOA right in the browser.",
             "The port checker tests whether a public TCP port is reachable from the outside.",
-            "Both pages are public, share the same language switcher and visually match the landing experience.",
+            "Both pages share the same language switcher and visually match the public product pages.",
           ],
         },
       ],
@@ -238,7 +244,7 @@
     return getLang() === "en" ? "en-US" : "de-DE";
   }
 
-  function fetchPageCopy() {
+  function getPageCopy() {
     return COPY[getLang()] || COPY.de;
   }
 
@@ -247,7 +253,7 @@
     if (!Number.isFinite(date.getTime())) return "--";
     return new Intl.DateTimeFormat(getLocale(), {
       year: "numeric",
-      month: "short",
+      month: "long",
       day: "2-digit",
     }).format(date);
   }
@@ -301,67 +307,64 @@
   }
 
   function createTag(text) {
-    const item = document.createElement("span");
-    item.className = "updates-tag";
-    item.textContent = text;
-    return item;
+    const tag = document.createElement("span");
+    tag.className = "updates-entry-tag";
+    tag.textContent = text;
+    return tag;
   }
 
-  function createPoint(text) {
+  function createBullet(text) {
     const item = document.createElement("li");
-
     const copy = document.createElement("span");
     copy.textContent = text;
     item.appendChild(copy);
     return item;
   }
 
-  function createCard(post, index, pageCopy) {
-    const card = document.createElement("article");
-    card.className = `updates-card${index === 0 ? " is-featured" : ""}`;
-    card.setAttribute("role", "article");
+  function createEntry(post, index, pageCopy) {
+    const entry = document.createElement("article");
+    entry.className = `updates-entry${index === 0 ? " is-featured" : ""}`;
 
-    const head = document.createElement("div");
-    head.className = "updates-card-head";
+    const meta = document.createElement("div");
+    meta.className = "updates-entry-meta";
 
     const date = document.createElement("span");
-    date.className = "updates-card-date";
+    date.className = "updates-entry-date";
     date.textContent = formatDate(post.date);
-    head.appendChild(date);
+    meta.appendChild(date);
 
-    if (index === 0) {
-      const badge = document.createElement("span");
-      badge.className = "updates-badge-chip";
-      badge.textContent = pageCopy.feed.featured;
-      head.appendChild(badge);
-    }
+    const badge = document.createElement("span");
+    badge.className = "updates-entry-badge";
+    badge.textContent = index === 0 ? pageCopy.feed.featured : String(post.type || "").trim() || pageCopy.feed.featured;
+    meta.appendChild(badge);
 
     const title = document.createElement("h3");
+    title.className = "updates-entry-title";
     title.textContent = post.title;
 
     const summary = document.createElement("p");
-    summary.className = "updates-card-summary";
+    summary.className = "updates-entry-summary";
     summary.textContent = post.summary;
 
     const tags = document.createElement("div");
-    tags.className = "updates-tag-row";
+    tags.className = "updates-entry-tags";
     (Array.isArray(post.tags) ? post.tags : []).forEach((tag) => {
       tags.appendChild(createTag(tag));
     });
 
     const points = document.createElement("ul");
-    points.className = "updates-points";
+    points.className = "updates-entry-points";
     (Array.isArray(post.points) ? post.points : []).forEach((point) => {
-      points.appendChild(createPoint(point));
+      points.appendChild(createBullet(point));
     });
 
-    card.appendChild(head);
-    card.appendChild(title);
-    card.appendChild(summary);
-    if (tags.childElementCount) card.appendChild(tags);
-    if (points.childElementCount) card.appendChild(points);
+    entry.appendChild(meta);
+    entry.appendChild(title);
+    entry.appendChild(summary);
+    if (tags.childElementCount) entry.appendChild(tags);
+    if (points.childElementCount) entry.appendChild(points);
 
-    return card;
+    return entry;
   }
 
   function renderFeed(pageCopy) {
@@ -372,14 +375,14 @@
 
     if (!posts.length) {
       const empty = document.createElement("p");
-      empty.className = "updates-noscript";
+      empty.className = "updates-fallback";
       empty.textContent = pageCopy.feed.empty;
       feedEl.appendChild(empty);
       return;
     }
 
     posts.forEach((post, index) => {
-      feedEl.appendChild(createCard(post, index, pageCopy));
+      feedEl.appendChild(createEntry(post, index, pageCopy));
     });
   }
 
@@ -470,12 +473,12 @@
     });
 
     window.addEventListener("resize", () => {
-      if (window.innerWidth >= 861) closeMobileMenu();
+      if (window.innerWidth >= 881) closeMobileMenu();
     });
   }
 
   function init() {
-    const pageCopy = fetchPageCopy();
+    const pageCopy = getPageCopy();
     renderStaticCopy(pageCopy);
     renderStats(pageCopy);
     renderFeed(pageCopy);
