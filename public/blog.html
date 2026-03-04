@@ -16,26 +16,96 @@
     <link rel="manifest" href="/site.webmanifest" />
     <title id="blog-meta-title">Blog | PingMyServer</title>
     <link rel="stylesheet" href="/assets/i18n.css" />
+    <link rel="stylesheet" href="/assets/landing.css" />
     <link rel="stylesheet" href="/assets/blog.css" />
   </head>
   <body class="blog-page">
-    <header class="blog-header">
-      <div class="blog-shell">
-        <div class="blog-topbar">
-          <a class="blog-brand" href="/" data-i18n-aria-label="common.aria.home" aria-label="PingMyServer homepage">
-            <img class="blog-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
-            <span class="blog-brand-wordmark">PingMyServer.de</span>
+    <nav class="landing-nav-shell blog-nav-shell">
+      <div class="blog-shell blog-nav-wrap">
+        <div class="landing-nav-main">
+          <a class="landing-brand" href="/" data-i18n-aria-label="common.aria.home" aria-label="PingMyServer homepage">
+            <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+            <span class="landing-brand-name">PingMyServer.de</span>
           </a>
 
-          <div class="blog-repo-hint" id="blog-repo-hint">pingmyserver / blog</div>
+          <div class="landing-nav-links" aria-label="Primary navigation">
+            <details class="landing-nav-product" data-blog-product-menu>
+              <summary class="landing-nav-product-summary" data-i18n="landing.nav.product">Produkt</summary>
+              <div class="landing-nav-product-panel" data-i18n-aria-label="landing.nav.product" aria-label="Produkt">
+                <div class="landing-nav-product-grid">
+                  <div class="landing-nav-product-col landing-nav-product-col-main">
+                    <a href="/#features" class="landing-nav-product-row is-active" data-blog-product-link>
+                      <span class="landing-nav-product-dot dot-cyan"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.monitoring_desc">Überwache Websites, APIs und Services rund um die Uhr.</span>
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                    <a href="/#features" class="landing-nav-product-row" data-blog-product-link>
+                      <span class="landing-nav-product-dot dot-orange"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.incidents_desc">Historie, Ausfallzeiten und Ursachen auf einen Blick.</span>
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                    <a href="/#features" class="landing-nav-product-row" data-blog-product-link>
+                      <span class="landing-nav-product-dot dot-amber"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.alerting_desc">Discord, E-Mail und Webhooks für sofortige Reaktion.</span>
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                    <a href="/status" class="landing-nav-product-row" data-blog-product-link>
+                      <span class="landing-nav-product-dot dot-emerald"></span>
+                      <span class="landing-nav-product-row-copy">
+                        <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</span>
+                        <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.status_desc">Live-Transparenz für Nutzer und Kunden.</span>
+                      </span>
+                      <span class="landing-nav-product-arrow">›</span>
+                    </a>
+                  </div>
+                  <div class="landing-nav-product-col landing-nav-product-col-side">
+                    <a href="/#features" class="landing-nav-product-side-link" data-blog-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.kpi_title">Realtime KPI Dashboard</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.kpi_desc">Response-Zeiten, Uptime und Trends sofort sehen.</span>
+                    </a>
+                    <a href="/#features" class="landing-nav-product-side-link" data-blog-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.ssl_title">Domain & SSL Monitoring</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.ssl_desc">Ablaufdaten und Zertifikate automatisch überwachen.</span>
+                    </a>
+                    <a href="/dns-lookup" class="landing-nav-product-side-link" data-blog-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.dns_title">DNS Lookup Tool</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.dns_desc">Prüfe A-, MX-, TXT- und weitere Records kostenlos.</span>
+                    </a>
+                    <a href="/port-checker" class="landing-nav-product-side-link" data-blog-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.port_title">Port Checker</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.port_desc">Teste, ob öffentliche TCP-Ports von außen erreichbar sind.</span>
+                    </a>
+                    <a href="/status" class="landing-nav-product-side-link" data-blog-product-link>
+                      <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.demo_title">Live Demo</span>
+                      <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.demo_desc">Sieh dir die öffentliche Statusseite direkt an.</span>
+                    </a>
+                  </div>
+                </div>
+                <a href="/status" class="landing-nav-product-demo" data-blog-product-link>
+                  <img src="/assets/demo.png" alt="" aria-hidden="true" class="landing-nav-product-demo-avatar" />
+                  <span class="landing-nav-product-demo-copy">
+                    <span class="landing-nav-product-demo-title" data-i18n="landing.nav.demo_title">Demo ansehen</span>
+                    <span class="landing-nav-product-demo-desc" data-i18n="landing.nav.demo_desc">Kurzer Einblick in die Live-Features von PingMyServer.</span>
+                  </span>
+                </a>
+              </div>
+            </details>
+            <a href="/#about" class="hover:text-cyan-400 transition" data-i18n="landing.nav.why_us">Warum wir</a>
+            <a href="/#bewertungen" class="hover:text-cyan-400 transition" data-i18n="landing.nav.customers">Kunden</a>
+            <a href="/blog" class="hover:text-cyan-400 transition">Blog</a>
+            <a href="/#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
+          </div>
 
-          <nav class="blog-tabs" aria-label="Primary navigation">
-            <a href="/" id="blog-tab-home">Start</a>
-            <a href="/blog" class="is-active" id="blog-tab-blog">Blog</a>
-            <a href="/status" id="blog-tab-status">Status</a>
-          </nav>
-
-          <div class="blog-topbar-actions">
+          <div class="landing-nav-actions">
             <div class="lang-picker">
               <span class="sr-only" data-i18n="common.language">Sprache</span>
               <details class="lang-menu">
@@ -53,38 +123,73 @@
                 </div>
               </details>
             </div>
-
-            <a class="blog-quiet-link" href="/login" data-blog-auth-link>Anmelden</a>
-            <a class="blog-primary-link" href="/login?mode=register" data-blog-primary-link>Kostenlos starten</a>
-
+            <a
+              id="blog-nav-login"
+              data-blog-auth-link
+              href="/login"
+              class="landing-nav-login"
+              data-i18n="landing.nav.login"
+            >Anmelden</a>
+            <a
+              id="blog-nav-primary-cta"
+              data-blog-primary-link
+              href="/login?mode=register"
+              class="landing-nav-cta"
+              data-i18n="landing.nav.cta"
+            >
+              Kostenlos starten
+            </a>
             <button
               id="blog-mobile-toggle"
-              class="blog-mobile-toggle"
+              class="landing-mobile-toggle"
               type="button"
               aria-controls="blog-mobile-menu"
               aria-expanded="false"
-              aria-label="Navigation"
+              aria-label="Navigation öffnen"
             >
-              <span class="blog-mobile-toggle-line"></span>
-              <span class="blog-mobile-toggle-line"></span>
-              <span class="blog-mobile-toggle-line"></span>
+              <span class="landing-mobile-toggle-line"></span>
+              <span class="landing-mobile-toggle-line"></span>
+              <span class="landing-mobile-toggle-line"></span>
             </button>
           </div>
         </div>
-
-        <div id="blog-mobile-menu" class="blog-mobile-menu" hidden>
-          <nav class="blog-mobile-tabs" aria-label="Mobile navigation">
-            <a href="/" id="blog-mobile-home">Start</a>
-            <a href="/blog" class="is-active" id="blog-mobile-blog">Blog</a>
-            <a href="/status" id="blog-mobile-status">Status</a>
-          </nav>
-          <div class="blog-mobile-actions">
-            <a class="blog-quiet-link" href="/login" data-blog-auth-link>Anmelden</a>
-            <a class="blog-primary-link" href="/login?mode=register" data-blog-primary-link>Kostenlos starten</a>
+        <div id="blog-mobile-menu" class="landing-mobile-menu" hidden>
+          <div class="landing-mobile-links">
+            <details class="landing-mobile-company" data-blog-mobile-product>
+              <summary class="landing-mobile-company-summary" data-i18n="landing.nav.product">Produkt</summary>
+              <div class="landing-mobile-company-links">
+                <a href="/#features" data-blog-mobile-link data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</a>
+                <a href="/#features" data-blog-mobile-link data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</a>
+                <a href="/#features" data-blog-mobile-link data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</a>
+                <a href="/status" data-blog-mobile-link data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</a>
+                <a href="/dns-lookup" data-blog-mobile-link data-i18n="landing.nav.product_side.dns_title">DNS Lookup Tool</a>
+                <a href="/port-checker" data-blog-mobile-link data-i18n="landing.nav.product_side.port_title">Port Checker</a>
+              </div>
+            </details>
+            <a href="/#about" data-blog-mobile-link data-i18n="landing.nav.why_us">Warum wir</a>
+            <a href="/#bewertungen" data-blog-mobile-link data-i18n="landing.nav.customers">Kunden</a>
+            <a href="/blog" data-blog-mobile-link>Blog</a>
+            <a href="/#preise" data-blog-mobile-link data-i18n="landing.nav.pricing">Preise</a>
+          </div>
+          <div class="landing-mobile-actions">
+            <a
+              href="/login"
+              data-blog-auth-link
+              class="landing-mobile-login"
+              data-i18n="landing.nav.login"
+            >Anmelden</a>
+            <a
+              href="/login?mode=register"
+              data-blog-primary-link
+              class="landing-mobile-cta"
+              data-i18n="landing.nav.cta"
+            >
+              Kostenlos starten
+            </a>
           </div>
         </div>
       </div>
-    </header>
+    </nav>
 
     <main class="blog-main">
       <section class="blog-shell blog-hero">
@@ -138,27 +243,12 @@
 
         <aside class="blog-sidebar">
           <section class="blog-panel blog-panel-compact">
-            <p class="blog-panel-kicker" id="blog-sidebar-kicker">Warum dieses Format</p>
-            <h2 id="blog-sidebar-title">Weniger Rauschen, mehr Signal</h2>
+            <p class="blog-panel-kicker" id="blog-sidebar-kicker">Im Überblick</p>
+            <h2 id="blog-sidebar-title">Relevante Updates, klar zusammengefasst</h2>
             <p class="blog-panel-copy" id="blog-sidebar-copy">
-              Statt jedes Detail zu protokollieren, landen hier nur Änderungen mit echter Außenwirkung für Nutzer und Kunden.
+              Hier erscheinen nur Änderungen, die für Nutzer und Kunden im Alltag sichtbar oder spürbar sind.
             </p>
             <ul class="blog-notes" id="blog-notes"></ul>
-          </section>
-
-          <section class="blog-panel blog-panel-compact">
-            <p class="blog-panel-kicker" id="blog-maintenance-kicker">Pflege</p>
-            <h2 id="blog-maintenance-title">Leicht zu erweitern</h2>
-            <p class="blog-panel-copy" id="blog-maintenance-copy">
-              Neue Beiträge kommen nur an einer Stelle dazu. So bleibt die Seite technisch einfach und redaktionell schnell pflegbar.
-            </p>
-            <a
-              class="blog-inline-link"
-              href="https://github.com/Der0Benson/PingMyServer.de/commits/main"
-              target="_blank"
-              rel="noreferrer"
-              id="blog-maintenance-link"
-            >Commits auf GitHub</a>
           </section>
         </aside>
       </section>
