@@ -6,28 +6,31 @@
     <meta
       id="updates-meta-description"
       name="description"
-      content="Neueste Produkt-Updates, Releases und Verbesserungen von PingMyServer in einer oeffentlichen Uebersicht."
+      content="Neueste Produkt-Updates, Releases und Verbesserungen von PingMyServer in einer öffentlichen Übersicht."
     />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#081521" />
+    <meta name="theme-color" content="#10141d" />
     <link rel="canonical" href="__PMS_ORIGIN__/updates" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <title id="updates-meta-title">Updates | PingMyServer</title>
-    <link rel="stylesheet" href="/assets/landing-tailwind.css" />
     <link rel="stylesheet" href="/assets/i18n.css" />
     <link rel="stylesheet" href="/assets/updates.css" />
   </head>
-  <body class="updates-page text-white">
-    <div class="updates-background" aria-hidden="true"></div>
+  <body class="updates-page">
+    <div class="updates-ambient" aria-hidden="true">
+      <span class="updates-ambient-orb updates-ambient-orb-a"></span>
+      <span class="updates-ambient-orb updates-ambient-orb-b"></span>
+      <span class="updates-ambient-grid"></span>
+    </div>
 
-    <header class="updates-topbar-shell">
+    <header class="updates-header">
       <div class="updates-shell">
         <div class="updates-topbar">
           <a class="updates-brand" href="/" data-i18n-aria-label="common.aria.home" aria-label="PingMyServer homepage">
             <img class="updates-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
-            <span class="updates-brand-name">PingMyServer.de</span>
+            <span class="updates-brand-wordmark">PingMyServer.de</span>
           </a>
 
           <nav class="updates-nav" aria-label="Primary navigation">
@@ -55,7 +58,7 @@
               </details>
             </div>
 
-            <a class="updates-auth-link" href="/login" data-updates-auth-link>Anmelden</a>
+            <a class="updates-quiet-link" href="/login" data-updates-auth-link>Anmelden</a>
             <a class="updates-primary-link" href="/login?mode=register" data-updates-primary-link>Kostenlos starten</a>
 
             <button
@@ -80,7 +83,7 @@
             <a href="/status" id="updates-mobile-status">Status</a>
           </nav>
           <div class="updates-mobile-actions">
-            <a class="updates-auth-link" href="/login" data-updates-auth-link>Anmelden</a>
+            <a class="updates-quiet-link" href="/login" data-updates-auth-link>Anmelden</a>
             <a class="updates-primary-link" href="/login?mode=register" data-updates-primary-link>Kostenlos starten</a>
           </div>
         </div>
@@ -90,35 +93,33 @@
     <main class="updates-main">
       <section class="updates-shell updates-hero">
         <div class="updates-hero-copy">
-          <div class="updates-kicker">
-            <span class="updates-kicker-line"></span>
-            <span id="updates-badge">Produkt-Updates</span>
-          </div>
-          <h1 id="updates-title">Was sich zuletzt bei PingMyServer geaendert hat</h1>
-          <p class="updates-lead" id="updates-lead">
-            Hier stehen neue Releases, UX-Verbesserungen und frisch freigeschaltete Tools in einer oeffentlichen Uebersicht.
+          <p class="updates-eyebrow" id="updates-badge">Produkt-Updates</p>
+          <h1 id="updates-title">Was sich zuletzt bei PingMyServer geändert hat</h1>
+          <p class="updates-hero-lead" id="updates-lead">
+            Sichtbare Releases, Verbesserungen und neue Werkzeuge an einem Ort, damit sofort klar ist, was zuletzt live gegangen ist.
           </p>
 
-          <div class="updates-stat-row">
-            <div class="updates-stat-card">
-              <span class="updates-stat-label" id="updates-stat-label-entries">Eintraege</span>
-              <strong class="updates-stat-value" id="updates-stat-entries">0</strong>
-            </div>
-            <div class="updates-stat-card">
-              <span class="updates-stat-label" id="updates-stat-label-latest">Letztes Update</span>
-              <strong class="updates-stat-value" id="updates-stat-latest">--</strong>
-            </div>
+          <div class="updates-meter-row">
+            <article class="updates-meter">
+              <span class="updates-meter-label" id="updates-stat-label-entries">Einträge</span>
+              <strong class="updates-meter-value" id="updates-stat-entries">0</strong>
+            </article>
+            <article class="updates-meter">
+              <span class="updates-meter-label" id="updates-stat-label-latest">Letztes Update</span>
+              <strong class="updates-meter-value" id="updates-stat-latest">--</strong>
+            </article>
           </div>
         </div>
 
-        <aside class="updates-hero-side">
-          <div class="updates-hero-panel">
-            <p class="updates-panel-kicker" id="updates-panel-kicker">Live-Changelog</p>
-            <h2 id="updates-panel-title">Neue Eintraege stehen immer oben</h2>
-            <p id="updates-panel-body">
-              Du kannst diese Seite spaeter einfach erweitern. Fuer neue Meldungen kommt nur ein weiterer Eintrag in die Datenliste.
+        <aside class="updates-spotlight">
+          <div class="updates-spotlight-card">
+            <p class="updates-card-kicker" id="updates-panel-kicker">Live-Changelog</p>
+            <h2 id="updates-panel-title">Neue Einträge stehen immer oben</h2>
+            <p class="updates-card-copy" id="updates-panel-body">
+              Die Seite funktioniert bewusst wie ein kompaktes Release-Journal: oben die neueste Änderung, darunter der Verlauf.
             </p>
-            <div class="updates-hero-actions">
+
+            <div class="updates-actions">
               <a class="updates-primary-link updates-primary-link-wide" href="/login?mode=register" data-updates-primary-link>Kostenlos starten</a>
               <a class="updates-secondary-link" href="/status" id="updates-secondary-link">Status ansehen</a>
             </div>
@@ -126,39 +127,41 @@
         </aside>
       </section>
 
-      <section class="updates-shell updates-content">
-        <section class="updates-feed-panel">
+      <section class="updates-shell updates-layout">
+        <section class="updates-stream">
           <div class="updates-section-head">
-            <p class="updates-section-kicker" id="updates-feed-kicker">Release-Feed</p>
-            <h2 id="updates-feed-title">Neueste Eintraege</h2>
-            <p class="updates-section-sub" id="updates-feed-sub">
-              Die Karten unten sind absichtlich chronologisch aufgebaut. Die juengste Aenderung bleibt immer zuerst sichtbar.
+            <p class="updates-section-kicker" id="updates-feed-kicker">Release-Journal</p>
+            <h2 id="updates-feed-title">Neueste Einträge</h2>
+            <p class="updates-section-copy" id="updates-feed-sub">
+              Keine Commit-Wand, sondern die Änderungen, die für Nutzer wirklich sichtbar und relevant sind.
             </p>
           </div>
-          <div id="updates-feed" class="updates-feed" role="feed" aria-live="polite"></div>
+
+          <div id="updates-feed" class="updates-feed" aria-live="polite"></div>
+
           <noscript>
-            <p class="updates-noscript">Bitte JavaScript aktivieren, damit die Update-Eintraege geladen werden.</p>
+            <p class="updates-fallback">Bitte JavaScript aktivieren, damit die Update-Einträge geladen werden.</p>
           </noscript>
         </section>
 
-        <aside class="updates-side">
-          <section class="updates-side-card">
-            <p class="updates-side-kicker" id="updates-side-kicker">Was hier landet</p>
-            <h2 id="updates-side-title">Kurz und produktnah</h2>
-            <p class="updates-side-body" id="updates-side-body">
-              Diese Seite ist fuer sichtbare Releases gedacht, nicht fuer jeden internen Commit. Dadurch bleibt sie fuer Nutzer klar lesbar.
+        <aside class="updates-rail">
+          <section class="updates-note-card">
+            <p class="updates-card-kicker" id="updates-side-kicker">Was hier landet</p>
+            <h2 id="updates-side-title">Kurz, klar und produktnah</h2>
+            <p class="updates-card-copy" id="updates-side-body">
+              Diese Seite ist für echte Releases gedacht. So sehen Besucher sofort, was sich am Produkt konkret verbessert hat.
             </p>
-            <ul class="updates-side-list" id="updates-side-list"></ul>
+            <ul class="updates-note-list" id="updates-side-list"></ul>
           </section>
 
-          <section class="updates-side-card updates-side-card-accent">
-            <p class="updates-side-kicker" id="updates-maintenance-kicker">Pflege</p>
-            <h2 id="updates-maintenance-title">Einfach erweiterbar</h2>
-            <p class="updates-side-body" id="updates-maintenance-body">
-              Neue Eintraege kannst du spaeter direkt in der Datei fuer diese Seite hinterlegen. Die Reihenfolge bleibt bewusst manuell.
+          <section class="updates-note-card updates-note-card-alt">
+            <p class="updates-card-kicker" id="updates-maintenance-kicker">Pflege</p>
+            <h2 id="updates-maintenance-title">Leicht zu erweitern</h2>
+            <p class="updates-card-copy" id="updates-maintenance-body">
+              Neue Einträge pflegst du zentral in einer Liste. Dadurch bleibt die Seite schnell änderbar und inhaltlich sortiert.
             </p>
             <a
-              class="updates-ghost-link"
+              class="updates-inline-link"
               href="https://github.com/Der0Benson/PingMyServer.de/commits/main"
               target="_blank"
               rel="noreferrer"
