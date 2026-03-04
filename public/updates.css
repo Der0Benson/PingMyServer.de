@@ -48,6 +48,10 @@ button {
   cursor: pointer;
 }
 
+.updates-page [hidden] {
+  display: none !important;
+}
+
 .updates-background {
   position: fixed;
   inset: 0;
