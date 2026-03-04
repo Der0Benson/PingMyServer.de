@@ -168,8 +168,7 @@ button {
   gap: 12px;
 }
 
-.blog-quiet-link,
-.blog-inline-link {
+.blog-quiet-link {
   color: var(--blog-muted);
 }
 
@@ -558,18 +557,6 @@ button {
   display: grid;
   gap: 8px;
   line-height: 1.6;
-}
-
-.blog-inline-link {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 16px;
-  font-weight: 700;
-  color: var(--blog-link);
-}
-
-.blog-inline-link:hover {
-  color: #79c0ff;
 }
 
 .blog-fallback,
