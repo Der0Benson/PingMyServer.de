@@ -26,11 +26,6 @@
         statLatest: "Letzter Eintrag",
         statFormat: "Format",
         statFormatValue: "Release Feed",
-        panelKicker: "Pinned",
-        panelTitle: "Neueste Änderungen immer oben",
-        panelCopy:
-          "Das Layout ist bewusst an GitHub angelehnt: Header, Metadaten, Labels und eine gut scanbare Liste statt klassischer Marketing-Karten.",
-        panelStatus: "Status ansehen",
       },
       feed: {
         kicker: "Repository Feed",
@@ -141,11 +136,6 @@
         statLatest: "Latest entry",
         statFormat: "Format",
         statFormatValue: "Release feed",
-        panelKicker: "Pinned",
-        panelTitle: "Newest changes always stay on top",
-        panelCopy:
-          "The layout deliberately borrows from GitHub: header, metadata, labels and a highly scannable list instead of classic marketing cards.",
-        panelStatus: "View status",
       },
       feed: {
         kicker: "Repository feed",
@@ -254,10 +244,6 @@
   const statLatestEl = document.getElementById("blog-stat-latest");
   const statFormatLabelEl = document.getElementById("blog-stat-label-format");
   const statFormatEl = document.getElementById("blog-stat-format");
-  const panelKickerEl = document.getElementById("blog-panel-kicker");
-  const panelTitleEl = document.getElementById("blog-panel-title");
-  const panelCopyEl = document.getElementById("blog-panel-copy");
-  const panelStatusEl = document.getElementById("blog-panel-status");
   const feedKickerEl = document.getElementById("blog-feed-kicker");
   const feedTitleEl = document.getElementById("blog-feed-title");
   const feedCopyEl = document.getElementById("blog-feed-copy");
@@ -495,10 +481,6 @@
     if (statLatestLabelEl) statLatestLabelEl.textContent = pageCopy.hero.statLatest;
     if (statFormatLabelEl) statFormatLabelEl.textContent = pageCopy.hero.statFormat;
     if (statFormatEl) statFormatEl.textContent = pageCopy.hero.statFormatValue;
-    if (panelKickerEl) panelKickerEl.textContent = pageCopy.hero.panelKicker;
-    if (panelTitleEl) panelTitleEl.textContent = pageCopy.hero.panelTitle;
-    if (panelCopyEl) panelCopyEl.textContent = pageCopy.hero.panelCopy;
-    if (panelStatusEl) panelStatusEl.textContent = pageCopy.hero.panelStatus;
     if (feedKickerEl) feedKickerEl.textContent = pageCopy.feed.kicker;
     if (feedTitleEl) feedTitleEl.textContent = pageCopy.feed.title;
     if (feedCopyEl) feedCopyEl.textContent = pageCopy.feed.copy;
