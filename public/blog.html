@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="__PMS_PRIMARY_LANG__">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      id="blog-meta-description"
+      name="description"
+      content="Produkt-Updates, Release-Notizen und sichtbare Verbesserungen von PingMyServer in einem GitHub-inspirierten Blog."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="canonical" href="__PMS_ORIGIN__/blog" />
+    <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
+    <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title id="blog-meta-title">Blog | PingMyServer</title>
+    <link rel="stylesheet" href="/assets/i18n.css" />
+    <link rel="stylesheet" href="/assets/blog.css" />
+  </head>
+  <body class="blog-page">
+    <header class="blog-header">
+      <div class="blog-shell">
+        <div class="blog-topbar">
+          <a class="blog-brand" href="/" data-i18n-aria-label="common.aria.home" aria-label="PingMyServer homepage">
+            <img class="blog-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
+            <span class="blog-brand-wordmark">PingMyServer.de</span>
+          </a>
+
+          <div class="blog-repo-hint" id="blog-repo-hint">pingmyserver / blog</div>
+
+          <nav class="blog-tabs" aria-label="Primary navigation">
+            <a href="/" id="blog-tab-home">Start</a>
+            <a href="/blog" class="is-active" id="blog-tab-blog">Blog</a>
+            <a href="/status" id="blog-tab-status">Status</a>
+          </nav>
+
+          <div class="blog-topbar-actions">
+            <div class="lang-picker">
+              <span class="sr-only" data-i18n="common.language">Sprache</span>
+              <details class="lang-menu">
+                <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
+                  <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                  <img class="lang-flag-img" data-lang-block="en" src="/assets/flags/gb.svg" alt="" aria-hidden="true" hidden />
+                </summary>
+                <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
+                  <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
+                    <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                  </button>
+                  <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
+                    <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
+                  </button>
+                </div>
+              </details>
+            </div>
+
+            <a class="blog-quiet-link" href="/login" data-blog-auth-link>Anmelden</a>
+            <a class="blog-primary-link" href="/login?mode=register" data-blog-primary-link>Kostenlos starten</a>
+
+            <button
+              id="blog-mobile-toggle"
+              class="blog-mobile-toggle"
+              type="button"
+              aria-controls="blog-mobile-menu"
+              aria-expanded="false"
+              aria-label="Navigation"
+            >
+              <span class="blog-mobile-toggle-line"></span>
+              <span class="blog-mobile-toggle-line"></span>
+              <span class="blog-mobile-toggle-line"></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="blog-mobile-menu" class="blog-mobile-menu" hidden>
+          <nav class="blog-mobile-tabs" aria-label="Mobile navigation">
+            <a href="/" id="blog-mobile-home">Start</a>
+            <a href="/blog" class="is-active" id="blog-mobile-blog">Blog</a>
+            <a href="/status" id="blog-mobile-status">Status</a>
+          </nav>
+          <div class="blog-mobile-actions">
+            <a class="blog-quiet-link" href="/login" data-blog-auth-link>Anmelden</a>
+            <a class="blog-primary-link" href="/login?mode=register" data-blog-primary-link>Kostenlos starten</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="blog-main">
+      <section class="blog-shell blog-hero">
+        <div class="blog-hero-main">
+          <div class="blog-badge-row">
+            <span class="blog-badge" id="blog-badge">Release-Blog</span>
+            <span class="blog-badge blog-badge-subtle" id="blog-badge-subtle">GitHub-inspiriert</span>
+          </div>
+
+          <h1 id="blog-title">Klare Release-Notizen statt versteckter Änderungen</h1>
+          <p class="blog-hero-copy" id="blog-lead">
+            Diese Seite sammelt sichtbare Produkt-Updates im Stil eines Repository-Feeds: chronologisch, direkt und mit den wichtigsten Änderungen auf einen Blick.
+          </p>
+
+          <div class="blog-stats">
+            <article class="blog-stat-card">
+              <span class="blog-stat-label" id="blog-stat-label-posts">Beiträge</span>
+              <strong class="blog-stat-value" id="blog-stat-posts">0</strong>
+            </article>
+            <article class="blog-stat-card">
+              <span class="blog-stat-label" id="blog-stat-label-latest">Letzter Eintrag</span>
+              <strong class="blog-stat-value" id="blog-stat-latest">--</strong>
+            </article>
+            <article class="blog-stat-card">
+              <span class="blog-stat-label" id="blog-stat-label-format">Format</span>
+              <strong class="blog-stat-value" id="blog-stat-format">Release Feed</strong>
+            </article>
+          </div>
+        </div>
+
+        <aside class="blog-hero-side">
+          <section class="blog-panel">
+            <p class="blog-panel-kicker" id="blog-panel-kicker">Pinned</p>
+            <h2 id="blog-panel-title">Neueste Änderungen immer oben</h2>
+            <p class="blog-panel-copy" id="blog-panel-copy">
+              Das Layout ist bewusst an GitHub angelehnt: Header, Metadaten, Labels und eine gut scanbare Liste statt klassischer Marketing-Karten.
+            </p>
+            <div class="blog-panel-actions">
+              <a class="blog-primary-link blog-primary-link-wide" href="/login?mode=register" data-blog-primary-link>Kostenlos starten</a>
+              <a class="blog-quiet-link" href="/status" id="blog-panel-status">Status ansehen</a>
+            </div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="blog-shell blog-layout">
+        <section class="blog-feed-card">
+          <div class="blog-feed-head">
+            <div>
+              <p class="blog-feed-kicker" id="blog-feed-kicker">Repository Feed</p>
+              <h2 id="blog-feed-title">Neueste Beiträge</h2>
+              <p class="blog-feed-copy" id="blog-feed-copy">
+                Jeder Eintrag ist wie ein sauberer Changelog-Post aufgebaut: Datum, Bereich, Kernaussage und konkrete Punkte.
+              </p>
+            </div>
+          </div>
+
+          <div id="blog-feed" class="blog-feed" aria-live="polite"></div>
+
+          <noscript>
+            <p class="blog-fallback">Bitte JavaScript aktivieren, damit die Blog-Beiträge geladen werden.</p>
+          </noscript>
+        </section>
+
+        <aside class="blog-sidebar">
+          <section class="blog-panel blog-panel-compact">
+            <p class="blog-panel-kicker" id="blog-sidebar-kicker">Warum dieses Format</p>
+            <h2 id="blog-sidebar-title">Weniger Rauschen, mehr Signal</h2>
+            <p class="blog-panel-copy" id="blog-sidebar-copy">
+              Statt jedes Detail zu protokollieren, landen hier nur Änderungen mit echter Außenwirkung für Nutzer und Kunden.
+            </p>
+            <ul class="blog-notes" id="blog-notes"></ul>
+          </section>
+
+          <section class="blog-panel blog-panel-compact">
+            <p class="blog-panel-kicker" id="blog-maintenance-kicker">Pflege</p>
+            <h2 id="blog-maintenance-title">Leicht zu erweitern</h2>
+            <p class="blog-panel-copy" id="blog-maintenance-copy">
+              Neue Beiträge kommen nur an einer Stelle dazu. So bleibt die Seite technisch einfach und redaktionell schnell pflegbar.
+            </p>
+            <a
+              class="blog-inline-link"
+              href="https://github.com/Der0Benson/PingMyServer.de/commits/main"
+              target="_blank"
+              rel="noreferrer"
+              id="blog-maintenance-link"
+            >Commits auf GitHub</a>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="blog-footer">
+      <div class="blog-shell blog-footer-inner">
+        <p class="blog-footer-copy">&copy; 2026 PingMyServer</p>
+        <nav class="blog-footer-links" aria-label="Footer navigation">
+          <a href="/" id="blog-footer-home">Start</a>
+          <a href="/blog" id="blog-footer-blog">Blog</a>
+          <a href="/status" id="blog-footer-status">Status</a>
+          <a href="/impressum" data-i18n="common.imprint">Impressum</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="/assets/i18n.js"></script>
+    <script src="/assets/blog.js"></script>
+  </body>
+</html>

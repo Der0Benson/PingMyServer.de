@@ -7,6 +7,12 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://pingmyserver.de/blog</loc>
+    <lastmod>2026-03-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://pingmyserver.de/datenschutz</loc>
     <lastmod>2026-02-17</lastmod>
     <changefreq>monthly</changefreq>

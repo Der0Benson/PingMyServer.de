@@ -27,6 +27,11 @@ async function handleWebRoutes(context) {
     return true;
   }
 
+  if (method === "GET" && (pathname === "/blog" || pathname === "/blog/")) {
+    await utilities.serveStaticFile(res, "blog.html");
+    return true;
+  }
+
   if (method === "GET" && (pathname === "/onboarding" || pathname === "/onboarding/")) {
     const user = await utilities.requireAuth(req, res, { redirectToLogin: true });
     if (!user) return true;
