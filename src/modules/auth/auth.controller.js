@@ -88,6 +88,11 @@ function createAuthController(dependencies = {}) {
     return String(error?.code || "").trim() === "ER_DUP_ENTRY";
   }
 
+  function hasCompletedEmailLoginVerification(user) {
+    if (!user?.email_login_verified_at) return false;
+    return Number.isFinite(new Date(user.email_login_verified_at).getTime());
+  }
+
   const hashPasswordValue =
     typeof hashPassword === "function"
       ? (password) => hashPassword(password)
@@ -694,7 +699,7 @@ function createAuthController(dependencies = {}) {
     try {
       const failure = await getAuthFailure(email);
       const [rows] = await pool.query(
-        "SELECT id, email, password_hash, notify_email_language FROM users WHERE email = ? LIMIT 1",
+        "SELECT id, email, password_hash, notify_email_language, email_login_verified_at FROM users WHERE email = ? LIMIT 1",
         [email]
       );
   
@@ -758,7 +763,7 @@ function createAuthController(dependencies = {}) {
       await clearAuthFailures(email);
       await cleanupExpiredSessions();
   
-      if (AUTH_EMAIL_VERIFICATION_ENABLED) {
+      if (AUTH_EMAIL_VERIFICATION_ENABLED && !hasCompletedEmailLoginVerification(user)) {
         if (!isOwnerSmtpConfigured()) {
           sendJson(res, 503, { ok: false, error: "verification unavailable" });
           return;
@@ -879,7 +884,12 @@ function createAuthController(dependencies = {}) {
         sendJson(res, 409, { ok: false, error: "challenge used" });
         return;
       }
-  
+
+      await pool.query(
+        "UPDATE users SET email_login_verified_at = COALESCE(email_login_verified_at, UTC_TIMESTAMP()) WHERE id = ? LIMIT 1",
+        [challenge.userId]
+      );
+
       await cleanupExpiredSessions();
       await deleteSessionsByUserId(challenge.userId);
   
