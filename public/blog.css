@@ -316,12 +316,6 @@ button {
   font-weight: 700;
 }
 
-.blog-badge-subtle {
-  border-color: rgba(110, 118, 129, 0.22);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--blog-muted);
-}
-
 .blog-hero-main h1,
 .blog-panel h2,
 .blog-feed-head h2,
