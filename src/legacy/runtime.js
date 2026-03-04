@@ -5666,6 +5666,9 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("users", "github_id"))) {
     await pool.query("ALTER TABLE users ADD COLUMN github_id VARCHAR(64) NULL AFTER password_hash");
   }
+  if (!(await hasColumn("users", "email_login_verified_at"))) {
+    await pool.query("ALTER TABLE users ADD COLUMN email_login_verified_at DATETIME NULL AFTER password_hash");
+  }
   if (!(await hasColumn("users", "github_login"))) {
     await pool.query("ALTER TABLE users ADD COLUMN github_login VARCHAR(255) NULL AFTER github_id");
   }
@@ -6164,6 +6167,7 @@ async function initDb() {
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       email VARCHAR(255) NOT NULL UNIQUE,
       password_hash VARCHAR(255) NOT NULL,
+      email_login_verified_at DATETIME NULL,
       github_id VARCHAR(64) NULL UNIQUE,
       github_login VARCHAR(255) NULL,
       google_sub VARCHAR(128) NULL UNIQUE,
