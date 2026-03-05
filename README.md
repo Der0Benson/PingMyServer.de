@@ -6,7 +6,7 @@
 
 ## 🇩🇪 Deutsch
 
-### 📌 Über das Projekt
+### 📌 Über das Projekt ;)
 
 **PingMyServer.de** ist ein modernes Monitoring-System zur Überwachung von:
 
