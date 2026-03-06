@@ -67,13 +67,18 @@ function createLegacyRequestHandlerFactory(dependencies = {}) {
       pathname === "/api/game-agent/disconnect";
     const isProbeAgentPath = pathname.startsWith("/api/probe-agent/");
     const isEmailUnsubscribePath = pathname === "/api/account/notifications/email/unsubscribe";
-    const requiresOriginValidation =
-      (pathname.startsWith("/api/") && !isGameAgentIngestPath && !isProbeAgentPath && !isEmailUnsubscribePath) ||
+    const isStateChangingApiPath = pathname.startsWith("/api/") && !isGameAgentIngestPath;
+    const isLegacyMonitorCreatePath =
       pathname === "/monitor-create" ||
       pathname === "/create-monitor" ||
       pathname.startsWith("/monitor-create/") ||
       pathname.startsWith("/create-monitor/");
-    if (isStateChangingMethod(method) && requiresOriginValidation && !isValidOrigin(req)) {
+    const isOriginValidationExempt = isEmailUnsubscribePath;
+    const requiresOriginValidation =
+      isStateChangingMethod(method) &&
+      ((isStateChangingApiPath && !isProbeAgentPath) || isLegacyMonitorCreatePath) &&
+      !isOriginValidationExempt;
+    if (requiresOriginValidation && !isValidOrigin(req)) {
       runtimeTelemetry.security.invalidOriginBlocked += 1;
       sendJson(res, 403, { ok: false, error: "forbidden" });
       return;

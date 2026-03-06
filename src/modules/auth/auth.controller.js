@@ -201,6 +201,12 @@ function createAuthController(dependencies = {}) {
     return { userId, conflict: false };
   }
 
+  async function createFreshSessionForUser(userId) {
+    await cleanupExpiredSessions();
+    await deleteSessionsByUserId(userId);
+    return createSession(userId);
+  }
+
   async function handleAuthGithubStart(req, res) {
     if (!GITHUB_AUTH_ENABLED) {
       sendRedirect(res, "/login?oauth=github_disabled");
@@ -323,12 +329,7 @@ function createAuthController(dependencies = {}) {
       }
   
       await clearAuthFailures(email);
-      await cleanupExpiredSessions();
-  
-      // Session fixation protection.
-      await deleteSessionsByUserId(userId);
-  
-      const sessionToken = await createSession(userId);
+      const sessionToken = await createFreshSessionForUser(userId);
       setSessionCookie(res, sessionToken);
   
       const next = await getNextPathForUser(userId);
@@ -449,12 +450,7 @@ function createAuthController(dependencies = {}) {
       }
   
       await clearAuthFailures(email);
-      await cleanupExpiredSessions();
-  
-      // Session fixation protection.
-      await deleteSessionsByUserId(userId);
-  
-      const sessionToken = await createSession(userId);
+      const sessionToken = await createFreshSessionForUser(userId);
       setSessionCookie(res, sessionToken);
   
       const next = await getNextPathForUser(userId);
@@ -573,12 +569,7 @@ function createAuthController(dependencies = {}) {
       }
   
       await clearAuthFailures(email);
-      await cleanupExpiredSessions();
-  
-      // Session fixation protection.
-      await deleteSessionsByUserId(userId);
-  
-      const sessionToken = await createSession(userId);
+      const sessionToken = await createFreshSessionForUser(userId);
       setSessionCookie(res, sessionToken);
   
       const next = await getNextPathForUser(userId);
@@ -668,7 +659,7 @@ function createAuthController(dependencies = {}) {
         return;
       }
   
-      const sessionToken = await createSession(result.insertId);
+      const sessionToken = await createFreshSessionForUser(result.insertId);
       setSessionCookie(res, sessionToken);
   
       const next = await getNextPathForUser(result.insertId);
@@ -807,10 +798,7 @@ function createAuthController(dependencies = {}) {
         return;
       }
   
-      // Session fixation protection.
-      await deleteSessionsByUserId(user.id);
-  
-      const sessionToken = await createSession(user.id);
+      const sessionToken = await createFreshSessionForUser(user.id);
       setSessionCookie(res, sessionToken);
   
       const next = await getNextPathForUser(user.id);
@@ -884,16 +872,12 @@ function createAuthController(dependencies = {}) {
         sendJson(res, 409, { ok: false, error: "challenge used" });
         return;
       }
-
+  
+      const sessionToken = await createFreshSessionForUser(challenge.userId);
       await pool.query(
         "UPDATE users SET email_login_verified_at = COALESCE(email_login_verified_at, UTC_TIMESTAMP()) WHERE id = ? LIMIT 1",
         [challenge.userId]
       );
-
-      await cleanupExpiredSessions();
-      await deleteSessionsByUserId(challenge.userId);
-  
-      const sessionToken = await createSession(challenge.userId);
       setSessionCookie(res, sessionToken);
   
       const next = await getNextPathForUser(challenge.userId);

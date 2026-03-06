@@ -1488,7 +1488,13 @@ async function serveStaticFile(res, relativeFilePath) {
   }
 
   const absolutePath = path.resolve(PUBLIC_DIR, normalized);
-  if (!absolutePath.startsWith(`${PUBLIC_DIR}${path.sep}`)) {
+  const relativeToPublic = path.relative(PUBLIC_DIR, absolutePath);
+  if (
+    relativeToPublic === "" ||
+    relativeToPublic === ".." ||
+    relativeToPublic.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeToPublic)
+  ) {
     sendJson(res, 403, { ok: false, error: "forbidden" });
     return;
   }
