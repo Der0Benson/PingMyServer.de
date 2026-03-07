@@ -191,8 +191,77 @@ tbody td {
   font-family: "Manrope", sans-serif;
 }
 
+.db-storage-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.db-storage-range-control {
+  display: grid;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.db-storage-range-control span {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.db-storage-range-select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(180, 212, 240, 0.92) 50%),
+    linear-gradient(135deg, rgba(180, 212, 240, 0.92) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px);
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
+.db-storage-range-select:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.15);
+}
+
 .chart-footnote {
   margin: 8px 0 0;
+}
+
+.db-storage-chart-line-smoothed {
+  fill: none;
+  stroke: rgba(165, 252, 219, 0.95);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.db-storage-chart-point-min {
+  fill: #f5a7a7;
+}
+
+.db-storage-chart-point-max {
+  fill: #a7f5a7;
+}
+
+.db-storage-chart-annotation-label {
+  fill: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-family: "Manrope", sans-serif;
 }
 
 .owner-email-test-form {
@@ -287,6 +356,15 @@ tbody td {
 }
 
 @media (max-width: 780px) {
+  .db-storage-card-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .db-storage-range-control {
+    min-width: 0;
+  }
+
   .owner-email-test-form {
     grid-template-columns: 1fr;
   }
