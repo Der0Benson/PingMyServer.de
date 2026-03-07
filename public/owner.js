@@ -17,6 +17,7 @@ const ownerLinks = Array.from(document.querySelectorAll("[data-owner-link]"));
 const dbStorageStatsEl = document.getElementById("db-storage-stats");
 const dbStorageChartEl = document.getElementById("db-storage-chart");
 const dbStorageFootnoteEl = document.getElementById("db-storage-footnote");
+const dbStorageRangeEl = document.getElementById("db-storage-range");
 const ownerEmailTestForm = document.getElementById("owner-email-test-form");
 const ownerEmailTestFromEl = document.getElementById("owner-email-test-from");
 const ownerEmailTestToEl = document.getElementById("owner-email-test-to");
@@ -93,6 +94,14 @@ function formatBytes(value) {
   return `${formatNumber(scaled, digits)} ${units[unitIndex]}`;
 }
 
+function roundTo(value, digits = 2) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return Number.NaN;
+  const precision = Math.max(0, Math.min(6, Math.round(Number(digits))));
+  const multiplier = 10 ** precision;
+  return Math.round(number * multiplier) / multiplier;
+}
+
 function formatSeconds(value) {
   const seconds = Number(value);
   const safe = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
@@ -109,6 +118,17 @@ function formatDateTime(timestamp) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+  }).format(new Date(ts));
+}
+
+function formatShortDateTime(timestamp) {
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts) || ts <= 0) return "";
+  return new Intl.DateTimeFormat(i18nLocale(), {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(ts));
 }
 
@@ -141,12 +161,12 @@ function buildOwnerSmtpConfigLabel(config) {
     ? t("owner.email_test.config_security_secure", null, "SMTPS")
     : config.requireTls
       ? t("owner.email_test.config_security_starttls", null, "STARTTLS")
-      : t("owner.email_test.config_security_plain", null, "Unverschlüsselt");
+      : t("owner.email_test.config_security_plain", null, "Unverschluesselt");
   const auth = config.user
     ? t("owner.email_test.config_auth_user", { user: String(config.user || "").trim() }, `Login ${String(config.user || "").trim()}`)
     : t("owner.email_test.config_auth_none", null, "ohne Login");
 
-  return t("owner.email_test.config", { host, port, security, auth }, `SMTP: ${host}:${port} · ${security} · ${auth}`);
+  return t("owner.email_test.config", { host, port, security, auth }, `SMTP: ${host}:${port} | ${security} | ${auth}`);
 }
 
 function renderOwnerEmailTest(config) {
@@ -178,7 +198,7 @@ function renderOwnerEmailTest(config) {
   if (!ownerSmtpConfigured) {
     setPanelMessage(
       ownerEmailTestMessageEl,
-      t("owner.email_test.msg.not_configured", null, "SMTP ist nicht vollständig konfiguriert."),
+      t("owner.email_test.msg.not_configured", null, "SMTP ist nicht vollstaendig konfiguriert."),
       "error"
     );
   } else if (ownerEmailTestMessageEl?.classList.contains("error")) {
@@ -193,7 +213,7 @@ async function submitOwnerEmailTest(event) {
   if (!isValidEmail(recipient)) {
     setPanelMessage(
       ownerEmailTestMessageEl,
-      t("owner.email_test.msg.enter_recipient", null, "Bitte eine gültige Empfänger-E-Mail eingeben."),
+      t("owner.email_test.msg.enter_recipient", null, "Bitte eine gueltige Empfaenger-E-Mail eingeben."),
       "error"
     );
     ownerEmailTestToEl?.focus();
@@ -204,7 +224,7 @@ async function submitOwnerEmailTest(event) {
   if (!templateType) {
     setPanelMessage(
       ownerEmailTestMessageEl,
-      t("owner.email_test.msg.invalid_template", null, "Bitte einen gültigen E-Mail-Typ auswählen."),
+      t("owner.email_test.msg.invalid_template", null, "Bitte einen gueltigen E-Mail-Typ auswaehlen."),
       "error"
     );
     ownerEmailTestTemplateEl?.focus();
@@ -249,7 +269,7 @@ async function submitOwnerEmailTest(event) {
         }
         setPanelMessage(
           ownerEmailTestMessageEl,
-          t("owner.email_test.msg.not_configured", null, "SMTP ist nicht vollständig konfiguriert."),
+      t("owner.email_test.msg.not_configured", null, "SMTP ist nicht vollstaendig konfiguriert."),
           "error"
         );
         return;
@@ -257,9 +277,9 @@ async function submitOwnerEmailTest(event) {
 
       const errorMessage =
         payload?.error === "invalid recipient"
-          ? t("owner.email_test.msg.invalid_recipient", null, "Empfänger-Adresse ist ungültig.")
+          ? t("owner.email_test.msg.invalid_recipient", null, "Empfaenger-Adresse ist ungueltig.")
           : payload?.error === "invalid template"
-            ? t("owner.email_test.msg.invalid_template", null, "Bitte einen gültigen E-Mail-Typ auswählen.")
+            ? t("owner.email_test.msg.invalid_template", null, "Bitte einen gueltigen E-Mail-Typ auswaehlen.")
           : t("owner.email_test.msg.failed", null, "E-Mail konnte nicht versendet werden.");
       setPanelMessage(ownerEmailTestMessageEl, errorMessage, "error");
       return;
@@ -517,7 +537,7 @@ function renderProbeLocations(items) {
     const cell = document.createElement("td");
     cell.colSpan = 9;
     cell.className = "muted";
-    cell.textContent = "Noch keine Standortdaten verfügbar (Probe-Checks laufen evtl. noch nicht).";
+    cell.textContent = "Noch keine Standortdaten verfuegbar (Probe-Checks laufen evtl. noch nicht).";
     row.appendChild(cell);
     probeLocationBody.appendChild(row);
     return;
@@ -614,7 +634,7 @@ function renderMonitorCosts(items) {
     title.textContent = monitor.name || monitor.publicId || `Monitor ${monitor.monitorId}`;
     const subtitle = document.createElement("div");
     subtitle.className = "muted";
-    subtitle.textContent = `${monitor.publicId || monitor.monitorId} · ${monitor.target || "-"}`;
+      subtitle.textContent = `${monitor.publicId || monitor.monitorId} | ${monitor.target || "-"}`;
     monitorCell.appendChild(title);
     monitorCell.appendChild(subtitle);
 
@@ -708,7 +728,7 @@ function renderSecurity(data) {
         failed: formatInt(item.failedChecks || 0),
         total: formatInt(item.totalChecks || 0),
       },
-      `${item.name || item.publicId || item.monitorId} · User ${formatInt(item.userId)} · ${formatPercent(
+      `${item.name || item.publicId || item.monitorId} | User ${formatInt(item.userId)} | ${formatPercent(
         item.failureRatePercent || 0
       )} (${formatInt(item.failedChecks || 0)}/${formatInt(item.totalChecks || 0)})`
     )
@@ -758,13 +778,86 @@ function formatSignedPercent(value) {
   return `${sign}${formatNumber(Math.abs(number), 2)}%`;
 }
 
-function renderDbStorageStats(data) {
+function normalizeDbStorageHistory(rawHistory) {
+  return Array.isArray(rawHistory)
+    ? rawHistory
+        .map((item) => ({
+          sampledAt: Number(item?.sampledAt),
+          usedBytes: Number(item?.usedBytes),
+        }))
+        .filter((item) => Number.isFinite(item.sampledAt) && item.sampledAt > 0 && Number.isFinite(item.usedBytes) && item.usedBytes >= 0)
+        .sort((left, right) => left.sampledAt - right.sampledAt)
+    : [];
+}
+
+function calculateDbStorageSummary(history, currentSnapshot) {
+  if (!Array.isArray(history) || history.length === 0) {
+    const usedBytes = Number(currentSnapshot?.usedBytes);
+    const growthBytes = Number(currentSnapshot?.growthBytes);
+    const windowHours = Number(currentSnapshot?.windowHours);
+    return {
+      usedBytes: Number.isFinite(usedBytes) ? usedBytes : 0,
+      minUsedBytes: null,
+      maxUsedBytes: null,
+      avgUsedBytes: null,
+      medianUsedBytes: null,
+      growthBytes,
+      growthPercent: Number(currentSnapshot?.growthPercent),
+      windowHours: Number.isFinite(windowHours) && windowHours > 0 ? windowHours : 24,
+      growthBytesPerHour: Number.isFinite(growthBytes) && Number.isFinite(windowHours) && windowHours > 0 ? growthBytes / windowHours : null,
+    };
+  }
+
+  const sortedUsedBytes = history
+    .map((point) => Number(point?.usedBytes))
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  const first = history[0];
+  const last = history[history.length - 1];
+  const growthBytes = Number(last.usedBytes) - Number(first.usedBytes);
+  const windowHours = Math.max(
+    1,
+    (Math.max(1, Number(last.sampledAt || 0)) - Math.max(1, Number(first.sampledAt || 0))) / (60 * 60 * 1000)
+  );
+  const growthPercent = Number(first.usedBytes) > 0 ? roundTo((growthBytes / Number(first.usedBytes)) * 100, 2) : null;
+  const growthBytesPerHour = growthBytes / windowHours;
+
+  const sum = sortedUsedBytes.reduce((acc, value) => acc + value, 0);
+  const avgUsedBytes = sum / sortedUsedBytes.length;
+  const medianIndex = Math.floor(sortedUsedBytes.length / 2);
+  const medianUsedBytes =
+    sortedUsedBytes.length % 2 === 1
+      ? sortedUsedBytes[medianIndex]
+      : (sortedUsedBytes[medianIndex - 1] + sortedUsedBytes[medianIndex]) / 2;
+
+  return {
+    usedBytes: Number(last.usedBytes),
+    minUsedBytes: sortedUsedBytes[0],
+    maxUsedBytes: sortedUsedBytes[sortedUsedBytes.length - 1],
+    avgUsedBytes,
+    medianUsedBytes,
+    growthBytes,
+    growthPercent,
+    windowHours,
+    growthBytesPerHour,
+  };
+}
+
+function renderDbStorageStats(data, history) {
   if (!dbStorageStatsEl) return;
-  const growthBytes = Number(data?.growthBytes);
-  const growthPercent = Number(data?.growthPercent);
+  const summary = calculateDbStorageSummary(history, data || {});
+
+  const growthBytes = Number(summary.growthBytes);
+  const growthPercent = Number(summary.growthPercent);
   const growthLabel = Number.isFinite(growthPercent)
     ? `${formatSignedBytes(growthBytes)} (${formatSignedPercent(growthPercent)})`
     : formatSignedBytes(growthBytes);
+
+  const trendBytesPerHour = summary.growthBytesPerHour;
+  const trendPerDayLabel = Number.isFinite(trendBytesPerHour)
+    ? `${formatSignedBytes(trendBytesPerHour * 24)}/d`
+    : t("common.not_available", null, "n/a");
 
   const freePercent = Number(data?.serverFreePercent);
   const freeBytes = Number(data?.serverFreeBytes);
@@ -776,11 +869,23 @@ function renderDbStorageStats(data) {
   renderStats(dbStorageStatsEl, [
     {
       label: t("owner.stats.db_storage_used", null, "DB belegt"),
-      value: formatBytes(data?.usedBytes),
+      value: formatBytes(summary.usedBytes),
     },
     {
       label: t("owner.stats.db_storage_growth", null, "Wachstum"),
       value: growthLabel,
+    },
+    {
+      label: t("owner.stats.db_storage_trend", null, "Trend / 24h"),
+      value: trendPerDayLabel,
+    },
+    {
+      label: t("owner.stats.db_storage_min", null, "Minimum"),
+      value: formatBytes(summary.minUsedBytes),
+    },
+    {
+      label: t("owner.stats.db_storage_max", null, "Maximum"),
+      value: formatBytes(summary.maxUsedBytes),
     },
     {
       label: t("owner.stats.db_storage_server_free", null, "Server frei"),
@@ -793,21 +898,39 @@ function renderDbStorageStats(data) {
   ]);
 }
 
-function renderDbStorageChart(data) {
-  if (!dbStorageChartEl) return;
-  const historyRaw = Array.isArray(data?.history) ? data.history : [];
-  const normalized = historyRaw
-    .map((item) => ({
-      sampledAt: Number(item?.sampledAt),
-      usedBytes: Number(item?.usedBytes),
-    }))
-    .filter((item) => Number.isFinite(item.sampledAt) && item.sampledAt > 0 && Number.isFinite(item.usedBytes) && item.usedBytes >= 0)
-    .sort((left, right) => left.sampledAt - right.sampledAt);
+function buildSvgPath(points) {
+  if (!Array.isArray(points) || points.length === 0) return "";
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(" ");
+}
 
-  if (!normalized.length) {
+function buildMovingAveragePoints(points, windowSize = 6) {
+  const size = Math.max(2, Math.round(windowSize));
+  if (!Array.isArray(points) || points.length <= 1) return null;
+
+  const smoothed = [];
+  for (let i = 0; i < points.length; i += 1) {
+    const start = Math.max(0, i - size + 1);
+    let sum = 0;
+    for (let j = start; j <= i; j += 1) {
+      sum += Number(points[j]?.usedBytes || 0);
+    }
+    smoothed.push({
+      ...points[i],
+      usedBytes: start === i ? Number(points[i]?.usedBytes || 0) : sum / (i - start + 1),
+    });
+  }
+
+  return smoothed;
+}
+
+function renderDbStorageChart(data, history) {
+  if (!dbStorageChartEl) return;
+  if (!Array.isArray(history) || !history.length) {
     dbStorageChartEl.innerHTML = `
       <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="db-storage-chart-empty">
-        ${t("owner.db_storage.no_data", null, "Noch keine DB-Speicherdaten verfügbar.")}
+        ${t("owner.db_storage.no_data", null, "Noch keine DB-Speicherdaten verfuegbar.")}
       </text>
     `;
     if (dbStorageFootnoteEl) {
@@ -816,7 +939,7 @@ function renderDbStorageChart(data) {
     return;
   }
 
-  const points = downsampleHistoryPoints(normalized, 220);
+  const points = downsampleHistoryPoints(history, 220);
   const width = 960;
   const height = 320;
   const padLeft = 76;
@@ -826,20 +949,23 @@ function renderDbStorageChart(data) {
   const graphWidth = width - padLeft - padRight;
   const graphHeight = height - padTop - padBottom;
 
-  const minUsed = Math.min(...points.map((point) => point.usedBytes));
-  const maxUsed = Math.max(...points.map((point) => point.usedBytes));
+  const usedValues = points.map((point) => point.usedBytes);
+  const minUsed = Math.min(...usedValues);
+  const maxUsed = Math.max(...usedValues);
   const valueRange = Math.max(1, maxUsed - minUsed);
 
   const graphPoints = points.map((point, index) => {
     const ratioX = points.length > 1 ? index / (points.length - 1) : 0;
-    const ratioY = valueRange > 0 ? (point.usedBytes - minUsed) / valueRange : 0;
+    const ratioY = (point.usedBytes - minUsed) / valueRange;
     const x = padLeft + ratioX * graphWidth;
     const y = padTop + (1 - ratioY) * graphHeight;
     return { ...point, x, y };
   });
 
-  const linePath = graphPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+  const linePath = buildSvgPath(graphPoints);
   const areaPath = `${linePath} L ${graphPoints[graphPoints.length - 1].x.toFixed(2)} ${(height - padBottom).toFixed(2)} L ${graphPoints[0].x.toFixed(2)} ${(height - padBottom).toFixed(2)} Z`;
+  const movingAveragePoints = buildMovingAveragePoints(graphPoints, 6);
+  const movingAveragePath = movingAveragePoints ? buildSvgPath(movingAveragePoints) : "";
 
   const horizontalTicks = 4;
   const gridLines = [];
@@ -853,36 +979,40 @@ function renderDbStorageChart(data) {
     `);
   }
 
-  const first = graphPoints[0];
-  const last = graphPoints[graphPoints.length - 1];
-  const labelPoints = [];
-
-  labelPoints.push({ point: first, anchor: "start" });
-
-  if (graphPoints.length > 2) {
-    const middleIndex = Math.floor((graphPoints.length - 1) / 2);
-    if (middleIndex > 0 && middleIndex < graphPoints.length - 1) {
-      const middle = graphPoints[middleIndex];
-      const minSpacingPx = 120;
-      if (Math.abs(middle.x - first.x) >= minSpacingPx && Math.abs(last.x - middle.x) >= minSpacingPx) {
-        labelPoints.push({ point: middle, anchor: "middle" });
-      }
-    }
+  let minPoint = graphPoints[0];
+  let maxPoint = graphPoints[0];
+  for (const point of graphPoints) {
+    if (point.usedBytes < minPoint.usedBytes) minPoint = point;
+    if (point.usedBytes > maxPoint.usedBytes) maxPoint = point;
   }
 
-  if (last !== first) {
-    labelPoints.push({ point: last, anchor: "end" });
+  const maxAxisLabels = 5;
+  const xAxisLabelIndexes = new Set();
+  const labelCount = Math.min(maxAxisLabels, graphPoints.length);
+  for (let index = 0; index < labelCount; index += 1) {
+    const pointIndex = Math.round((graphPoints.length - 1) * (index / Math.max(1, labelCount - 1)));
+    xAxisLabelIndexes.add(pointIndex);
   }
 
-  const xAxisLabels = labelPoints
-    .map(
-      ({ point, anchor }) =>
-        `<text x="${point.x.toFixed(2)}" y="${(height - 14).toFixed(2)}" text-anchor="${anchor}" class="db-storage-chart-axis-label">${formatDateTime(
-          point.sampledAt
-        )}</text>`
-    )
+  const xAxisLabels = Array.from(xAxisLabelIndexes)
+    .sort((a, b) => a - b)
+    .map((pointIndex, arrayIndex, allIndexes) => {
+      const point = graphPoints[pointIndex];
+      const anchor = arrayIndex === 0 ? "start" : arrayIndex === allIndexes.length - 1 ? "end" : "middle";
+      return `<text x="${point.x.toFixed(2)}" y="${(height - 14).toFixed(2)}" text-anchor="${anchor}" class="db-storage-chart-axis-label">${formatShortDateTime(
+        point.sampledAt
+      )}</text>`;
+    })
     .join("");
 
+  const summary = calculateDbStorageSummary(points, data || {});
+  const trendLabel = Number.isFinite(summary.growthBytesPerHour) ? `${formatSignedBytes(summary.growthBytesPerHour * 24)}/d` : t("common.not_available", null, "n/a");
+  const rangeLabel =
+    Number.isFinite(summary.minUsedBytes) && Number.isFinite(summary.maxUsedBytes)
+      ? `${formatBytes(summary.minUsedBytes)} - ${formatBytes(summary.maxUsedBytes)}`
+      : t("common.not_available", null, "n/a");
+
+  const last = graphPoints[graphPoints.length - 1];
   dbStorageChartEl.innerHTML = `
     <defs>
       <linearGradient id="db-storage-area-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -893,27 +1023,48 @@ function renderDbStorageChart(data) {
     ${gridLines.join("")}
     <path d="${areaPath}" class="db-storage-chart-area"></path>
     <path d="${linePath}" class="db-storage-chart-line"></path>
+    ${movingAveragePath ? `<path d="${movingAveragePath}" class="db-storage-chart-line-smoothed"></path>` : ""}
+    <circle cx="${minPoint.x.toFixed(2)}" cy="${minPoint.y.toFixed(2)}" r="5" class="db-storage-chart-point db-storage-chart-point-min"></circle>
+    <text x="${minPoint.x.toFixed(2)}" y="${Math.min(height - padBottom - 8, minPoint.y + 14).toFixed(2)}" text-anchor="middle" class="db-storage-chart-annotation-label">${formatBytes(
+      minPoint.usedBytes
+    )}</text>
+    <circle cx="${maxPoint.x.toFixed(2)}" cy="${maxPoint.y.toFixed(2)}" r="5" class="db-storage-chart-point db-storage-chart-point-max"></circle>
+    <text x="${maxPoint.x.toFixed(2)}" y="${Math.max(padTop + 14, maxPoint.y - 10).toFixed(2)}" text-anchor="middle" class="db-storage-chart-annotation-label">${formatBytes(
+      maxPoint.usedBytes
+    )}</text>
     <circle cx="${last.x.toFixed(2)}" cy="${last.y.toFixed(2)}" r="5.5" class="db-storage-chart-point"></circle>
     ${xAxisLabels}
   `;
 
   if (dbStorageFootnoteEl) {
-    const growthText = formatSignedBytes(data?.growthBytes);
+    const growthText = formatSignedBytes(summary.growthBytes);
+    const pointsText = formatInt(points.length);
     dbStorageFootnoteEl.textContent = t(
       "owner.db_storage.footnote",
       {
-        hours: formatInt(data?.windowHours || 0),
-        points: formatInt(points.length),
+        hours: formatInt(summary.windowHours || 0),
+        points: pointsText,
         growth: growthText,
+        trend_per_day: trendLabel,
+        range: rangeLabel,
       },
-      `Zeitraum: ${formatInt(data?.windowHours || 0)}h · Punkte: ${formatInt(points.length)} · Wachstum: ${growthText}`
+      `Zeitraum: ${formatInt(summary.windowHours || 0)}h | Punkte: ${pointsText} | Wachstum: ${growthText} | Trend/Tag: ${trendLabel} | Spanne: ${rangeLabel}`
     );
   }
 }
 
+function getDbStorageRequestHours() {
+  const selected = Number(dbStorageRangeEl?.value);
+  if (!Number.isFinite(selected) || selected <= 0) {
+    return 24;
+  }
+  return Math.max(1, Math.min(24 * 30, Math.round(selected)));
+}
+
 function renderDbStorage(data) {
-  renderDbStorageStats(data);
-  renderDbStorageChart(data);
+  const history = normalizeDbStorageHistory(data?.history);
+  renderDbStorageStats(data, history);
+  renderDbStorageChart(data, history);
 }
 
 async function loadDashboard() {
@@ -926,7 +1077,7 @@ async function loadDashboard() {
     fetchJson("/api/owner/overview"),
     fetchJson("/api/owner/monitors"),
     fetchJson("/api/owner/security"),
-    fetchJson("/api/owner/db-storage"),
+    fetchJson(`/api/owner/db-storage?hours=${getDbStorageRequestHours()}`),
   ]);
 
   if (overviewResponse.status === 401 || monitorsResponse.status === 401 || securityResponse.status === 401 || storageResponse.status === 401) {
@@ -983,6 +1134,13 @@ async function init() {
       });
     });
   }
+  if (dbStorageRangeEl) {
+    dbStorageRangeEl.addEventListener("change", () => {
+      loadDashboard().catch(() => {
+        // ignore
+      });
+    });
+  }
   if (ownerEmailTestForm) {
     ownerEmailTestForm.addEventListener("submit", (event) => {
       submitOwnerEmailTest(event).catch(() => {
@@ -1000,3 +1158,4 @@ async function init() {
 }
 
 init();
+

@@ -230,10 +230,24 @@
             </section>
 
             <section class="card wide">
-              <div class="card-title" data-i18n="owner.cards.db_storage.title">DB-Speicherverlauf</div>
-              <p class="muted card-subtitle" data-i18n="owner.cards.db_storage.sub">
-                Wachstum der Datenbank und freier Speicherplatz auf dem Server.
-              </p>
+              <div class="db-storage-card-head">
+                <div>
+                  <div class="card-title" data-i18n="owner.cards.db_storage.title">DB-Speicherverlauf</div>
+                  <p class="muted card-subtitle" data-i18n="owner.cards.db_storage.sub">
+                    Wachstum der Datenbank und freier Speicherplatz auf dem Server.
+                  </p>
+                </div>
+                <label class="db-storage-range-control">
+                  <span data-i18n="owner.db_storage.range_label">Zeitraum</span>
+                  <select id="db-storage-range" class="db-storage-range-select">
+                    <option value="6" data-i18n="owner.db_storage.range_6h">6h</option>
+                    <option value="24" data-i18n="owner.db_storage.range_24h" selected>24h</option>
+                    <option value="72" data-i18n="owner.db_storage.range_72h">72h</option>
+                    <option value="168" data-i18n="owner.db_storage.range_7d">7d</option>
+                    <option value="720" data-i18n="owner.db_storage.range_30d">30d</option>
+                  </select>
+                </label>
+              </div>
               <div class="stats-grid" id="db-storage-stats">
                 <article class="stat-item">
                   <div class="stat-label">DB belegt</div>

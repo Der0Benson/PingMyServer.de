@@ -1577,9 +1577,15 @@
           auth_tracked_failures: "Verfolgte Failure-Records: {value}",
         },
         db_storage: {
-          no_data: "Noch keine DB-Speicherdaten verfügbar.",
+          no_data: "Noch keine DB-Speicherverlauf-Daten verfuegbar.",
           waiting: "Warte auf erste Messpunkte...",
-          footnote: "Zeitraum: {hours}h · Punkte: {points} · Wachstum: {growth}",
+          footnote: "Zeitraum: {hours}h · Punkte: {points} · Wachstum: {growth} · Trend/Tag: {trend_per_day} · Spanne: {range}",
+          range_label: "Zeitraum",
+          range_6h: "6h",
+          range_24h: "24h",
+          range_72h: "72h",
+          range_7d: "7d",
+          range_30d: "30d",
         },
         email_test: {
           title: "E-Mail-Test (Owner)",
@@ -3469,7 +3475,13 @@
         db_storage: {
           no_data: "No DB storage data available yet.",
           waiting: "Waiting for first samples...",
-          footnote: "Window: {hours}h · Points: {points} · Growth: {growth}",
+          footnote: "Range: {hours}h · Data points: {points} · Growth: {growth} · Trend/day: {trend_per_day} · Range: {range}",
+          range_label: "Range",
+          range_6h: "6h",
+          range_24h: "24h",
+          range_72h: "72h",
+          range_7d: "7d",
+          range_30d: "30d",
         },
         email_test: {
           title: "Email Test (Owner)",
