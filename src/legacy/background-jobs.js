@@ -8,7 +8,6 @@ function startBackgroundJobs(dependencies = {}) {
     shouldRunLeaderTasks,
     cleanupExpiredSessions,
     cleanupExpiredAuthEmailChallenges,
-    cleanupGameAgentPairings,
     cleanupOldChecks,
     compactClosedDays,
     compactProbeClosedDays,
@@ -49,7 +48,6 @@ function startBackgroundJobs(dependencies = {}) {
     if (shouldRunLeaderTasks()) {
       await cleanupExpiredSessions();
       await cleanupExpiredAuthEmailChallenges();
-      await cleanupGameAgentPairings();
       await cleanupOldChecks();
       await compactClosedDays();
       await compactProbeClosedDays();
@@ -87,9 +85,6 @@ function startBackgroundJobs(dependencies = {}) {
         });
         cleanupExpiredSessions().catch((error) => {
           logBackgroundError("session_cleanup_failed", error);
-        });
-        cleanupGameAgentPairings().catch((error) => {
-          logBackgroundError("game_agent_pairing_cleanup_failed", error);
         });
       }, maintenanceIntervalMs)
     );
