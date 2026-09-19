@@ -336,6 +336,27 @@
   min-width: 180px;
 }
 
+.billing-community-benefit {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(76, 201, 240, 0.28);
+  background: rgba(76, 201, 240, 0.08);
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.billing-community-benefit strong {
+  color: var(--text);
+}
+
+.billing-community-benefit.active {
+  border-color: rgba(185, 242, 124, 0.4);
+  background: rgba(185, 242, 124, 0.1);
+}
+
 .danger-btn {
   border-color: rgba(242, 107, 107, 0.55) !important;
   color: #f6a9a9 !important;

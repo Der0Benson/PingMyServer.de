@@ -12,6 +12,7 @@ function createMonitorSettingsController(dependencies = {}) {
     pool,
     normalizeMonitorIntervalMs,
     defaultMonitorIntervalMs,
+    resolveAccountEntitlements,
     normalizeMonitorSloTargetPercent,
     dayMs,
     toTimestampMs,
@@ -231,6 +232,15 @@ function createMonitorSettingsController(dependencies = {}) {
     }
 
     const intervalMs = normalizeMonitorIntervalMs(numericInterval, monitor.interval_ms || defaultMonitorIntervalMs);
+    const entitlements =
+      typeof resolveAccountEntitlements === "function"
+        ? await resolveAccountEntitlements(user.id)
+        : { minimumIntervalMs: 0 };
+    const minimumIntervalMs = Number(entitlements?.minimumIntervalMs || 0);
+    if (minimumIntervalMs > 0 && intervalMs < minimumIntervalMs) {
+      sendJson(res, 403, { ok: false, error: "interval not available", minimumIntervalMs });
+      return;
+    }
     await pool.query("UPDATE monitors SET interval_ms = ? WHERE id = ? AND user_id = ? LIMIT 1", [
       intervalMs,
       monitor.id,

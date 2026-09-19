@@ -1,117 +1,70 @@
-# 🚀 PingMyServer.de
+# PingMyServer.de
 
-> Lightweight, powerful uptime and monitoring system for websites and services.
+PingMyServer.de überwacht Webseiten und HTTP(S)-Dienste, dokumentiert Ausfälle und informiert Nutzer, wenn ein Dienst ausfällt oder wieder erreichbar ist. Neben dem klassischen zentralen Monitoring kann die Plattform Prüfungen an freiwillig betriebene Community-Probes verteilen.
 
----
+## Funktionsumfang
 
-## 🇩🇪 Deutsch
+- HTTP(S)-Monitoring mit konfigurierbaren Prüfintervallen
+- Dashboard mit Verfügbarkeit, Antwortzeiten und Fehlerverlauf
+- E-Mail-Benachrichtigungen bei Ausfall und Wiederherstellung
+- Öffentliche Statusseiten und Incident-Verwaltung
+- Anmeldung per E-Mail sowie unterstützte OAuth-Anbieter
+- Stripe-Anbindung für bezahlte Accounts
+- Community-Probe-Agenten mit Live-Status, Beitragsstatistiken und optionalen Zusammenfassungen
 
-### 📌 Über das Projekt ;)
+## Account-Stufen
 
-**PingMyServer.de** ist ein modernes Monitoring-System zur Überwachung von:
+| Stufe | Monitore | Kürzestes Prüfintervall | Besonderheit |
+| --- | ---: | ---: | --- |
+| Kostenlos | 1 | 60 Sekunden | Grundfunktionen ohne Zahlung |
+| Community | 3 | 60 Sekunden | Wird freigeschaltet, solange mindestens ein eigener Probe-Agent live ist |
+| Bezahlt | konfigurierbares Limit | 30 Sekunden | Erweiterte Kapazität und schnellere Prüfungen |
 
-- 🌐 Webseiten
-- 🖥 APIs & Services
-- 📊 Uptime & Performance
-- 🚨 Alerts & Statusseiten
+Für aktive Community-Verbindungen ist ein Abo-Rabatt von 40 Prozent vorgesehen. Der Rabatt wird erst nach einer separaten Vertrauensprüfung angewendet; ein Heartbeat allein löst keine Stripe-Gutschrift aus.
 
-Das Projekt dient der Bereitstellung einer stabilen, performanten und skalierbaren Monitoring-Infrastruktur.
+## Community-Probes
 
----
+Ein Community-Probe-Agent läuft als kleiner Docker-Container auf einem externen Server. Er holt höchstens zehn kurzlebige Aufträge ab, prüft freigegebene öffentliche HTTP(S)-Ziele und sendet die Ergebnisse zurück. Es sind weder offene Ports noch eingehende Verbindungen erforderlich.
 
-## ⚖️ Rechtlicher Hinweis / Nutzungseinschränkung
+Der Agent ist bewusst begrenzt:
 
-❗ **Wichtiger Hinweis**
+- API-Zugriff über einen nur einmal angezeigten Token, serverseitig nur als Hash gespeichert
+- HTTPS-Zwang für die Verbindung zu PingMyServer
+- Sperre privater, lokaler und reservierter Zielnetze
+- standardmäßige Beschränkung auf die Zielports 80 und 443
+- signierte, kurzlebige und nur einmal verwendbare Job-Leases
+- nichtprivilegierter Container ohne Linux-Capabilities und mit schreibgeschütztem Dateisystem
 
-Der gesamte Quellcode dieses Repositories ist urheberrechtlich geschützt.
+Installation und Betrieb sind in [docker/probe-agent/README.md](docker/probe-agent/README.md) beschrieben. Das serverseitige Sicherheits- und Lease-Modell steht in [docs/community-probe-protocol.md](docs/community-probe-protocol.md).
 
-**Das Kopieren, Duplizieren, Veröffentlichen oder Wiederverwenden des Codes – vollständig oder teilweise – ist ausdrücklich untersagt.**
+## Architektur
 
-Dieses Repository dient ausschließlich:
+Das Backend verwendet Node.js mit CommonJS und MySQL. Der Einstiegspunkt `server.js` startet die Anwendung aus `src/`. Neue Funktionen sind nach Verantwortlichkeit gegliedert:
 
-- der internen Entwicklung,
-- der technischen Dokumentation,
-- der Vergewisserung der Funktionsweise,
-- sowie dem Verständnis der Systemarchitektur hinter **PingMyServer.de**.
+- `src/modules/` – fachliche Module, Controller, Services und Repositories
+- `src/core/` – Logging und zentrale Fehlerbehandlung
+- `src/legacy/` – bestehende Laufzeitlogik während der schrittweisen Modularisierung
+- `src/probe-agent/` – Sicherheitsregeln des Probe-Clients
+- `public/` – Dashboard und öffentliche Seiten
+- `migrations/` – fortlaufende Datenbankmigrationen
+- `test/` – Tests mit dem integrierten Node.js-Test-Runner
 
-Jegliche Verwendung außerhalb dieses Zwecks ist nicht gestattet.
+Die Modularisierung ist absichtlich schrittweise: bestehendes Verhalten bleibt in `src/legacy/`, bis der jeweilige Bereich mit eigenen Schnittstellen und Tests herausgelöst wurde.
 
-Bei Fragen zur Nutzung oder Zusammenarbeit bitte direkt Kontakt aufnehmen.
+## Lokale Entwicklung
 
----
+Vorausgesetzt werden eine aktuelle Node.js-Version und eine erreichbare MySQL-Datenbank.
 
-## 🏗 Architektur (Kurzüberblick)
+```bash
+npm install
+npm test
+npm start
+```
 
-Das Backend basiert auf einer modularen Node.js-Struktur:
+Vor dem Start müssen die Datenbankmigrationen in numerischer Reihenfolge angewendet und die für die gewünschte Umgebung benötigten Variablen gesetzt werden. Geheimnisse gehören ausschließlich in die Laufzeitumgebung oder vorgesehene Secret-Dateien und nicht in das Repository.
 
+## Rechtlicher Hinweis
 
+Der Quellcode ist urheberrechtlich geschützt. Kopieren, Veröffentlichen oder Wiederverwenden des Codes – vollständig oder teilweise – ist ohne ausdrückliche Erlaubnis nicht gestattet. Das Repository dient der internen Entwicklung, technischen Dokumentation und Nachvollziehbarkeit der Systemarchitektur.
 
-
-
-
-Ziel ist eine klare Trennung von:
-
-- Routing
-- Business-Logik
-- Datenzugriff
-- Hintergrundprozessen
-- Logging & Fehlerbehandlung
-
----
-
-## 🇬🇧 English
-
-### 📌 About the Project
-
-**PingMyServer.de** is a modern uptime and monitoring system designed to monitor:
-
-- 🌐 Websites
-- 🖥 APIs & backend services
-- 📊 Uptime & performance metrics
-- 🚨 Alerts & public status pages
-
-The project focuses on stability, maintainability, and scalable monitoring infrastructure.
-
----
-
-## ⚖️ Legal Notice / Usage Restriction
-
-❗ **Important Notice**
-
-All source code contained in this repository is protected by copyright.
-
-**Copying, duplicating, redistributing, or reusing the code — in whole or in part — is strictly prohibited.**
-
-This repository exists solely for:
-
-- internal development purposes,
-- technical documentation,
-- verification of system behavior,
-- and understanding the architecture behind **PingMyServer.de**.
-
-Any use beyond these purposes is not permitted.
-
-For collaboration or licensing inquiries, please contact the project owner directly.
-
----
-
-## 🛠 Development Philosophy
-
-PingMyServer follows these principles:
-
-- Clear separation of concerns  
-- Modular architecture  
-- Centralized logging & error handling  
-- Scalable monitoring workers  
-- Clean API structure  
-
-## Community Probe Agent
-
-Der gehärtete Docker-Client und seine Installationsanleitung befinden sich unter [`docker/probe-agent`](docker/probe-agent/README.md). Das zugehörige Sicherheitsprotokoll ist in [`docs/community-probe-protocol.md`](docs/community-probe-protocol.md) beschrieben.
-
----
-
-## 📬 Contact
-
-For business inquiries, licensing, or collaboration:
-**Please contact the project owner directly.**
+Anfragen zu Zusammenarbeit oder Lizenzierung bitte direkt an den Projektinhaber richten.

@@ -5,6 +5,7 @@ function createProbeAgentController(dependencies = {}) {
     authenticateProbeAgentRequest,
     getProbeAgentJobs,
     persistProbeAgentResults,
+    recordProbeAgentHeartbeat,
     probeAgentPayloadMaxBytes = 262144,
     probeAgentDefaultBatchLimit = 10,
     probeAgentMaxBatchLimit = 50,
@@ -29,8 +30,8 @@ function createProbeAgentController(dependencies = {}) {
     return rounded;
   }
 
-  function requireProbeAgent(req, res) {
-    const agent = typeof authenticateProbeAgentRequest === "function" ? authenticateProbeAgentRequest(req) : null;
+  async function requireProbeAgent(req, res) {
+    const agent = typeof authenticateProbeAgentRequest === "function" ? await authenticateProbeAgentRequest(req) : null;
     if (agent && agent.probeId) return agent;
 
     sendJson(res, 401, { ok: false, error: "unauthorized" });
@@ -38,7 +39,7 @@ function createProbeAgentController(dependencies = {}) {
   }
 
   async function handleProbeAgentJobs(req, res, url) {
-    const agent = requireProbeAgent(req, res);
+    const agent = await requireProbeAgent(req, res);
     if (!agent) return;
 
     const limit = clampBatchLimit(url?.searchParams?.get("limit"));
@@ -59,7 +60,7 @@ function createProbeAgentController(dependencies = {}) {
   }
 
   async function handleProbeAgentResults(req, res) {
-    const agent = requireProbeAgent(req, res);
+    const agent = await requireProbeAgent(req, res);
     if (!agent) return;
 
     let body = {};
@@ -89,16 +90,24 @@ function createProbeAgentController(dependencies = {}) {
   }
 
   async function handleProbeAgentHeartbeat(req, res) {
-    const agent = requireProbeAgent(req, res);
+    const agent = await requireProbeAgent(req, res);
     if (!agent) return;
 
-    sendJson(res, 200, {
-      ok: true,
-      data: {
-        probeId: agent.probeId,
-        serverTime: Date.now(),
-      },
-    });
+    try {
+      if (typeof recordProbeAgentHeartbeat === "function") {
+        await recordProbeAgentHeartbeat(agent.probeId);
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          probeId: agent.probeId,
+          serverTime: Date.now(),
+        },
+      });
+    } catch (error) {
+      logError("probe_agent_heartbeat_failed", error);
+      sendJson(res, 500, { ok: false, error: "internal error" });
+    }
   }
 
   return {

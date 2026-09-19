@@ -7,7 +7,8 @@ async function handleAccountRoutes(context) {
     const user = await utilities.requireAuth(req, res);
     if (!user) return true;
     const next = await utilities.getNextPathForUser(user.id);
-    utilities.sendJson(res, 200, { ok: true, user: utilities.userToResponse(user), next });
+    const entitlements = await utilities.resolveAccountEntitlements(user.id);
+    utilities.sendJson(res, 200, { ok: true, user: utilities.userToResponse(user), entitlements, next });
     return true;
   }
 
@@ -18,6 +19,30 @@ async function handleAccountRoutes(context) {
 
   if (method === "GET" && pathname === "/api/account/connections") {
     await handlers.handleAccountConnectionsList(req, res);
+    return true;
+  }
+
+  if (method === "GET" && pathname === "/api/account/probe-agents") {
+    await handlers.handleAccountProbeAgentsList(req, res);
+    return true;
+  }
+
+  if (method === "POST" && pathname === "/api/account/probe-agents") {
+    await handlers.handleAccountProbeAgentCreate(req, res);
+    return true;
+  }
+
+  const accountProbeAgentSummaryMatch = pathname.match(
+    /^\/api\/account\/probe-agents\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})\/summary-email\/?$/
+  );
+  if (method === "PATCH" && accountProbeAgentSummaryMatch) {
+    await handlers.handleAccountProbeAgentSummaryEmailUpdate(req, res, accountProbeAgentSummaryMatch[1]);
+    return true;
+  }
+
+  const accountProbeAgentMatch = pathname.match(/^\/api\/account\/probe-agents\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})\/?$/);
+  if (method === "DELETE" && accountProbeAgentMatch) {
+    await handlers.handleAccountProbeAgentRevoke(req, res, accountProbeAgentMatch[1]);
     return true;
   }
 

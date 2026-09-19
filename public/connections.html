@@ -129,6 +129,51 @@
               </div>
             </section>
 
+            <section class="card wide" id="community-probe-agents">
+              <div class="card-title">Community-Probe-Agenten</div>
+              <p class="muted sessions-summary" id="probe-agents-summary">Lade deine Agenten...</p>
+              <div class="probe-benefit-status" id="probe-benefit-status">Free: 1 Monitor · Mit Live-Connection: 3 Monitore</div>
+              <p class="panel-message" id="probe-agents-message"></p>
+              <form id="probe-agent-form" class="probe-agent-form" novalidate autocomplete="off">
+                <label for="probe-agent-name">
+                  <span>Bezeichnung</span>
+                  <input
+                    id="probe-agent-name"
+                    type="text"
+                    minlength="2"
+                    maxlength="80"
+                    placeholder="z. B. Docker-Server Celle"
+                    required
+                  />
+                </label>
+                <button class="btn primary" id="probe-agent-create" type="submit">Agent erstellen</button>
+              </form>
+              <aside class="probe-agent-secret" id="probe-agent-secret" hidden>
+                <div class="probe-agent-secret-head">
+                  <strong>Zugangsdaten jetzt sichern</strong>
+                  <span class="domain-badge pending">Nur einmal sichtbar</span>
+                </div>
+                <p class="muted">Der Token kann später nicht erneut angezeigt werden. Lege ihn ausschließlich als Docker-Secret ab.</p>
+                <div class="probe-agent-secret-grid">
+                  <div>
+                    <span>Agent-ID</span>
+                    <code id="probe-agent-created-id"></code>
+                  </div>
+                  <div>
+                    <span>API-Token</span>
+                    <code id="probe-agent-created-token"></code>
+                  </div>
+                </div>
+                <button class="btn ghost" id="probe-agent-copy-config" type="button">Einrichtungsdaten kopieren</button>
+              </aside>
+              <div class="probe-agent-list" id="probe-agents-list">
+                <div class="empty-state">
+                  <div class="title">Lade Daten...</div>
+                  <div class="muted">Bitte kurz warten.</div>
+                </div>
+              </div>
+            </section>
+
             <section class="card wide" id="domain-verification">
               <div class="card-title" data-i18n="connections.domains.title">Domain-Verifizierung</div>
               <p class="muted sessions-summary" id="domains-summary" data-i18n="connections.domains.loading">Lade Domains...</p>

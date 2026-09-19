@@ -3,6 +3,7 @@ function createMonitorWriteController(dependencies = {}) {
     requireAuth,
     countMonitorsForUser,
     monitorsPerUserMax,
+    resolveAccountEntitlements,
     sendJson,
     readJsonBody,
     decodeBase64UrlUtf8,
@@ -26,9 +27,14 @@ function createMonitorWriteController(dependencies = {}) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
+    const entitlements =
+      typeof resolveAccountEntitlements === "function"
+        ? await resolveAccountEntitlements(user.id)
+        : { monitorLimit: monitorsPerUserMax, minimumIntervalMs: 0 };
+    const monitorLimit = Math.max(1, Number(entitlements?.monitorLimit || monitorsPerUserMax));
     const monitorCount = await countMonitorsForUser(user.id);
-    if (monitorCount >= monitorsPerUserMax) {
-      sendJson(res, 429, { ok: false, error: "monitor limit reached" });
+    if (monitorCount >= monitorLimit) {
+      sendJson(res, 429, { ok: false, error: "monitor limit reached", limit: monitorLimit, tier: entitlements?.tier || "free" });
       return;
     }
 
@@ -95,7 +101,9 @@ function createMonitorWriteController(dependencies = {}) {
     let intervalMs = safeDefaultIntervalMs;
     let statusPagePublic = false;
 
-    if (Object.prototype.hasOwnProperty.call(body, "intervalMs") || Object.prototype.hasOwnProperty.call(body, "interval_ms")) {
+    const hasRequestedInterval =
+      Object.prototype.hasOwnProperty.call(body, "intervalMs") || Object.prototype.hasOwnProperty.call(body, "interval_ms");
+    if (hasRequestedInterval) {
       const rawInterval = Object.prototype.hasOwnProperty.call(body, "intervalMs") ? body.intervalMs : body.interval_ms;
       const numeric = Number(rawInterval);
       if (!Number.isFinite(numeric)) {
@@ -103,6 +111,14 @@ function createMonitorWriteController(dependencies = {}) {
         return;
       }
       intervalMs = normalizeMonitorIntervalMs(numeric, safeDefaultIntervalMs);
+    }
+    const minimumIntervalMs = Number(entitlements?.minimumIntervalMs || 0);
+    if (minimumIntervalMs > 0 && intervalMs < minimumIntervalMs) {
+      if (hasRequestedInterval) {
+        sendJson(res, 403, { ok: false, error: "interval not available", minimumIntervalMs });
+        return;
+      }
+      intervalMs = minimumIntervalMs;
     }
 
     const hasStatusPagePublic = Object.prototype.hasOwnProperty.call(body, "statusPagePublic");

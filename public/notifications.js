@@ -50,6 +50,7 @@ const billingStateTextEl = document.getElementById("billing-state-text");
 const billingMessageEl = document.getElementById("billing-message");
 const billingUpgradeButton = document.getElementById("billing-upgrade-btn");
 const billingManageButton = document.getElementById("billing-manage-btn");
+const billingCommunityBenefitEl = document.getElementById("billing-community-benefit");
 
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 const EMAIL_COOLDOWN_MIN_MINUTES = 1;
@@ -428,6 +429,9 @@ function renderBillingState(data) {
   const active = !!billing.active;
   const status = String(billing.status || "none").trim().toLowerCase();
   const periodEndLabel = formatBillingDate(billing.currentPeriodEnd);
+  const communityActive = !!billing.communityActive;
+  const monitorLimit = Math.max(1, Number(billing.monitorLimit || 1));
+  const discountPercent = Math.max(0, Number(billing.communityDiscountPercent || 0));
 
   if (billingCardEl) {
     billingCardEl.hidden = false;
@@ -439,12 +443,15 @@ function renderBillingState(data) {
     if (!available || !checkoutEnabled) {
       billingStateBadgeEl.textContent = t("notifications.billing.badge.unavailable", null, "Unavailable");
       billingStateBadgeEl.classList.add("disabled");
-    } else if (active) {
-      billingStateBadgeEl.textContent = t("notifications.billing.badge.active", null, "Active");
-      billingStateBadgeEl.classList.add("connected");
     } else if (status === "past_due" || status === "unpaid") {
       billingStateBadgeEl.textContent = t("notifications.billing.badge.action_needed", null, "Action needed");
       billingStateBadgeEl.classList.add("error");
+    } else if (active) {
+      billingStateBadgeEl.textContent = t("notifications.billing.badge.active", null, "Active");
+      billingStateBadgeEl.classList.add("connected");
+    } else if (communityActive) {
+      billingStateBadgeEl.textContent = "Community";
+      billingStateBadgeEl.classList.add("connected");
     } else {
       billingStateBadgeEl.textContent = t("notifications.billing.badge.free", null, "Free");
       billingStateBadgeEl.classList.add("disabled");
@@ -454,6 +461,12 @@ function renderBillingState(data) {
   if (billingStateTextEl) {
     if (!available || !checkoutEnabled) {
       billingStateTextEl.textContent = t("notifications.billing.text.unavailable", null, "Stripe billing is currently not enabled.");
+    } else if (status === "past_due" || status === "unpaid") {
+      billingStateTextEl.textContent = t(
+        "notifications.billing.text.action_needed",
+        null,
+        "A payment is past due. Please update it in the portal."
+      );
     } else if (active) {
       const suffix = periodEndLabel
         ? t("notifications.billing.text.renewal", { date: periodEndLabel }, ` Next renewal: ${periodEndLabel}.`)
@@ -463,14 +476,10 @@ function renderBillingState(data) {
         { status, suffix },
         `Subscription status: ${status}.${suffix}`
       );
-    } else if (status === "past_due" || status === "unpaid") {
-      billingStateTextEl.textContent = t(
-        "notifications.billing.text.action_needed",
-        null,
-        "A payment is past due. Please update it in the portal."
-      );
+    } else if (communityActive) {
+      billingStateTextEl.textContent = `Community-Vorteil aktiv: ${monitorLimit} Monitore mit mindestens 60 Sekunden Intervall.`;
     } else {
-      billingStateTextEl.textContent = t("notifications.billing.text.free", null, "You are currently on the free plan.");
+      billingStateTextEl.textContent = "Free: 1 Monitor mit mindestens 60 Sekunden Intervall.";
     }
   }
 
@@ -480,6 +489,16 @@ function renderBillingState(data) {
 
   if (billingManageButton) {
     billingManageButton.disabled = !available;
+  }
+
+  if (billingCommunityBenefitEl) {
+    billingCommunityBenefitEl.classList.toggle("active", communityActive);
+    const detail = billingCommunityBenefitEl.querySelector("span");
+    if (detail) {
+      detail.textContent = communityActive
+        ? `Connection live: ${monitorLimit} Monitore sind freigeschaltet. ${discountPercent}% Abo-Rabatt folgen nach erfolgreicher Vertrauensprüfung.`
+        : "Starte eine Community-Connection: drei Monitore kostenlos und nach Vertrauensprüfung 40 % Rabatt auf dein Abo.";
+    }
   }
 }
 

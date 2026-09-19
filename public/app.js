@@ -124,6 +124,7 @@ const chartViewModeSingleInput = document.getElementById("chart-view-mode-single
 const chartViewModeCompareInput = document.getElementById("chart-view-mode-compare");
 
 let user = null;
+let accountEntitlements = null;
 let monitors = [];
 let activeMonitorId = null;
 let activeLocation = "aggregate";
@@ -1055,7 +1056,8 @@ function renderIntervalPicker(selectedMs) {
   const selected = Number.isFinite(Number(selectedMs)) ? Math.round(Number(selectedMs)) : null;
   intervalSelect.innerHTML = "";
 
-  const base = INTERVAL_OPTIONS_MS.slice();
+  const minimumIntervalMs = Math.max(0, Number(accountEntitlements?.minimumIntervalMs || 0));
+  const base = INTERVAL_OPTIONS_MS.filter((intervalMs) => intervalMs >= minimumIntervalMs);
   const needsCustom = selected !== null && !base.includes(selected);
   const options = needsCustom ? [selected, ...base] : base;
 
@@ -1393,6 +1395,7 @@ async function ensureAuthenticated() {
     }
 
     user = payload.user;
+    accountEntitlements = payload.entitlements || null;
     syncOwnerLinks();
     setCurrentUserLabel();
     return true;

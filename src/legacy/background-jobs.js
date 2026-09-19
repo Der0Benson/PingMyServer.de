@@ -11,10 +11,12 @@ function startBackgroundJobs(dependencies = {}) {
     cleanupOldChecks,
     compactClosedDays,
     compactProbeClosedDays,
+    sendDueCommunityProbeSummaries,
     checkSchedulerMs,
     maintenanceIntervalMs,
     authEmailVerificationCleanupIntervalMs,
     dailyCompactionIntervalMs,
+    communityProbeSummaryIntervalMs,
     runtimeTelemetry,
     pushNumericSample,
     logger,
@@ -110,6 +112,15 @@ function startBackgroundJobs(dependencies = {}) {
           logBackgroundError("probe_daily_compaction_cycle_failed", error);
         });
       }, dailyCompactionIntervalMs)
+    );
+
+    jobs.push(
+      setInterval(() => {
+        if (!shouldRunLeaderTasks()) return;
+        sendDueCommunityProbeSummaries().catch((error) => {
+          logBackgroundError("community_probe_summary_failed", error);
+        });
+      }, communityProbeSummaryIntervalMs)
     );
   }
 

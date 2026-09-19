@@ -16,6 +16,17 @@ const domainsMessageEl = document.getElementById("domains-message");
 const domainsListEl = document.getElementById("domain-list");
 const domainForm = document.getElementById("domain-form");
 const domainInputEl = document.getElementById("domain-input");
+const probeAgentsSummaryEl = document.getElementById("probe-agents-summary");
+const probeBenefitStatusEl = document.getElementById("probe-benefit-status");
+const probeAgentsMessageEl = document.getElementById("probe-agents-message");
+const probeAgentsListEl = document.getElementById("probe-agents-list");
+const probeAgentForm = document.getElementById("probe-agent-form");
+const probeAgentNameEl = document.getElementById("probe-agent-name");
+const probeAgentCreateButton = document.getElementById("probe-agent-create");
+const probeAgentSecretEl = document.getElementById("probe-agent-secret");
+const probeAgentCreatedIdEl = document.getElementById("probe-agent-created-id");
+const probeAgentCreatedTokenEl = document.getElementById("probe-agent-created-token");
+const probeAgentCopyConfigButton = document.getElementById("probe-agent-copy-config");
 
 const passwordForm = document.getElementById("password-form");
 const currentPasswordEl = document.getElementById("current-password");
@@ -35,10 +46,13 @@ const PASSWORD_MAX_LENGTH = 72;
 let sessions = [];
 let appConnections = [];
 let domains = [];
+let probeAgents = [];
 let user = null;
 let loadingSessions = false;
 let loadingAppConnections = false;
 let loadingDomains = false;
+let loadingProbeAgents = false;
+let createdProbeAgentCredentials = null;
 let canUsePasswordlessAccountActions = false;
 const ACTIVE_MONITOR_STORAGE_KEY = "pms.activeMonitorId";
 
@@ -168,6 +182,11 @@ function formatDateTime(ts) {
   }).format(new Date(ts));
 }
 
+function formatInt(value) {
+  const number = Number(value);
+  return Math.max(0, Number.isFinite(number) ? Math.round(number) : 0).toLocaleString(i18nLocale());
+}
+
 function formatTimeAgo(ms) {
   if (!Number.isFinite(ms) || ms < 0) {
     return rtf().format(0, "second");
@@ -253,6 +272,80 @@ function renderEmptyDomains(title, text) {
       <div class="muted">${escapeHtml(text)}</div>
     </div>
   `;
+}
+
+function renderProbeAgents() {
+  if (!probeAgentsListEl) return;
+  const list = Array.isArray(probeAgents) ? probeAgents : [];
+  const activeCount = list.filter((entry) => entry?.active).length;
+  const onlineCount = list.filter((entry) => entry?.online).length;
+  probeAgentsSummaryEl.textContent = `${activeCount} aktiv · ${onlineCount} online`;
+  if (probeBenefitStatusEl) {
+    probeBenefitStatusEl.classList.toggle("active", onlineCount > 0);
+    probeBenefitStatusEl.textContent =
+      onlineCount > 0
+        ? "Community-Vorteil aktiv: Du kannst bis zu 3 Monitore kostenlos nutzen."
+        : "Free: 1 Monitor · Mit Live-Connection: 3 Monitore";
+  }
+
+  if (!list.length) {
+    probeAgentsListEl.innerHTML = `
+      <div class="empty-state">
+        <div class="title">Noch keine Community-Agenten</div>
+        <div class="muted">Erstelle einen Agenten und verbinde anschließend den Docker-Client.</div>
+      </div>
+    `;
+    return;
+  }
+
+  probeAgentsListEl.innerHTML = list
+    .map((agent) => {
+      const active = !!agent?.active;
+      const online = !!agent?.online;
+      const statusClass = !active ? "revoked" : online ? "online" : "offline";
+      const statusText = !active ? "Gesperrt" : online ? "Online" : "Offline";
+      const heartbeat = Number(agent?.lastHeartbeatAt);
+      const heartbeatText = Number.isFinite(heartbeat) && heartbeat > 0 ? formatRelative(heartbeat) : "Noch nie verbunden";
+      const createdAt = Number(agent?.createdAt);
+      const createdText = Number.isFinite(createdAt) && createdAt > 0 ? formatDateTime(createdAt) : "-";
+      const probeId = escapeHtml(agent?.probeId || "");
+      const summaryEnabled = !!agent?.summaryEmailEnabled;
+      const summaryFrequency = agent?.summaryEmailFrequency === "monthly" ? "monthly" : "weekly";
+      return `
+        <article class="probe-agent-item">
+          <div class="probe-agent-head">
+            <div>
+              <div class="probe-agent-title">${escapeHtml(agent?.name || "Community-Agent")}</div>
+              <div class="domain-code">${probeId}</div>
+            </div>
+            <span class="domain-badge probe-agent-badge ${statusClass}">${statusText}</span>
+          </div>
+          <div class="probe-agent-meta">
+            <span>Letztes Lebenszeichen: ${escapeHtml(heartbeatText)}</span>
+            <span>Erstellt: ${escapeHtml(createdText)}</span>
+            <span>Token: ${escapeHtml(agent?.tokenPrefix || "-")}</span>
+          </div>
+          <div class="probe-agent-stats">
+            <div class="probe-agent-stat"><strong>${formatInt(agent?.checks24h)}</strong><span>Checks in 24 Stunden</span></div>
+            <div class="probe-agent-stat"><strong>${formatInt(agent?.checks7d)}</strong><span>Checks in 7 Tagen</span></div>
+            <div class="probe-agent-stat"><strong>${formatInt(agent?.checks30d)}</strong><span>Checks in 30 Tagen</span></div>
+          </div>
+          ${
+            active
+              ? `<div class="probe-agent-summary-settings">
+                  <label><input type="checkbox" data-probe-summary-id="${probeId}" ${summaryEnabled ? "checked" : ""} /> E-Mail-Zusammenfassung</label>
+                  <select data-probe-summary-frequency="${probeId}" ${summaryEnabled ? "" : "disabled"}>
+                    <option value="weekly" ${summaryFrequency === "weekly" ? "selected" : ""}>Wöchentlich</option>
+                    <option value="monthly" ${summaryFrequency === "monthly" ? "selected" : ""}>Monatlich</option>
+                  </select>
+                </div>
+                <div class="probe-agent-actions"><span class="muted">Eine Sperrung wirkt sofort und kann nicht rückgängig gemacht werden.</span><button class="btn ghost danger-btn" type="button" data-revoke-probe-id="${probeId}">Agent sperren</button></div>`
+              : ""
+          }
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function formatDomainSubtitle(item) {
@@ -689,6 +782,168 @@ async function loadDomains() {
     setDomainsSummary(t("common.connection_failed", null, "Connection failed."));
   } finally {
     loadingDomains = false;
+  }
+}
+
+async function loadProbeAgents() {
+  if (loadingProbeAgents) return;
+  loadingProbeAgents = true;
+  if (probeAgentsSummaryEl) probeAgentsSummaryEl.textContent = "Lade deine Agenten...";
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/probe-agents");
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      throw new Error("agent list failed");
+    }
+    probeAgents = Array.isArray(payload.data) ? payload.data : [];
+    renderProbeAgents();
+  } catch (error) {
+    probeAgents = [];
+    if (probeAgentsSummaryEl) probeAgentsSummaryEl.textContent = "Agenten konnten nicht geladen werden.";
+    if (probeAgentsListEl) {
+      probeAgentsListEl.innerHTML = `
+        <div class="empty-state">
+          <div class="title">Verbindung fehlgeschlagen</div>
+          <div class="muted">Bitte versuche es später erneut.</div>
+        </div>
+      `;
+    }
+  } finally {
+    loadingProbeAgents = false;
+  }
+}
+
+async function createProbeAgent(event) {
+  event.preventDefault();
+  const name = String(probeAgentNameEl?.value || "").replace(/\s+/g, " ").trim();
+  if (name.length < 2 || name.length > 80) {
+    setPanelMessage(probeAgentsMessageEl, "Bitte gib eine Bezeichnung mit 2 bis 80 Zeichen ein.", "error");
+    return;
+  }
+
+  if (probeAgentCreateButton) probeAgentCreateButton.disabled = true;
+  if (probeAgentNameEl) probeAgentNameEl.disabled = true;
+  setPanelMessage(probeAgentsMessageEl, "Agent wird erstellt...");
+
+  try {
+    const { response, payload } = await fetchJson("/api/account/probe-agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (response.status === 409 && payload?.error === "agent limit reached") {
+      setPanelMessage(probeAgentsMessageEl, `Du kannst höchstens ${Number(payload?.limit || 5)} aktive Agenten anlegen.`, "error");
+      return;
+    }
+    if (!response.ok || !payload?.ok || !payload?.data?.token) {
+      setPanelMessage(probeAgentsMessageEl, "Agent konnte nicht erstellt werden.", "error");
+      return;
+    }
+
+    createdProbeAgentCredentials = {
+      probeId: String(payload.data.probeId || ""),
+      token: String(payload.data.token || ""),
+    };
+    if (probeAgentCreatedIdEl) probeAgentCreatedIdEl.textContent = createdProbeAgentCredentials.probeId;
+    if (probeAgentCreatedTokenEl) probeAgentCreatedTokenEl.textContent = createdProbeAgentCredentials.token;
+    if (probeAgentSecretEl) probeAgentSecretEl.hidden = false;
+    if (probeAgentNameEl) probeAgentNameEl.value = "";
+    setPanelMessage(probeAgentsMessageEl, "Agent erstellt. Sichere jetzt die einmalig angezeigten Zugangsdaten.", "success");
+    await loadProbeAgents();
+  } catch (error) {
+    setPanelMessage(probeAgentsMessageEl, "Agent konnte nicht erstellt werden.", "error");
+  } finally {
+    if (probeAgentCreateButton) probeAgentCreateButton.disabled = false;
+    if (probeAgentNameEl) probeAgentNameEl.disabled = false;
+  }
+}
+
+async function revokeProbeAgent(probeId) {
+  const id = String(probeId || "").trim();
+  if (!id || !window.confirm("Diesen Agenten wirklich dauerhaft sperren?")) return;
+  setPanelMessage(probeAgentsMessageEl, "Agent wird gesperrt...");
+
+  try {
+    const { response, payload } = await fetchJson(`/api/account/probe-agents/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(probeAgentsMessageEl, "Agent konnte nicht gesperrt werden.", "error");
+      return;
+    }
+    if (createdProbeAgentCredentials?.probeId === id) {
+      createdProbeAgentCredentials = null;
+      if (probeAgentSecretEl) probeAgentSecretEl.hidden = true;
+    }
+    setPanelMessage(probeAgentsMessageEl, "Agent wurde gesperrt.", "success");
+    await loadProbeAgents();
+  } catch (error) {
+    setPanelMessage(probeAgentsMessageEl, "Agent konnte nicht gesperrt werden.", "error");
+  }
+}
+
+async function copyProbeAgentConfig() {
+  if (!createdProbeAgentCredentials) return;
+  const content = [
+    ".env:",
+    `PROBE_AGENT_API_URL=${window.location.origin}`,
+    `PROBE_AGENT_ID=${createdProbeAgentCredentials.probeId}`,
+    "",
+    "secrets/probe-agent-token.txt:",
+    createdProbeAgentCredentials.token,
+  ].join("\n");
+  try {
+    await navigator.clipboard.writeText(content);
+    setPanelMessage(probeAgentsMessageEl, "Einrichtungsdaten wurden kopiert.", "success");
+  } catch (error) {
+    setPanelMessage(probeAgentsMessageEl, "Kopieren nicht möglich. Bitte kopiere ID und Token manuell.", "error");
+  }
+}
+
+async function updateProbeAgentSummaryEmail(probeId, enabled, frequency) {
+  const id = String(probeId || "").trim();
+  const normalizedFrequency = frequency === "monthly" ? "monthly" : "weekly";
+  if (!id) return;
+
+  try {
+    const { response, payload } = await fetchJson(
+      `/api/account/probe-agents/${encodeURIComponent(id)}/summary-email`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !!enabled, frequency: normalizedFrequency }),
+      }
+    );
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok || !payload?.ok) {
+      setPanelMessage(probeAgentsMessageEl, "E-Mail-Zusammenfassung konnte nicht gespeichert werden.", "error");
+      await loadProbeAgents();
+      return;
+    }
+    setPanelMessage(
+      probeAgentsMessageEl,
+      enabled ? "E-Mail-Zusammenfassung ist aktiviert." : "E-Mail-Zusammenfassung ist deaktiviert.",
+      "success"
+    );
+    await loadProbeAgents();
+  } catch (error) {
+    setPanelMessage(probeAgentsMessageEl, "E-Mail-Zusammenfassung konnte nicht gespeichert werden.", "error");
+    await loadProbeAgents();
   }
 }
 
@@ -1157,9 +1412,55 @@ function bindEvents() {
 
   if (refreshSessionsButton) {
     refreshSessionsButton.addEventListener("click", () => {
-      Promise.all([loadAppConnections(), loadDomains(), loadSessions()]).catch(() => {
+      Promise.all([loadAppConnections(), loadProbeAgents(), loadDomains(), loadSessions()]).catch(() => {
         // ignore
       });
+    });
+  }
+
+  if (probeAgentForm) {
+    probeAgentForm.addEventListener("submit", createProbeAgent);
+  }
+
+  if (probeAgentCopyConfigButton) {
+    probeAgentCopyConfigButton.addEventListener("click", () => {
+      copyProbeAgentConfig().catch(() => {
+        // ignore
+      });
+    });
+  }
+
+  if (probeAgentsListEl) {
+    probeAgentsListEl.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("button[data-revoke-probe-id]");
+      if (!button) return;
+      revokeProbeAgent(button.getAttribute("data-revoke-probe-id") || "").catch(() => {
+        // ignore
+      });
+    });
+  }
+
+  if (probeAgentsListEl) {
+    probeAgentsListEl.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
+
+      if (target instanceof HTMLInputElement && target.matches("input[data-probe-summary-id]")) {
+        const probeId = target.getAttribute("data-probe-summary-id") || "";
+        const frequencySelect = probeAgentsListEl.querySelector(
+          `select[data-probe-summary-frequency="${CSS.escape(probeId)}"]`
+        );
+        updateProbeAgentSummaryEmail(probeId, target.checked, frequencySelect?.value || "weekly").catch(() => {});
+        return;
+      }
+
+      if (target instanceof HTMLSelectElement && target.matches("select[data-probe-summary-frequency]")) {
+        const probeId = target.getAttribute("data-probe-summary-frequency") || "";
+        const enabledInput = probeAgentsListEl.querySelector(`input[data-probe-summary-id="${CSS.escape(probeId)}"]`);
+        updateProbeAgentSummaryEmail(probeId, !!enabledInput?.checked, target.value).catch(() => {});
+      }
     });
   }
 
@@ -1249,8 +1550,7 @@ async function init() {
   }
 
   bindEvents();
-  await Promise.all([loadAppConnections(), loadDomains(), loadSessions()]);
+  await Promise.all([loadAppConnections(), loadProbeAgents(), loadDomains(), loadSessions()]);
 }
 
 init();
-
