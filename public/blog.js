@@ -71,23 +71,6 @@
           ],
         },
         {
-          date: "2026-03-03",
-          title: "Game-Monitor zeigt verbundene Mod-Sessions und Live-Metriken",
-          excerpt:
-            "Der Game-Monitor bündelt jetzt Heartbeats, Sessions und technische Live-Daten in einer deutlich klareren Ansicht.",
-          category: "Monitoring",
-          labels: [
-            { text: "Live-Daten", tone: "default" },
-            { text: "Dashboard", tone: "neutral" },
-            { text: "Minecraft", tone: "success" },
-          ],
-          bullets: [
-            "Verbundene Mod-Sessions werden separat angezeigt und können direkt getrennt werden.",
-            "TPS, Ping und Heartbeat-Werte sind sichtbar, sobald Daten eingehen.",
-            "Der Bereich bleibt klar vom klassischen Website-Monitoring getrennt.",
-          ],
-        },
-        {
           date: "2026-02-26",
           title: "Öffentliche Tool-Seiten für DNS Lookup und Port Checker sind live",
           excerpt:
@@ -172,23 +155,6 @@
             "After the first confirmed code check, the system remembers that the email login was verified.",
             "Returning sign-ins go directly through the normal session flow.",
             "Brand-new accounts still stay protected on their first entry.",
-          ],
-        },
-        {
-          date: "2026-03-03",
-          title: "Game monitor now shows connected mod sessions and live metrics",
-          excerpt:
-            "The game monitor now groups heartbeats, sessions and technical live data in a much clearer dedicated view.",
-          category: "Monitoring",
-          labels: [
-            { text: "Live data", tone: "default" },
-            { text: "Dashboard", tone: "neutral" },
-            { text: "Minecraft", tone: "success" },
-          ],
-          bullets: [
-            "Connected mod sessions are listed separately and can be disconnected directly.",
-            "TPS, ping and heartbeat values become visible as soon as data arrives.",
-            "The area stays clearly separated from classic website monitoring.",
           ],
         },
         {
