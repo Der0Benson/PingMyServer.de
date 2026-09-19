@@ -105,6 +105,10 @@ PingMyServer follows these principles:
 - Scalable monitoring workers  
 - Clean API structure  
 
+## Community Probe Agent
+
+Der gehärtete Docker-Client und seine Installationsanleitung befinden sich unter [`docker/probe-agent`](docker/probe-agent/README.md). Das zugehörige Sicherheitsprotokoll ist in [`docs/community-probe-protocol.md`](docs/community-probe-protocol.md) beschrieben.
+
 ---
 
 ## 📬 Contact
