@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
+    "test": "node --test",
     "probe-agent": "node probe-agent.js",
     "probe-agent:once": "node probe-agent.js --once"
   },
