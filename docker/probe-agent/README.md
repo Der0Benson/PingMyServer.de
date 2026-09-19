@@ -15,7 +15,7 @@ chmod 600 secrets/probe-agent-token.txt
 docker compose up -d --build
 ```
 
-In `.env` müssen `PROBE_AGENT_API_URL` und `PROBE_AGENT_ID` durch die vom Betreiber ausgegebenen Angaben ersetzt werden.
+In `.env` müssen `PROBE_AGENT_API_URL` und `PROBE_AGENT_ID` durch die im PingMyServer-Dashboard unter **Connections → Community-Probe-Agenten** ausgegebenen Angaben ersetzt werden. Der dort nur einmal angezeigte API-Token gehört als einziger Inhalt in `secrets/probe-agent-token.txt`.
 
 ## Sicherheitsgrenzen
 

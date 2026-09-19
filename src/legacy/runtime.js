@@ -15,6 +15,7 @@ const { createLogger } = require("../core/logger");
 const { startBackgroundJobs } = require("./background-jobs");
 const { createLegacyRequestHandlerFactory } = require("./request-handler");
 const { createAccountRepository } = require("../modules/account/account.repository");
+const { createAccountEntitlementsService } = require("../modules/account/account-entitlements.service");
 const {
   normalizeDomainForVerification,
   createDomainVerificationToken,
@@ -34,6 +35,10 @@ const { createMonitorWriteController } = require("../modules/monitors/monitor-wr
 const { createMonitorSettingsController } = require("../modules/monitors/monitor-settings.controller");
 const { createOwnerController } = require("../modules/owner/owner.controller");
 const { createProbeAgentController } = require("../modules/probe-agent/probe-agent.controller");
+const {
+  createProbeAgentManagementController,
+} = require("../modules/probe-agent/probe-agent-management.controller");
+const { createProbeAgentRepository } = require("../modules/probe-agent/probe-agent.repository");
 const { createProbeJobLeaseService } = require("../modules/probe-agent/probe-job-lease.service");
 const { createStaticFileService } = require("../modules/web/static-file.service");
 
@@ -378,28 +383,6 @@ function parseProbeLabelMap(value) {
   return map;
 }
 
-function parseProbeAgentTokenHashMap(value) {
-  const map = new Map();
-  const raw = String(value || "").trim();
-  if (!raw) return map;
-
-  for (const token of raw.split(",")) {
-    const part = String(token || "").trim();
-    if (!part) continue;
-
-    const separatorIndex = part.indexOf(":");
-    if (separatorIndex <= 0) continue;
-
-    const probeId = part.slice(0, separatorIndex).trim();
-    const secret = part.slice(separatorIndex + 1).trim();
-    if (!parseProbeIdParam(probeId) || !secret) continue;
-
-    map.set(probeId, hashProbeAgentApiToken(secret));
-  }
-
-  return map;
-}
-
 function requireEnvStatusCodeList(name) {
   const value = requireEnvString(name);
   const parsed = parseStatusCodes(value);
@@ -451,6 +434,11 @@ const RDAP_LOOKUP_TIMEOUT_MS = requireEnvNumber("RDAP_LOOKUP_TIMEOUT_MS", { inte
 const TARGET_META_CACHE_MAX = requireEnvNumber("TARGET_META_CACHE_MAX", { integer: true, min: 1 });
 const DAILY_COMPACTION_INTERVAL_MS = requireEnvNumber("DAILY_COMPACTION_INTERVAL_MS", { integer: true, min: 1000 });
 const MAINTENANCE_INTERVAL_MS = requireEnvNumber("MAINTENANCE_INTERVAL_MS", { integer: true, min: 1000 });
+const COMMUNITY_PROBE_SUMMARY_INTERVAL_MS = readEnvNumber("COMMUNITY_PROBE_SUMMARY_INTERVAL_MS", 6 * 60 * 60 * 1000, {
+  integer: true,
+  min: 60 * 60 * 1000,
+  max: 24 * 60 * 60 * 1000,
+});
 const STATIC_CACHE_MAX_AGE_SECONDS = requireEnvNumber("STATIC_CACHE_MAX_AGE_SECONDS", {
   integer: true,
   min: 0,
@@ -536,6 +524,17 @@ const MONITORS_PER_USER_MAX = readEnvNumber("MONITORS_PER_USER_MAX", 1000, {
   integer: true,
   min: 1,
   max: 1000000,
+});
+const FREE_MONITORS_PER_USER_MAX = readEnvNumber("FREE_MONITORS_PER_USER_MAX", 1, { integer: true, min: 1, max: 1000 });
+const COMMUNITY_MONITORS_PER_USER_MAX = readEnvNumber("COMMUNITY_MONITORS_PER_USER_MAX", 3, {
+  integer: true,
+  min: FREE_MONITORS_PER_USER_MAX,
+  max: MONITORS_PER_USER_MAX,
+});
+const FREE_MONITOR_INTERVAL_MIN_MS = readEnvNumber("FREE_MONITOR_INTERVAL_MIN_MS", 60000, {
+  integer: true,
+  min: MONITOR_INTERVAL_MIN_MS,
+  max: MONITOR_INTERVAL_MAX_MS,
 });
 const DEFAULT_PUBLIC_STATUS_MONITOR_ID = String(process.env.DEFAULT_PUBLIC_STATUS_MONITOR_ID || "").trim();
 const TRUST_PROXY = readEnvBoolean("TRUST_PROXY", false);
@@ -765,9 +764,7 @@ const MYSQL_PORT = requireEnvNumber("MYSQL_PORT", { integer: true, min: 1, max: 
 const MYSQL_USER = requireEnvString("MYSQL_USER");
 const MYSQL_PASSWORD = requireEnvString("MYSQL_PASSWORD", { trim: false });
 const SESSION_TOKEN_HASH_SECRET = readEnvString("SESSION_TOKEN_HASH_SECRET", MYSQL_PASSWORD, { trim: false });
-const PROBE_AGENT_TOKEN_HASH_SECRET = readEnvString("PROBE_AGENT_TOKEN_HASH_SECRET", SESSION_TOKEN_HASH_SECRET, {
-  trim: false,
-});
+const PROBE_AGENT_TOKEN_HASH_SECRET = requireEnvString("PROBE_AGENT_TOKEN_HASH_SECRET", { trim: false });
 const PASSWORD_PEPPER = readEnvString("PASSWORD_PEPPER", SESSION_TOKEN_HASH_SECRET, { trim: false });
 const PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED = readEnvBoolean("PASSWORD_PEPPER_MIGRATION_FALLBACK_ENABLED", true);
 const LANDING_RATING_HASH_SECRET = readEnvString("LANDING_RATING_HASH_SECRET", SESSION_TOKEN_HASH_SECRET, { trim: false });
@@ -799,9 +796,6 @@ const EMAIL_UNSUBSCRIBE_TOKEN_TTL_DAYS = readEnvNumber("EMAIL_UNSUBSCRIBE_TOKEN_
   min: 1,
   max: 36500,
 });
-const PROBE_AGENT_TOKENS = parseProbeAgentTokenHashMap(
-  readEnvString("PROBE_AGENT_TOKENS", "", { allowEmpty: true, trim: false })
-);
 const PROBE_AGENT_DEFAULT_BATCH_LIMIT = readEnvNumber("PROBE_AGENT_DEFAULT_BATCH_LIMIT", 10, {
   integer: true,
   min: 1,
@@ -830,6 +824,11 @@ const PROBE_AGENT_RESULT_MAX_BATCH = readEnvNumber(
     max: 500,
   }
 );
+const PROBE_AGENT_MAX_PER_USER = readEnvNumber("PROBE_AGENT_MAX_PER_USER", 5, {
+  integer: true,
+  min: 1,
+  max: 50,
+});
 const PROBE_AGENT_JOB_LEASE_SECRET = requireEnvString("PROBE_AGENT_JOB_LEASE_SECRET", { trim: false });
 const PROBE_AGENT_JOB_LEASE_TTL_MS = readEnvNumber("PROBE_AGENT_JOB_LEASE_TTL_MS", 120000, {
   integer: true,
@@ -1075,6 +1074,7 @@ let probeChecksInFlight = false;
 let clusterIsLeader = !CLUSTER_ENABLED;
 let allMonitorsOfflineConsecutiveCount = 0;
 let allMonitorsOfflineShutdownTriggered = false;
+let communityProbeSummaryInFlight = false;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MONITOR_FAVICON_CACHE_MAX = 300;
 const MONITOR_FAVICON_CACHE_MS = 30 * 60 * 1000;
@@ -1730,22 +1730,22 @@ function readProbeAgentIdFromRequest(req) {
   return parseProbeIdParam(readSingleHeaderValue(req?.headers?.["x-probe-id"]));
 }
 
-function authenticateProbeAgentRequest(req) {
+async function authenticateProbeAgentRequest(req) {
   const probeId = readProbeAgentIdFromRequest(req);
   if (!probeId) return null;
 
-  const expectedTokenHash = PROBE_AGENT_TOKENS.get(probeId);
-  if (!expectedTokenHash) return null;
-
   const token = readProbeAgentTokenFromRequest(req);
-  if (!token) return null;
+  if (!/^pms_pa_[A-Za-z0-9_-]{43}$/.test(token)) return null;
+
+  const agent = await findActiveProbeAgentById(probeId);
+  if (!agent) return null;
 
   const incomingTokenHash = hashProbeAgentApiToken(token);
-  if (!timingSafeEqualHex(incomingTokenHash, expectedTokenHash)) {
+  if (!timingSafeEqualHex(incomingTokenHash, agent.token_hash)) {
     return null;
   }
 
-  return { probeId };
+  return { probeId, userId: Number(agent.user_id) };
 }
 
 function isValidOrigin(req) {
@@ -4671,6 +4671,45 @@ async function ensureSchemaCompatibility() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS community_probe_agents (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      name VARCHAR(80) NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      token_prefix VARCHAR(20) NOT NULL,
+      summary_email_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      summary_email_frequency ENUM('weekly','monthly') NOT NULL DEFAULT 'weekly',
+      last_summary_sent_at DATETIME(3) NULL,
+      last_heartbeat_at DATETIME(3) NULL,
+      revoked_at DATETIME(3) NULL,
+      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+      UNIQUE KEY uniq_community_probe_agents_probe_id (probe_id),
+      INDEX idx_community_probe_agents_user (user_id, revoked_at, created_at),
+      INDEX idx_community_probe_agents_heartbeat (last_heartbeat_at),
+      CONSTRAINT fk_community_probe_agents_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    )
+  `);
+  if (!(await hasColumn("community_probe_agents", "summary_email_enabled"))) {
+    await pool.query(
+      "ALTER TABLE community_probe_agents ADD COLUMN summary_email_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER token_prefix"
+    );
+  }
+  if (!(await hasColumn("community_probe_agents", "summary_email_frequency"))) {
+    await pool.query(
+      "ALTER TABLE community_probe_agents ADD COLUMN summary_email_frequency ENUM('weekly','monthly') NOT NULL DEFAULT 'weekly' AFTER summary_email_enabled"
+    );
+  }
+  if (!(await hasColumn("community_probe_agents", "last_summary_sent_at"))) {
+    await pool.query(
+      "ALTER TABLE community_probe_agents ADD COLUMN last_summary_sent_at DATETIME(3) NULL AFTER summary_email_frequency"
+    );
+  }
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS monitor_probe_daily_stats (
       monitor_id BIGINT NOT NULL,
       probe_id VARCHAR(64) NOT NULL,
@@ -5503,6 +5542,28 @@ const {
   updateUserStripeSubscriptionByCustomerId,
 } = accountRepository;
 
+const probeAgentRepository = createProbeAgentRepository({ pool });
+const {
+  findActiveByProbeId: findActiveProbeAgentById,
+  listByUserId: listProbeAgentsByUserId,
+  createForUser: createProbeAgentForUser,
+  revokeForUser: revokeProbeAgentForUser,
+  recordHeartbeat: recordProbeAgentHeartbeat,
+  updateSummaryEmailForUser: updateProbeAgentSummaryEmailForUser,
+  getEntitlementSummaryForUser: getProbeAgentEntitlementSummaryForUser,
+} = probeAgentRepository;
+
+const accountEntitlementsService = createAccountEntitlementsService({
+  getBillingByUserId: getUserBillingSettingsById,
+  getCommunitySummaryByUserId: getProbeAgentEntitlementSummaryForUser,
+  paidMonitorLimit: MONITORS_PER_USER_MAX,
+  freeMonitorLimit: FREE_MONITORS_PER_USER_MAX,
+  communityMonitorLimit: COMMUNITY_MONITORS_PER_USER_MAX,
+  paidMinimumIntervalMs: MONITOR_INTERVAL_MIN_MS,
+  freeMinimumIntervalMs: FREE_MONITOR_INTERVAL_MIN_MS,
+});
+const { resolveForUser: resolveAccountEntitlements } = accountEntitlementsService;
+
 const oauthRepository = createOauthRepository({
   pool,
   crypto,
@@ -6208,7 +6269,7 @@ function isStripeSubscriptionActive(status) {
   return STRIPE_ACTIVE_SUBSCRIPTION_STATUSES.has(normalized);
 }
 
-function toAccountBillingPayload(account) {
+function toAccountBillingPayload(account, entitlements = {}) {
   const normalizedStatus = normalizeStripeSubscriptionStatus(account?.stripe_subscription_status) || "none";
   const customerId = String(account?.stripe_customer_id || "").trim();
   const subscriptionId = String(account?.stripe_subscription_id || "").trim();
@@ -6223,6 +6284,13 @@ function toAccountBillingPayload(account) {
     subscriptionId: subscriptionId || null,
     priceId: priceId || null,
     currentPeriodEnd: toIsoStringOrNull(account?.stripe_current_period_end),
+    tier: String(entitlements?.tier || "free"),
+    monitorLimit: Number(entitlements?.monitorLimit || FREE_MONITORS_PER_USER_MAX),
+    minimumIntervalMs: Number(entitlements?.minimumIntervalMs || FREE_MONITOR_INTERVAL_MIN_MS),
+    communityActive: !!entitlements?.communityActive,
+    communityChecks30d: Number(entitlements?.communityChecks30d || 0),
+    communityDiscountPercent: Number(entitlements?.discountPercent || 0),
+    communityDiscountPendingVerification: !!entitlements?.discountPendingVerification,
   };
 }
 
@@ -6756,7 +6824,8 @@ async function handleAccountBillingGet(req, res) {
       sendJson(res, 401, { ok: false, error: "unauthorized" });
       return;
     }
-    sendJson(res, 200, { ok: true, data: toAccountBillingPayload(account) });
+    const entitlements = await resolveAccountEntitlements(user.id);
+    sendJson(res, 200, { ok: true, data: toAccountBillingPayload(account, entitlements) });
   } catch (error) {
     runtimeLogger.error("account_billing_get_failed", error);
     sendJson(res, 500, { ok: false, error: "internal error" });
@@ -8824,6 +8893,7 @@ const monitorWriteController = createMonitorWriteController({
   requireAuth,
   countMonitorsForUser,
   monitorsPerUserMax: MONITORS_PER_USER_MAX,
+  resolveAccountEntitlements,
   sendJson,
   readJsonBody,
   decodeBase64UrlUtf8,
@@ -8858,6 +8928,7 @@ const monitorSettingsController = createMonitorSettingsController({
   pool,
   normalizeMonitorIntervalMs,
   defaultMonitorIntervalMs: DEFAULT_MONITOR_INTERVAL_MS,
+  resolveAccountEntitlements,
   normalizeMonitorSloTargetPercent,
   monitorSloTargetDefaultPercent: MONITOR_SLO_TARGET_DEFAULT_PERCENT,
   monitorSloTargetMinPercent: MONITOR_SLO_TARGET_MIN_PERCENT,
@@ -8891,6 +8962,7 @@ const probeAgentController = createProbeAgentController({
   authenticateProbeAgentRequest,
   getProbeAgentJobs,
   persistProbeAgentResults,
+  recordProbeAgentHeartbeat,
   probeAgentPayloadMaxBytes: PROBE_AGENT_PAYLOAD_MAX_BYTES,
   probeAgentDefaultBatchLimit: PROBE_AGENT_DEFAULT_BATCH_LIMIT,
   probeAgentMaxBatchLimit: PROBE_AGENT_MAX_BATCH_LIMIT,
@@ -8899,12 +8971,120 @@ const probeAgentController = createProbeAgentController({
 
 const { handleProbeAgentJobs, handleProbeAgentResults, handleProbeAgentHeartbeat } = probeAgentController;
 
+const probeAgentManagementController = createProbeAgentManagementController({
+  requireAuth,
+  sendJson,
+  readJsonBody,
+  repository: {
+    listByUserId: listProbeAgentsByUserId,
+    createForUser: createProbeAgentForUser,
+    revokeForUser: revokeProbeAgentForUser,
+    updateSummaryEmailForUser: updateProbeAgentSummaryEmailForUser,
+  },
+  crypto,
+  hashProbeAgentApiToken,
+  toTimestampMs,
+  maxActiveAgents: PROBE_AGENT_MAX_PER_USER,
+  logger: runtimeLogger,
+});
+
+const {
+  handleList: handleAccountProbeAgentsList,
+  handleCreate: handleAccountProbeAgentCreate,
+  handleRevoke: handleAccountProbeAgentRevoke,
+  handleSummaryEmailUpdate: handleAccountProbeAgentSummaryEmailUpdate,
+} = probeAgentManagementController;
+
+async function sendDueCommunityProbeSummaries() {
+  if (communityProbeSummaryInFlight || !isOwnerSmtpConfigured()) return;
+  communityProbeSummaryInFlight = true;
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        a.id,
+        a.probe_id,
+        a.name,
+        a.summary_email_frequency,
+        a.last_heartbeat_at,
+        u.email,
+        COUNT(r.job_id) AS checks_period
+      FROM community_probe_agents a
+      INNER JOIN users u ON u.id = a.user_id
+      LEFT JOIN probe_agent_job_receipts r
+        ON r.probe_id = a.probe_id
+        AND r.received_at >= DATE_SUB(
+          UTC_TIMESTAMP(),
+          INTERVAL IF(a.summary_email_frequency = 'monthly', 30, 7) DAY
+        )
+      WHERE a.summary_email_enabled = 1
+        AND a.revoked_at IS NULL
+        AND (
+          a.last_summary_sent_at IS NULL
+          OR a.last_summary_sent_at < DATE_SUB(
+            UTC_TIMESTAMP(),
+            INTERVAL IF(a.summary_email_frequency = 'monthly', 30, 7) DAY
+          )
+        )
+      GROUP BY
+        a.id,
+        a.probe_id,
+        a.name,
+        a.summary_email_frequency,
+        a.last_heartbeat_at,
+        u.email
+      ORDER BY a.id ASC
+      LIMIT 100
+    `);
+
+    for (const row of rows) {
+      const frequency = String(row.summary_email_frequency || "weekly") === "monthly" ? "monthly" : "weekly";
+      const periodLabel = frequency === "monthly" ? "30 Tagen" : "7 Tagen";
+      const heartbeatAt = toTimestampMs(row.last_heartbeat_at);
+      const online = Number.isFinite(heartbeatAt) && Date.now() - heartbeatAt <= 60000;
+      const checks = Math.max(0, Number(row.checks_period || 0));
+      const subject = `Deine PingMyServer Community-Connection: ${String(row.name || row.probe_id)}`;
+      const textBody = [
+        "Hallo,",
+        "",
+        `deine Community-Connection \"${String(row.name || row.probe_id)}\" ist aktuell ${online ? "online" : "offline"}.`,
+        `Ausgeführte und akzeptierte Checks in den letzten ${periodLabel}: ${checks}`,
+        `Agent-ID: ${String(row.probe_id || "")}`,
+        "",
+        online
+          ? "Dein Community-Vorteil mit bis zu drei kostenlosen Monitoren ist aktiv."
+          : "Starte die Connection erneut, damit dein Community-Vorteil wieder aktiv wird.",
+        "",
+        `Details: ${getDefaultTrustedOrigin()}/connections#community-probe-agents`,
+        "",
+        "Automatische Zusammenfassung von PingMyServer.de",
+      ].join("\n");
+
+      try {
+        await sendOwnerSmtpTestEmail({
+          to: row.email,
+          subject,
+          textBody,
+          extraHeaders: { "X-PMS-Notification-Type": "community_probe_summary" },
+        });
+        await pool.query(
+          "UPDATE community_probe_agents SET last_summary_sent_at = UTC_TIMESTAMP(3) WHERE id = ? LIMIT 1",
+          [row.id]
+        );
+      } catch (error) {
+        runtimeLogger.error("community_probe_summary_send_failed", error);
+      }
+    }
+  } finally {
+    communityProbeSummaryInFlight = false;
+  }
+}
+
 async function cleanupOldChecks() {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await pool.query("DELETE FROM monitor_checks WHERE checked_at < ?", [cutoff]);
   await pool.query("DELETE FROM monitor_probe_checks WHERE checked_at < ?", [cutoff]);
   await pool.query("DELETE FROM probe_agent_job_assignments WHERE expires_at < UTC_TIMESTAMP(3)");
-  await pool.query("DELETE FROM probe_agent_job_receipts WHERE received_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)");
+  await pool.query("DELETE FROM probe_agent_job_receipts WHERE received_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 35 DAY)");
 }
 
 async function compactMonitorDay(monitorId, dayKey) {
@@ -12699,6 +12879,10 @@ const runtimeHandlers = {
   handleAuthLogoutAll,
   handleAccountSessionsList,
   handleAccountConnectionsList,
+  handleAccountProbeAgentsList,
+  handleAccountProbeAgentCreate,
+  handleAccountProbeAgentRevoke,
+  handleAccountProbeAgentSummaryEmailUpdate,
   handleAccountDomainsList,
   handleAccountDomainChallengeCreate,
   handleAccountDomainVerify,
@@ -12756,6 +12940,7 @@ const runtimeUtilities = {
   requireAuth,
   getNextPathForUser,
   userToResponse,
+  resolveAccountEntitlements,
   listProbesForUser,
   parseMonitorLocationParam,
   listMonitorsForUserAtProbe,
@@ -12820,10 +13005,12 @@ async function startLegacyRuntime(options = {}) {
     cleanupOldChecks,
     compactClosedDays,
     compactProbeClosedDays,
+    sendDueCommunityProbeSummaries,
     checkSchedulerMs: CHECK_SCHEDULER_MS,
     maintenanceIntervalMs: MAINTENANCE_INTERVAL_MS,
     authEmailVerificationCleanupIntervalMs: AUTH_EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS,
     dailyCompactionIntervalMs: DAILY_COMPACTION_INTERVAL_MS,
+    communityProbeSummaryIntervalMs: COMMUNITY_PROBE_SUMMARY_INTERVAL_MS,
     runtimeTelemetry,
     pushNumericSample,
     logger: runtimeLogger,

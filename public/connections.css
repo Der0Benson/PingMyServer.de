@@ -32,6 +32,198 @@
   gap: 10px;
 }
 
+.probe-agent-form {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.probe-benefit-status {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(76, 201, 240, 0.24);
+  border-radius: 10px;
+  background: rgba(76, 201, 240, 0.08);
+  color: #b7efff;
+  font-size: 0.84rem;
+}
+
+.probe-benefit-status.active {
+  border-color: rgba(185, 242, 124, 0.4);
+  background: rgba(185, 242, 124, 0.1);
+  color: var(--accent-2);
+}
+
+.probe-agent-form label {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  max-width: 560px;
+}
+
+.probe-agent-form label span,
+.probe-agent-secret-grid span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.probe-agent-form input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 24, 0.9);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.probe-agent-form input:focus {
+  outline: none;
+  border-color: rgba(76, 201, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.16);
+}
+
+.probe-agent-secret {
+  border: 1px solid rgba(244, 180, 90, 0.4);
+  background: rgba(244, 180, 90, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.probe-agent-secret-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.probe-agent-secret p {
+  margin: 8px 0 12px;
+}
+
+.probe-agent-secret-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.probe-agent-secret-grid > div {
+  display: grid;
+  gap: 4px;
+}
+
+.probe-agent-secret code {
+  display: block;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.probe-agent-list {
+  display: grid;
+  gap: 10px;
+}
+
+.probe-agent-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.probe-agent-head,
+.probe-agent-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.probe-agent-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.probe-agent-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.probe-agent-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.probe-agent-stat {
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.probe-agent-stat strong,
+.probe-agent-stat span {
+  display: block;
+}
+
+.probe-agent-stat span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.probe-agent-summary-settings {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.probe-agent-summary-settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.probe-agent-summary-settings select {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 24, 0.9);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.probe-agent-badge.online {
+  color: var(--accent-2);
+  border-color: rgba(185, 242, 124, 0.4);
+  background: rgba(185, 242, 124, 0.12);
+}
+
+.probe-agent-badge.offline {
+  color: #f4b45a;
+  border-color: rgba(244, 180, 90, 0.4);
+  background: rgba(244, 180, 90, 0.12);
+}
+
+.probe-agent-badge.revoked {
+  color: #f6a9a9;
+  border-color: rgba(242, 107, 107, 0.4);
+  background: rgba(242, 107, 107, 0.1);
+}
+
 .domain-form {
   max-width: 720px;
   display: grid;
@@ -376,6 +568,23 @@
   }
 
   .domain-record-row {
+    grid-template-columns: 1fr;
+  }
+
+  .probe-agent-form,
+  .probe-agent-head,
+  .probe-agent-actions,
+  .probe-agent-secret-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .probe-agent-form .btn,
+  .probe-agent-actions .btn {
+    width: 100%;
+  }
+
+  .probe-agent-stats {
     grid-template-columns: 1fr;
   }
 

@@ -44,6 +44,10 @@ async function handleDispatchedRoutes(context) {
     handlers: {
       handleAccountSessionsList: handlers.handleAccountSessionsList,
       handleAccountConnectionsList: handlers.handleAccountConnectionsList,
+      handleAccountProbeAgentsList: handlers.handleAccountProbeAgentsList,
+      handleAccountProbeAgentCreate: handlers.handleAccountProbeAgentCreate,
+      handleAccountProbeAgentRevoke: handlers.handleAccountProbeAgentRevoke,
+      handleAccountProbeAgentSummaryEmailUpdate: handlers.handleAccountProbeAgentSummaryEmailUpdate,
       handleAccountDomainsList: handlers.handleAccountDomainsList,
       handleAccountDomainChallengeCreate: handlers.handleAccountDomainChallengeCreate,
       handleAccountDomainVerify: handlers.handleAccountDomainVerify,
@@ -73,6 +77,7 @@ async function handleDispatchedRoutes(context) {
       requireAuth: utilities.requireAuth,
       getNextPathForUser: utilities.getNextPathForUser,
       userToResponse: utilities.userToResponse,
+      resolveAccountEntitlements: utilities.resolveAccountEntitlements,
       sendJson: utilities.sendJson,
     },
   });
