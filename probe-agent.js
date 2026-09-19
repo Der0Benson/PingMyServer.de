@@ -1,9 +1,11 @@
 const http = require("http");
 const https = require("https");
+const fs = require("fs");
 const net = require("net");
 const { URL } = require("url");
 const { performance } = require("perf_hooks");
 const { createLogger } = require("./src/core/logger");
+const { parseAllowedPorts, validateProbeJob, validateTargetUrl } = require("./src/probe-agent/job-policy");
 
 const logger = createLogger("probe.agent");
 const DEFAULT_STATUS_CODES = [200, 201, 202, 203, 204, 205, 206, 301, 302, 303, 304, 307, 308];
@@ -54,6 +56,30 @@ function readEnvBoolean(name, fallback = false) {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
+function readSecret(name, fileName) {
+  const secretFile = readEnvString(fileName, { fallback: "", allowEmpty: true });
+  if (secretFile) {
+    const secret = fs.readFileSync(secretFile, "utf8").trim();
+    if (!secret) failConfig(`${fileName} points to an empty file`);
+    return secret;
+  }
+  return readEnvString(name, { trim: false });
+}
+
+function validateApiUrl(value, allowInsecureHttp) {
+  let parsed;
+  try {
+    parsed = new URL(String(value || ""));
+  } catch (error) {
+    failConfig("PROBE_AGENT_API_URL must be a valid URL");
+  }
+  if (parsed.username || parsed.password) failConfig("PROBE_AGENT_API_URL must not contain credentials");
+  if (parsed.protocol !== "https:" && !(allowInsecureHttp && parsed.protocol === "http:")) {
+    failConfig("PROBE_AGENT_API_URL must use HTTPS");
+  }
+  return parsed.toString();
+}
+
 let PROBE_AGENT_API_URL = "";
 let PROBE_AGENT_ID = "";
 let PROBE_AGENT_TOKEN = "";
@@ -62,11 +88,14 @@ let PROBE_AGENT_JOB_LIMIT = 10;
 let PROBE_AGENT_CONCURRENCY = 4;
 let PROBE_AGENT_API_TIMEOUT_MS = 15000;
 let PROBE_AGENT_RUN_ONCE = false;
+let PROBE_AGENT_ALLOWED_PORTS = new Set([80, 443]);
+let PROBE_AGENT_ALLOW_INSECURE_HTTP = false;
 
 try {
-  PROBE_AGENT_API_URL = readEnvString("PROBE_AGENT_API_URL");
+  PROBE_AGENT_ALLOW_INSECURE_HTTP = readEnvBoolean("PROBE_AGENT_ALLOW_INSECURE_HTTP", false);
+  PROBE_AGENT_API_URL = validateApiUrl(readEnvString("PROBE_AGENT_API_URL"), PROBE_AGENT_ALLOW_INSECURE_HTTP);
   PROBE_AGENT_ID = readEnvString("PROBE_AGENT_ID");
-  PROBE_AGENT_TOKEN = readEnvString("PROBE_AGENT_TOKEN", { trim: false });
+  PROBE_AGENT_TOKEN = readSecret("PROBE_AGENT_TOKEN", "PROBE_AGENT_TOKEN_FILE");
   PROBE_AGENT_LOOP_INTERVAL_MS = readEnvNumber("PROBE_AGENT_LOOP_INTERVAL_MS", {
     fallback: 10000,
     min: 1000,
@@ -75,12 +104,12 @@ try {
   PROBE_AGENT_JOB_LIMIT = readEnvNumber("PROBE_AGENT_JOB_LIMIT", {
     fallback: 10,
     min: 1,
-    max: 200,
+    max: 10,
   });
   PROBE_AGENT_CONCURRENCY = readEnvNumber("PROBE_AGENT_CONCURRENCY", {
     fallback: 4,
     min: 1,
-    max: 64,
+    max: 10,
   });
   PROBE_AGENT_API_TIMEOUT_MS = readEnvNumber("PROBE_AGENT_API_TIMEOUT_MS", {
     fallback: 15000,
@@ -88,6 +117,9 @@ try {
     max: 120000,
   });
   PROBE_AGENT_RUN_ONCE = readEnvBoolean("PROBE_AGENT_RUN_ONCE", false);
+  PROBE_AGENT_ALLOWED_PORTS = parseAllowedPorts(
+    readEnvString("PROBE_AGENT_ALLOWED_TARGET_PORTS", { fallback: "80,443", allowEmpty: false })
+  );
 } catch (error) {
   logger.error("config_failed", error);
   process.exit(1);
@@ -169,7 +201,6 @@ async function requestJson(method, targetUrl, options = {}) {
     Accept: "application/json",
     Authorization: `Bearer ${PROBE_AGENT_TOKEN}`,
     "X-Probe-Id": PROBE_AGENT_ID,
-    "X-PingMyServer-Probe-Token": PROBE_AGENT_TOKEN,
     "User-Agent": "PingMyServer-ProbeAgent/1.0",
     ...options.headers,
   };
@@ -490,6 +521,8 @@ async function executeHttpJob(job) {
     clampNumber(assertions.timeoutMs, { fallback: DEFAULT_HTTP_TIMEOUT_MS, min: 0, max: 120000 }) || DEFAULT_HTTP_TIMEOUT_MS;
   const collectBody = !!String(assertions.bodyContains || "").trim();
   const baseConnectAddress = net.isIP(String(job?.connectAddress || "").trim()) ? String(job.connectAddress).trim() : "";
+  const submitReserveMs = Math.min(30000, PROBE_AGENT_API_TIMEOUT_MS + 1000);
+  const executionDeadlineAt = Number(job?.expiresAt) - submitReserveMs;
 
   const startedAt = performance.now();
   let currentUrl = String(job?.targetUrl || "");
@@ -517,9 +550,35 @@ async function executeHttpJob(job) {
     }
     visited.add(currentUrl);
 
+    const targetValidation = validateTargetUrl(currentUrl, PROBE_AGENT_ALLOWED_PORTS);
+    if (!targetValidation.ok) {
+      lastResult = {
+        statusCode: null,
+        headers: lastResult?.headers ?? null,
+        bodyText: lastResult?.bodyText ?? "",
+        bodyTruncated: !!lastResult?.bodyTruncated,
+        timedOut: false,
+        error: targetValidation.reason,
+      };
+      break;
+    }
+
+    const remainingMs = Math.trunc(executionDeadlineAt - Date.now());
+    if (remainingMs < 100) {
+      lastResult = {
+        statusCode: null,
+        headers: lastResult?.headers ?? null,
+        bodyText: lastResult?.bodyText ?? "",
+        bodyTruncated: !!lastResult?.bodyTruncated,
+        timedOut: true,
+        error: "job_deadline_exceeded",
+      };
+      break;
+    }
+
     const requestResult = await requestMonitorDetails(currentUrl, {
       connectAddress: baseConnectAddress,
-      timeoutMs,
+      timeoutMs: Math.min(timeoutMs, remainingMs),
       collectBody,
       maxBodyBytes: HTTP_ASSERTION_MAX_BODY_BYTES,
     });
@@ -592,32 +651,46 @@ async function executeHttpJob(job) {
 }
 
 async function executeJob(job) {
-  const monitorId = Number(job?.monitorId);
-  if (!Number.isInteger(monitorId) || monitorId <= 0) {
+  const validation = validateProbeJob(job, { allowedPorts: PROBE_AGENT_ALLOWED_PORTS });
+  if (!validation.ok) {
+    logger.warn("job_rejected", {
+      jobId: String(job?.jobId || "").slice(0, 64),
+      reason: validation.reason,
+    });
     return null;
   }
 
+  const monitorId = Number(job.monitorId);
+  const attachLease = (result) => ({
+    ...result,
+    jobId: job.jobId,
+    leaseToken: job.leaseToken,
+  });
+
   if (String(job?.action || "").trim() === "report") {
     const result = job?.result && typeof job.result === "object" ? job.result : {};
-    return {
+    return attachLease({
       monitorId,
       ok: result.ok === true,
       responseMs: clampNumber(result.responseMs, { fallback: 0, min: 0, max: 600000 }),
-      statusCode: Number.isFinite(Number(result.statusCode)) ? Math.trunc(Number(result.statusCode)) : null,
+      statusCode:
+        result.statusCode !== null && result.statusCode !== "" && Number.isFinite(Number(result.statusCode))
+          ? Math.trunc(Number(result.statusCode))
+          : null,
       errorMessage: normalizeErrorMessage(result.errorMessage),
-    };
+    });
   }
 
   try {
-    return await executeHttpJob(job);
+    return attachLease(await executeHttpJob(job));
   } catch (error) {
-    return {
+    return attachLease({
       monitorId,
       ok: false,
       responseMs: 0,
       statusCode: null,
       errorMessage: normalizeErrorMessage(error.message) || "agent_execution_failed",
-    };
+    });
   }
 }
 
@@ -704,6 +777,7 @@ async function main() {
     intervalMs: PROBE_AGENT_LOOP_INTERVAL_MS,
     concurrency: PROBE_AGENT_CONCURRENCY,
     jobLimit: PROBE_AGENT_JOB_LIMIT,
+    allowedTargetPorts: [...PROBE_AGENT_ALLOWED_PORTS],
     runOnce: PROBE_AGENT_RUN_ONCE,
   });
 

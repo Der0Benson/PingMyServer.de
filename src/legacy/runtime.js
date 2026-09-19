@@ -34,6 +34,7 @@ const { createMonitorWriteController } = require("../modules/monitors/monitor-wr
 const { createMonitorSettingsController } = require("../modules/monitors/monitor-settings.controller");
 const { createOwnerController } = require("../modules/owner/owner.controller");
 const { createProbeAgentController } = require("../modules/probe-agent/probe-agent.controller");
+const { createProbeJobLeaseService } = require("../modules/probe-agent/probe-job-lease.service");
 const { createStaticFileService } = require("../modules/web/static-file.service");
 
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -829,6 +830,16 @@ const PROBE_AGENT_RESULT_MAX_BATCH = readEnvNumber(
     max: 500,
   }
 );
+const PROBE_AGENT_JOB_LEASE_SECRET = requireEnvString("PROBE_AGENT_JOB_LEASE_SECRET", { trim: false });
+const PROBE_AGENT_JOB_LEASE_TTL_MS = readEnvNumber("PROBE_AGENT_JOB_LEASE_TTL_MS", 120000, {
+  integer: true,
+  min: 60000,
+  max: 600000,
+});
+const probeJobLeaseService = createProbeJobLeaseService({
+  secret: PROBE_AGENT_JOB_LEASE_SECRET,
+  defaultTtlMs: PROBE_AGENT_JOB_LEASE_TTL_MS,
+});
 const MYSQL_DATABASE = requireEnvString("MYSQL_DATABASE");
 const MYSQL_CONNECTION_LIMIT = requireEnvNumber("MYSQL_CONNECTION_LIMIT", { integer: true, min: 1 });
 const MYSQL_TIMEZONE = requireEnvString("MYSQL_TIMEZONE");
@@ -1417,7 +1428,6 @@ NON_PUBLIC_IP_BLOCKLIST.addSubnet("224.0.0.0", 4, "ipv4");
 NON_PUBLIC_IP_BLOCKLIST.addSubnet("240.0.0.0", 4, "ipv4");
 NON_PUBLIC_IP_BLOCKLIST.addAddress("::", "ipv6");
 NON_PUBLIC_IP_BLOCKLIST.addAddress("::1", "ipv6");
-NON_PUBLIC_IP_BLOCKLIST.addSubnet("::ffff:0:0", 96, "ipv6");
 NON_PUBLIC_IP_BLOCKLIST.addSubnet("64:ff9b:1::", 48, "ipv6");
 NON_PUBLIC_IP_BLOCKLIST.addSubnet("100::", 64, "ipv6");
 NON_PUBLIC_IP_BLOCKLIST.addSubnet("2001:2::", 48, "ipv6");
@@ -4632,6 +4642,31 @@ async function ensureSchemaCompatibility() {
       error_message VARCHAR(255) NULL,
       INDEX idx_probe_checks_monitor_probe_time (monitor_id, probe_id, checked_at),
       INDEX idx_probe_checks_time (checked_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS probe_agent_job_assignments (
+      job_id CHAR(36) PRIMARY KEY,
+      probe_id VARCHAR(64) NOT NULL,
+      monitor_id BIGINT NOT NULL,
+      slot TINYINT UNSIGNED NOT NULL,
+      expires_at DATETIME(3) NOT NULL,
+      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      UNIQUE KEY uniq_probe_job_assignment (probe_id, monitor_id),
+      UNIQUE KEY uniq_probe_job_slot (probe_id, slot),
+      INDEX idx_probe_job_assignments_expiry (expires_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS probe_agent_job_receipts (
+      job_id CHAR(36) PRIMARY KEY,
+      probe_id VARCHAR(64) NOT NULL,
+      monitor_id BIGINT NOT NULL,
+      received_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      INDEX idx_probe_job_receipts_received (received_at),
+      INDEX idx_probe_job_receipts_probe_time (probe_id, received_at)
     )
   `);
 
@@ -8868,6 +8903,8 @@ async function cleanupOldChecks() {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await pool.query("DELETE FROM monitor_checks WHERE checked_at < ?", [cutoff]);
   await pool.query("DELETE FROM monitor_probe_checks WHERE checked_at < ?", [cutoff]);
+  await pool.query("DELETE FROM probe_agent_job_assignments WHERE expires_at < UTC_TIMESTAMP(3)");
+  await pool.query("DELETE FROM probe_agent_job_receipts WHERE received_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)");
 }
 
 async function compactMonitorDay(monitorId, dayKey) {
@@ -9937,7 +9974,7 @@ async function checkSingleMonitor(monitor) {
   }
 }
 
-async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = PROBE_ID) {
+async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = PROBE_ID, database = pool) {
   const monitorId = Number(monitor?.id);
   const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
   if (!Number.isInteger(monitorId) || monitorId <= 0) return false;
@@ -9950,7 +9987,7 @@ async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = 
   const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus);
 
   if (!suppressOffline) {
-    await pool.query(
+    await database.query(
       `
         INSERT INTO monitor_probe_checks (
           monitor_id,
@@ -9967,7 +10004,7 @@ async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = 
     );
   }
 
-  await pool.query(
+  await database.query(
     `
       INSERT INTO monitor_probe_state (
         monitor_id,
@@ -10006,10 +10043,21 @@ async function persistProbeAgentResults(probeId, items = []) {
     return { received: 0, accepted: 0, ignored: 0 };
   }
 
+  const leasedItems = rawItems
+    .map((item) => {
+      const verification = probeJobLeaseService.verifyLease(item?.leaseToken, {
+        probeId: probe,
+        monitorId: item?.monitorId,
+        jobId: item?.jobId,
+      });
+      return verification.ok ? { item, claims: verification.claims } : null;
+    })
+    .filter(Boolean);
+
   const monitorIds = Array.from(
     new Set(
-      rawItems
-        .map((item) => Number(item?.monitorId))
+      leasedItems
+        .map(({ item }) => Number(item?.monitorId))
         .filter((monitorId) => Number.isInteger(monitorId) && monitorId > 0)
     )
   );
@@ -10032,13 +10080,50 @@ async function persistProbeAgentResults(probeId, items = []) {
   const monitorMap = new Map(rows.map((row) => [Number(row.id), row]));
 
   let accepted = 0;
-  for (const item of rawItems) {
+  for (const { item, claims } of leasedItems) {
     const monitorId = Number(item?.monitorId);
     const monitor = monitorMap.get(monitorId);
     if (!monitor) continue;
 
-    if (await persistSingleMonitorProbeResult(monitor, item, probe)) {
-      accepted += 1;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [assignment] = await connection.query(
+        `
+          DELETE FROM probe_agent_job_assignments
+          WHERE job_id = ?
+            AND probe_id = ?
+            AND monitor_id = ?
+            AND expires_at >= UTC_TIMESTAMP(3)
+          LIMIT 1
+        `,
+        [claims.jobId, probe, monitorId]
+      );
+      if (!assignment?.affectedRows) {
+        await connection.rollback();
+        continue;
+      }
+
+      const [receipt] = await connection.query(
+        `
+          INSERT IGNORE INTO probe_agent_job_receipts (job_id, probe_id, monitor_id, received_at)
+          VALUES (?, ?, ?, UTC_TIMESTAMP(3))
+        `,
+        [claims.jobId, probe, monitorId]
+      );
+      if (!receipt?.affectedRows) {
+        await connection.rollback();
+        continue;
+      }
+
+      const persisted = await persistSingleMonitorProbeResult(monitor, item, probe, connection);
+      await connection.commit();
+      if (persisted) accepted += 1;
+    } catch (error) {
+      await connection.rollback().catch(() => {});
+      throw error;
+    } finally {
+      connection.release();
     }
   }
 
@@ -10052,15 +10137,34 @@ async function persistProbeAgentResults(probeId, items = []) {
 async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMIT) {
   const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
   const requestedLimit = Number(limit);
-  const safeLimit = Number.isFinite(requestedLimit)
+  const requestLimit = Number.isFinite(requestedLimit)
     ? Math.min(PROBE_AGENT_MAX_BATCH_LIMIT, Math.max(1, Math.trunc(requestedLimit)))
     : PROBE_AGENT_DEFAULT_BATCH_LIMIT;
   const dueMonitors = await getDueMonitorsForProbe(probe);
+  await pool.query("DELETE FROM probe_agent_job_assignments WHERE probe_id = ? AND expires_at < UTC_TIMESTAMP(3)", [probe]);
+  const [activeAssignments] = await pool.query(
+    "SELECT monitor_id, slot FROM probe_agent_job_assignments WHERE probe_id = ? AND expires_at >= UTC_TIMESTAMP(3)",
+    [probe]
+  );
+  const activeMonitorIds = new Set(activeAssignments.map((row) => Number(row.monitor_id)));
+  const occupiedSlots = new Set(activeAssignments.map((row) => Number(row.slot)));
+  const safeLimit = Math.min(requestLimit, Math.max(0, 10 - occupiedSlots.size));
 
   const jobs = [];
-  for (const monitor of dueMonitors.slice(0, safeLimit)) {
+  for (const monitor of dueMonitors) {
+    if (jobs.length >= safeLimit) break;
     const monitorId = Number(monitor?.id);
     if (!Number.isInteger(monitorId) || monitorId <= 0) continue;
+    if (activeMonitorIds.has(monitorId)) continue;
+
+    let slot = null;
+    for (let candidate = 1; candidate <= 10; candidate += 1) {
+      if (!occupiedSlots.has(candidate)) {
+        slot = candidate;
+        break;
+      }
+    }
+    if (!slot) break;
 
     const targetUrl = getMonitorUrl(monitor);
     if (!targetUrl) continue;
@@ -10070,9 +10174,21 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     const normalizedReason = normalizeTargetValidationReasonForTelemetry(validation?.reason);
     const connectAddress = getMonitorConnectAddress(validation);
     const safeConnectAddress = connectAddress && isPublicIpAddress(connectAddress) ? connectAddress : null;
+    const lease = probeJobLeaseService.issueLease({ probeId: probe, monitorId });
+    const [assignment] = await pool.query(
+      `
+        INSERT IGNORE INTO probe_agent_job_assignments (job_id, probe_id, monitor_id, slot, expires_at)
+        VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))
+      `,
+      [lease.jobId, probe, monitorId, slot, lease.expiresAt / 1000]
+    );
+    occupiedSlots.add(slot);
+    if (!assignment?.affectedRows) continue;
+    activeMonitorIds.add(monitorId);
 
-    if (validation?.allowed) {
+    if (validation?.allowed && safeConnectAddress) {
       jobs.push({
+        ...lease,
         monitorId,
         publicId: String(monitor.public_id || "").trim() || null,
         targetUrl,
@@ -10093,8 +10209,11 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     }
 
     const blockedMessage =
-      normalizedReason === "dns_unresolved" ? "dns_unresolved" : `target_blocked:${normalizedReason || "unknown"}`;
+      normalizedReason === "dns_unresolved" || (validation?.allowed && !safeConnectAddress)
+        ? "dns_unresolved"
+        : `target_blocked:${normalizedReason || "unknown"}`;
     jobs.push({
+      ...lease,
       monitorId,
       publicId: String(monitor.public_id || "").trim() || null,
       targetUrl,

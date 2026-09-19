@@ -1,0 +1,32 @@
+name: pingmyserver-community-probe
+
+services:
+  agent:
+    build:
+      context: ../..
+      dockerfile: docker/probe-agent/Dockerfile
+    image: pingmyserver/probe-agent:local
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.25
+    environment:
+      PROBE_AGENT_API_URL: ${PROBE_AGENT_API_URL}
+      PROBE_AGENT_ID: ${PROBE_AGENT_ID}
+      PROBE_AGENT_TOKEN_FILE: /run/secrets/probe_agent_token
+      PROBE_AGENT_JOB_LIMIT: ${PROBE_AGENT_JOB_LIMIT:-10}
+      PROBE_AGENT_CONCURRENCY: ${PROBE_AGENT_CONCURRENCY:-4}
+      PROBE_AGENT_LOOP_INTERVAL_MS: ${PROBE_AGENT_LOOP_INTERVAL_MS:-10000}
+      PROBE_AGENT_ALLOWED_TARGET_PORTS: ${PROBE_AGENT_ALLOWED_TARGET_PORTS:-80,443}
+    secrets:
+      - probe_agent_token
+
+secrets:
+  probe_agent_token:
+    file: ./secrets/probe-agent-token.txt
