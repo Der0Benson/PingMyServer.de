@@ -48,11 +48,6 @@ async function handleMonitorApiRoutes(context) {
     return true;
   }
 
-  if (method === "GET" && pathname === "/api/game-monitor/minecraft/status") {
-    await handlers.handleGameMonitorMinecraftStatus(req, res, url);
-    return true;
-  }
-
   const createMonitorPathMatch = pathname.match(
     /^\/(?:api\/)?(?:monitor-create|create-monitor)\/[A-Za-z0-9_-]{1,4096}(?:\/[A-Za-z0-9_-]{1,1024})?\/?$/
   );

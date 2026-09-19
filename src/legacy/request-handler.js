@@ -61,13 +61,9 @@ function createLegacyRequestHandlerFactory(dependencies = {}) {
       return;
     }
 
-    const isGameAgentIngestPath =
-      pathname === "/api/game-agent/link" ||
-      pathname === "/api/game-agent/heartbeat" ||
-      pathname === "/api/game-agent/disconnect";
     const isProbeAgentPath = pathname.startsWith("/api/probe-agent/");
     const isEmailUnsubscribePath = pathname === "/api/account/notifications/email/unsubscribe";
-    const isStateChangingApiPath = pathname.startsWith("/api/") && !isGameAgentIngestPath;
+    const isStateChangingApiPath = pathname.startsWith("/api/");
     const isLegacyMonitorCreatePath =
       pathname === "/monitor-create" ||
       pathname === "/create-monitor" ||

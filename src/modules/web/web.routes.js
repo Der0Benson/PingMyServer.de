@@ -81,13 +81,6 @@ async function handleWebRoutes(context) {
     return true;
   }
 
-  if (method === "GET" && (pathname === "/game-monitor" || pathname === "/game-monitor/")) {
-    const user = await utilities.requireAuth(req, res, { redirectToLogin: true });
-    if (!user) return true;
-    await utilities.serveStaticFile(res, "game-monitor.html");
-    return true;
-  }
-
   if (method === "GET" && (pathname === "/owner" || pathname === "/owner/")) {
     const owner = await utilities.requireOwner(req, res, { auth: { redirectToLogin: true }, redirectToApp: true });
     if (!owner) return true;

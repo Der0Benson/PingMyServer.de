@@ -33,7 +33,6 @@ const { createMonitorsRepository } = require("../modules/monitors/monitors.repos
 const { createMonitorWriteController } = require("../modules/monitors/monitor-write.controller");
 const { createMonitorSettingsController } = require("../modules/monitors/monitor-settings.controller");
 const { createOwnerController } = require("../modules/owner/owner.controller");
-const { createGameAgentController } = require("../modules/game-agent/game-agent.controller");
 const { createProbeAgentController } = require("../modules/probe-agent/probe-agent.controller");
 
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -454,14 +453,6 @@ const STATIC_CACHE_MAX_AGE_SECONDS = requireEnvNumber("STATIC_CACHE_MAX_AGE_SECO
   integer: true,
   min: 0,
 });
-const MINECRAFT_DEFAULT_PORT = 25565;
-const MINECRAFT_QUERY_TIMEOUT_MS = readEnvNumber("MINECRAFT_QUERY_TIMEOUT_MS", 7000, {
-  integer: true,
-  min: 1000,
-  max: 60000,
-});
-const MINECRAFT_MAX_PACKET_SIZE = 1048576;
-const MINECRAFT_MAX_CHAT_LENGTH = 32767;
 const UP_HTTP_CODES = requireEnvStatusCodeList("UP_HTTP_CODES");
 
 const MULTI_LOCATION_ENABLED = readEnvBoolean("MULTI_LOCATION_ENABLED", false);
@@ -539,55 +530,6 @@ const AUTH_LOCK_MAX_FAILS = requireEnvNumber("AUTH_LOCK_MAX_FAILS", { integer: t
 const AUTH_LOCK_DURATION_MS = requireEnvNumber("AUTH_LOCK_DURATION_MS", { integer: true, min: 1000 });
 const REQUEST_BODY_LIMIT_BYTES = requireEnvNumber("REQUEST_BODY_LIMIT_BYTES", { integer: true, min: 1024 });
 const MONITOR_PUBLIC_ID_LENGTH = requireEnvNumber("MONITOR_PUBLIC_ID_LENGTH", { integer: true, min: 6, max: 64 });
-const GAME_AGENT_PUBLIC_ID_LENGTH = readEnvNumber("GAME_AGENT_PUBLIC_ID_LENGTH", 16, {
-  integer: true,
-  min: 10,
-  max: 64,
-});
-const GAME_AGENT_PAIRING_CODE_LENGTH = readEnvNumber("GAME_AGENT_PAIRING_CODE_LENGTH", 10, {
-  integer: true,
-  min: 6,
-  max: 16,
-});
-const GAME_AGENT_PAIRING_TTL_MS = readEnvNumber("GAME_AGENT_PAIRING_TTL_MS", 10 * 60 * 1000, {
-  integer: true,
-  min: 60000,
-  max: 24 * 60 * 60 * 1000,
-});
-const GAME_AGENT_HEARTBEAT_STALE_MS = readEnvNumber("GAME_AGENT_HEARTBEAT_STALE_MS", 45000, {
-  integer: true,
-  min: 5000,
-  max: 60 * 60 * 1000,
-});
-const GAME_AGENT_PAYLOAD_MAX_BYTES = readEnvNumber("GAME_AGENT_PAYLOAD_MAX_BYTES", 64 * 1024, {
-  integer: true,
-  min: 2048,
-  max: 1024 * 1024,
-});
-const GAME_AGENT_HEARTBEAT_INTERVAL_MS = readEnvNumber(
-  "GAME_AGENT_HEARTBEAT_INTERVAL_MS",
-  Math.min(15000, Math.max(5000, Math.floor(GAME_AGENT_HEARTBEAT_STALE_MS / 2))),
-  {
-    integer: true,
-    min: 5000,
-    max: GAME_AGENT_HEARTBEAT_STALE_MS,
-  }
-);
-const GAME_AGENT_MAX_PLUGIN_ENTRIES = readEnvNumber("GAME_AGENT_MAX_PLUGIN_ENTRIES", 120, {
-  integer: true,
-  min: 1,
-  max: 500,
-});
-const GAME_AGENT_MAX_REGION_LATENCY_ENTRIES = readEnvNumber("GAME_AGENT_MAX_REGION_LATENCY_ENTRIES", 32, {
-  integer: true,
-  min: 1,
-  max: 128,
-});
-const GAME_AGENT_MAX_EVENT_ENTRIES = readEnvNumber("GAME_AGENT_MAX_EVENT_ENTRIES", 60, {
-  integer: true,
-  min: 1,
-  max: 500,
-});
 const MONITORS_PER_USER_MAX = readEnvNumber("MONITORS_PER_USER_MAX", 1000, {
   integer: true,
   min: 1,
@@ -6269,123 +6211,6 @@ async function initDb() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS game_agent_pairings (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT NOT NULL,
-      game VARCHAR(24) NOT NULL,
-      code CHAR(16) NOT NULL UNIQUE,
-      expires_at DATETIME(3) NOT NULL,
-      used_at DATETIME(3) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_game_agent_pairings_user_game (user_id, game, expires_at),
-      INDEX idx_game_agent_pairings_expires (expires_at),
-      CONSTRAINT fk_game_agent_pairings_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS game_agent_sessions (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      public_id CHAR(32) NOT NULL UNIQUE,
-      user_id BIGINT NOT NULL,
-      game VARCHAR(24) NOT NULL,
-      instance_id VARCHAR(96) NOT NULL,
-      server_name VARCHAR(120) NULL,
-      server_host VARCHAR(255) NULL,
-      mod_version VARCHAR(64) NULL,
-      game_version VARCHAR(64) NULL,
-      token_hash CHAR(64) NOT NULL UNIQUE,
-      token_last4 CHAR(4) NOT NULL,
-      connected_at DATETIME(3) NULL,
-      last_heartbeat_at DATETIME(3) NULL,
-      disconnected_at DATETIME(3) NULL,
-      revoked_at DATETIME(3) NULL,
-      last_ip VARCHAR(64) NULL,
-      last_payload JSON NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_game_agent_instance (user_id, game, instance_id),
-      INDEX idx_game_agent_sessions_user_game (user_id, game, created_at),
-      INDEX idx_game_agent_sessions_heartbeat (last_heartbeat_at),
-      CONSTRAINT fk_game_agent_sessions_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS game_agent_session_events (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      session_id BIGINT NOT NULL,
-      user_id BIGINT NOT NULL,
-      game VARCHAR(24) NOT NULL,
-      event_hash CHAR(64) NOT NULL,
-      event_type VARCHAR(24) NOT NULL,
-      severity VARCHAR(16) NOT NULL,
-      message VARCHAR(512) NOT NULL,
-      event_code VARCHAR(64) NULL,
-      happened_at DATETIME(3) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_game_agent_event_hash (session_id, event_hash),
-      INDEX idx_game_agent_events_user_game_time (user_id, game, happened_at),
-      INDEX idx_game_agent_events_session_time (session_id, happened_at),
-      CONSTRAINT fk_game_agent_events_session
-        FOREIGN KEY (session_id) REFERENCES game_agent_sessions(id)
-        ON DELETE CASCADE,
-      CONSTRAINT fk_game_agent_events_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS game_agent_session_plugins (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      session_id BIGINT NOT NULL,
-      user_id BIGINT NOT NULL,
-      game VARCHAR(24) NOT NULL,
-      plugin_name VARCHAR(80) NOT NULL,
-      plugin_version VARCHAR(64) NULL,
-      enabled TINYINT(1) NOT NULL DEFAULT 1,
-      detected_at DATETIME(3) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_game_agent_plugin_session_name (session_id, plugin_name),
-      INDEX idx_game_agent_plugins_user_game (user_id, game, detected_at),
-      CONSTRAINT fk_game_agent_plugins_session
-        FOREIGN KEY (session_id) REFERENCES game_agent_sessions(id)
-        ON DELETE CASCADE,
-      CONSTRAINT fk_game_agent_plugins_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS game_agent_session_region_latency (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      session_id BIGINT NOT NULL,
-      user_id BIGINT NOT NULL,
-      game VARCHAR(24) NOT NULL,
-      region_key VARCHAR(32) NOT NULL,
-      ping_ms INT UNSIGNED NOT NULL,
-      sampled_at DATETIME(3) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_game_agent_region_session_key (session_id, region_key),
-      INDEX idx_game_agent_region_user_game (user_id, game, sampled_at),
-      CONSTRAINT fk_game_agent_region_session
-        FOREIGN KEY (session_id) REFERENCES game_agent_sessions(id)
-        ON DELETE CASCADE,
-      CONSTRAINT fk_game_agent_region_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE
-    )
-  `);
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS owner_db_storage_snapshots (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       sampled_at DATETIME(3) NOT NULL,
@@ -9961,61 +9786,6 @@ const {
   handleMonitorMaintenanceCreate,
   handleMonitorMaintenanceCancel,
 } = monitorSettingsController;
-
-const gameAgentController = createGameAgentController({
-  requireAuth,
-  normalizeMinecraftHost,
-  normalizeMinecraftPort,
-  minecraftDefaultPort: MINECRAFT_DEFAULT_PORT,
-  sendJson,
-  validateMonitorTarget,
-  queryMinecraftServer,
-  minecraftQueryTimeoutMs: MINECRAFT_QUERY_TIMEOUT_MS,
-  normalizeMinecraftTps,
-  normalizeMinecraftPlayerSample,
-  extractMinecraftMotdText,
-  normalizeMinecraftProbeError,
-  pool,
-  normalizeGameAgentGame,
-  gameAgentDefaultGame: GAME_AGENT_DEFAULT_GAME,
-  serializeGameAgentPairingRow,
-  gameAgentPairingTtlMs: GAME_AGENT_PAIRING_TTL_MS,
-  createGameAgentPairingCode,
-  serializeGameAgentSessionRow,
-  hashSessionToken,
-  readJsonBody,
-  gameAgentPayloadMaxBytes: GAME_AGENT_PAYLOAD_MAX_BYTES,
-  isValidGameAgentPublicId,
-  normalizeGameAgentPairingCode,
-  normalizeGameAgentInstanceId,
-  getClientIp,
-  normalizeGameAgentServerName,
-  normalizeGameAgentServerHost,
-  normalizeGameAgentVersion,
-  normalizeGameAgentPayload,
-  crypto,
-  parseGameAgentJsonColumn,
-  mergeGameAgentPayload,
-  generateUniqueGameAgentPublicId,
-  gameAgentHeartbeatIntervalMs: GAME_AGENT_HEARTBEAT_INTERVAL_MS,
-  gameAgentHeartbeatStaleMs: GAME_AGENT_HEARTBEAT_STALE_MS,
-  readGameAgentTokenFromRequest,
-  toTimestampMs,
-  logger: runtimeLogger,
-});
-
-const {
-  cleanupGameAgentPairings,
-  handleGameAgentPairingCreate,
-  handleGameAgentPairingsList,
-  handleGameAgentSessionsList,
-  handleGameAgentEventsList,
-  handleGameAgentSessionRevoke,
-  handleGameAgentLink,
-  handleGameAgentHeartbeat,
-  handleGameAgentDisconnect,
-  handleGameMonitorMinecraftStatus,
-} = gameAgentController;
 
 const probeAgentController = createProbeAgentController({
   sendJson,
@@ -13771,14 +13541,6 @@ const runtimeHandlers = {
   handleAccountDomainDelete,
   handleAccountPasswordChange,
   handleAccountDelete,
-  handleGameAgentPairingsList,
-  handleGameAgentPairingCreate,
-  handleGameAgentSessionsList,
-  handleGameAgentEventsList,
-  handleGameAgentSessionRevoke,
-  handleGameAgentLink,
-  handleGameAgentHeartbeat,
-  handleGameAgentDisconnect,
   handleProbeAgentJobs,
   handleProbeAgentResults,
   handleProbeAgentHeartbeat,
@@ -13789,7 +13551,6 @@ const runtimeHandlers = {
   handleOwnerEmailTest,
   handleCreateMonitor,
   handleIncidentHide,
-  handleGameMonitorMinecraftStatus,
   handleMonitorFavicon,
   handleMonitorHttpAssertionsGet,
   handleMonitorHttpAssertionsUpdate,
@@ -13874,7 +13635,6 @@ async function startLegacyRuntime(options = {}) {
     shouldRunLeaderTasks,
     cleanupExpiredSessions,
     cleanupExpiredAuthEmailChallenges,
-    cleanupGameAgentPairings,
     cleanupOldChecks,
     compactClosedDays,
     compactProbeClosedDays,

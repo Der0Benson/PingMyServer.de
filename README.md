@@ -1,6 +1,6 @@
 # 🚀 PingMyServer.de
 
-> Lightweight, powerful uptime and monitoring system for websites, services and game servers.
+> Lightweight, powerful uptime and monitoring system for websites and services.
 
 ---
 
@@ -12,7 +12,6 @@
 
 - 🌐 Webseiten
 - 🖥 APIs & Services
-- 🎮 Game-Servern
 - 📊 Uptime & Performance
 - 🚨 Alerts & Statusseiten
 
@@ -68,7 +67,6 @@ Ziel ist eine klare Trennung von:
 
 - 🌐 Websites
 - 🖥 APIs & backend services
-- 🎮 Game servers
 - 📊 Uptime & performance metrics
 - 🚨 Alerts & public status pages
 
@@ -113,4 +111,3 @@ PingMyServer follows these principles:
 
 For business inquiries, licensing, or collaboration:
 **Please contact the project owner directly.**
-
