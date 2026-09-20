@@ -21,7 +21,6 @@ function createTelemetryWriteBuffer(options = {}) {
       timer = null;
       void flush().catch((error) => logger.error?.("telemetry_batch_flush_failed", error));
     }, flushIntervalMs);
-    timer.unref?.();
   }
 
   async function drain() {
