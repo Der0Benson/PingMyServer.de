@@ -31,6 +31,9 @@ test("contentTypeFromPath maps known extensions", () => {
   assert.equal(contentTypeFromPath("index.html"), "text/html; charset=utf-8");
   assert.equal(contentTypeFromPath("app.js"), "application/javascript; charset=utf-8");
   assert.equal(contentTypeFromPath("image.png"), "image/png");
+  assert.equal(contentTypeFromPath("font.ttf"), "font/ttf");
+  assert.equal(contentTypeFromPath("font.woff"), "font/woff");
+  assert.equal(contentTypeFromPath("font.woff2"), "font/woff2");
   assert.equal(contentTypeFromPath("archive.bin"), "application/octet-stream");
 });
 

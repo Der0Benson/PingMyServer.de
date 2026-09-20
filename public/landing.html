@@ -40,7 +40,8 @@
     <link rel="stylesheet" href="/assets/landing-tailwind.css" />
     <link rel="stylesheet" href="/assets/landing.css" />
     <link rel="stylesheet" href="/assets/i18n.css" />
-</head>
+    <link rel="stylesheet" href="/assets/craft.css" />
+  </head>
 <body class="landing-page gradient-bg text-white">
     
     <!-- Navigation -->
@@ -163,7 +164,7 @@
                         id="landing-nav-primary-cta"
                         data-landing-primary-cta
                         href="/login?mode=register"
-                        class="landing-nav-cta bg-cyan-400 text-slate-900 px-5 py-2 rounded-lg font-semibold hover:bg-cyan-300 transition shine-effect inline-flex items-center"
+                        class="landing-nav-cta bg-cyan-400 text-slate-900 px-5 py-2 font-semibold inline-flex items-center"
                         data-i18n="landing.nav.cta"
                     >
                         Kostenlos starten
@@ -234,7 +235,7 @@
                     <div class="landing-hero-editorial">
                         <h1 class="landing-hero-display text-5xl lg:text-7xl font-bold leading-none">
                             <span class="landing-hero-line" data-i18n="landing.hero.h1.line1">Ausfälle früh erkennen,</span>
-                            <span class="landing-hero-line text-cyan-400" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
+                            <span class="landing-hero-line" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
                             <span class="landing-hero-line" data-i18n="landing.hero.h1.line2">sie melden</span>
                         </h1>
 
@@ -242,13 +243,13 @@
                             <span class="landing-hero-lead-line" aria-hidden="true"></span>
                             <p class="text-xl text-slate-300" data-i18n="landing.hero.lead">
                                 PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr.
-                                Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.
+                                Bei einem Ausfall erhältst du sofort eine Nachricht per Discord, Webhook oder E-Mail.
                             </p>
                         </div>
 
                         <div class="landing-hero-cta-bar">
-                            <a href="/login?mode=register" class="landing-hero-cta-primary bg-cyan-400 text-slate-900 px-8 py-4 font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                                <span data-i18n="landing.hero.cta_primary">Early Access starten -></span>
+                            <a href="/login?mode=register" class="landing-hero-cta-primary bg-cyan-400 text-slate-900 px-8 py-4 font-bold text-lg inline-flex items-center justify-center">
+                                <span data-i18n="landing.hero.cta_primary">Early Access starten →</span>
                             </a>
                             <a href="/status" class="landing-hero-cta-secondary inline-flex items-center">
                                 <span data-i18n="landing.hero.cta_secondary">Live-Demo ansehen</span>
@@ -292,7 +293,7 @@
                                 <span data-i18n="landing.live.title">Live Status</span>
                             </div>
                             <div class="landing-hero-console-state">
-                                <div id="landing-live-dot" class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                <div id="landing-live-dot" class="w-2 h-2 bg-green-400 rounded-full"></div>
                                 <span
                                     id="landing-live-overall"
                                     class="text-green-400 text-sm font-semibold"
@@ -405,10 +406,9 @@
                         <span class="landing-section-line" aria-hidden="true"></span>
                         <span data-i18n="landing.nav.features">Features</span>
                     </div>
-                    <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Alles, was du für professionelles Monitoring brauchst</h2>
+                    <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Monitoring, Vorfälle und Benachrichtigungen an einem Ort</h2>
                     <p class="text-xl text-slate-300" data-i18n="landing.features.lead">
-                        Von einfachen HTTP-Checks bis zu komplexen API-Überwachungen –
-                        PingMyServer bietet alle Tools für zuverlässiges Uptime-Monitoring
+                        PingMyServer prüft einfache Websites ebenso wie API-Endpunkte und hält Ausfälle, Antwortzeiten und Zertifikate nachvollziehbar fest.
                     </p>
                     <div class="landing-features-heading-rule" aria-hidden="true"></div>
                 </div>
@@ -543,11 +543,11 @@
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4" data-i18n="landing.about.h2">Warum wir PingMyServer gebaut haben</h2>
-                <p class="text-xl text-slate-300" data-i18n="landing.about.sub">Ein Student-Projekt mit echter Mission</p>
+                <p class="text-xl text-slate-300" data-i18n="landing.about.sub">Ein Azubi-Projekt aus eigener Erfahrung</p>
             </div>
 
             <div class="max-w-4xl mx-auto">
-                <div class="glass-effect rounded-xl p-8 md:p-12">
+                <div class="landing-about-panel p-8 md:p-12">
                     <div class="flex items-start space-x-4 mb-6">
                         <img
                             src="/assets/Me.jpg"
@@ -601,8 +601,8 @@
 
             <div class="text-center mt-12">
                 <p class="text-slate-400 mb-4" data-i18n="landing.about.contact_prompt">Du hast Fragen oder Feedback?</p>
-                <a href="mailto:pritzsche.ben.luca@gmail.com" class="glass-effect px-6 py-3 rounded-lg font-semibold hover:bg-slate-700 transition inline-flex items-center justify-center">
-                    <span data-i18n="landing.about.contact_cta">Kontakt per E-Mail -></span>
+                <a href="mailto:pritzsche.ben.luca@gmail.com" class="landing-contact-link px-6 py-3 font-semibold inline-flex items-center justify-center">
+                    <span data-i18n="landing.about.contact_cta">Kontakt per E-Mail →</span>
                 </a>
             </div>
         </div>
@@ -618,7 +618,7 @@
 
             <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 <!-- Free Plan -->
-                <div class="glass-effect rounded-2xl p-8 border-2 border-cyan-400 relative hover:scale-105 transition">
+                <div class="pricing-plan is-current relative">
                     <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
                         <span class="bg-cyan-400 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
                             Free
@@ -675,7 +675,7 @@
                 </div>
 
                 <!-- Starter Plan - Featured -->
-                <div class="glass-effect rounded-2xl p-8 relative hover:scale-105 transition opacity-75">
+                <div class="pricing-plan is-planned relative">
                     <div class="absolute top-4 right-4">
                         <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
                             <span data-i18n="landing.pricing.coming_soon">Kommt bald</span>
@@ -719,14 +719,14 @@
                             <span data-i18n="landing.pricing.starter.features.support">Priority Support</span>
                         </li>
                     </ul>
-                    <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
+                    <button class="plan-unavailable w-full py-3 font-semibold cursor-not-allowed" disabled>
                         <span data-i18n="landing.pricing.planned_button">In Planung</span>
                     </button>
                     <p class="text-center text-xs text-slate-400 mt-3" data-i18n="landing.pricing.coming_soon">Kommt bald</p>
                 </div>
 
                 <!-- Pro Plan -->
-                <div class="glass-effect rounded-2xl p-8 relative hover:scale-105 transition opacity-75">
+                <div class="pricing-plan is-planned relative">
                     <div class="absolute top-4 right-4">
                         <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
                             <span data-i18n="landing.pricing.coming_soon">Kommt bald</span>
@@ -770,7 +770,7 @@
                             <span data-i18n="landing.pricing.pro.features.support">Premium Support</span>
                         </li>
                     </ul>
-                    <button class="w-full glass-effect py-3 rounded-lg font-semibold bg-slate-800 cursor-not-allowed" disabled>
+                    <button class="plan-unavailable w-full py-3 font-semibold cursor-not-allowed" disabled>
                         <span data-i18n="landing.pricing.planned_button">In Planung</span>
                     </button>
                 </div>
@@ -792,7 +792,7 @@
 
             <div class="space-y-4">
                 <!-- FAQ Item 1 -->
-                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                <div class="faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="1">
                         <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.private.q">Kann ich auch private Webseiten monitoren?</h3>
                         <svg id="faq-icon-1" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -810,7 +810,7 @@
                 </div>
 
                 <!-- FAQ Item 2 -->
-                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                <div class="faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="2">
                         <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.speed.q">Wie schnell wird ein Ausfall erkannt?</h3>
                         <svg id="faq-icon-2" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -828,7 +828,7 @@
                 </div>
 
                 <!-- FAQ Item 3 -->
-                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                <div class="faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="3">
                         <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.share.q">Wie teile ich den Status mit Kunden?</h3>
                         <svg id="faq-icon-3" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -847,7 +847,7 @@
                 </div>
 
                 <!-- FAQ Item 4 -->
-                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                <div class="faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="4">
                         <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.gdpr.q">Ist PingMyServer DSGVO-konform?</h3>
                         <svg id="faq-icon-4" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -866,7 +866,7 @@
                 </div>
 
                 <!-- FAQ Item 5 -->
-                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                <div class="faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="5">
                         <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.cancel.q">Was passiert, wenn ich kündige?</h3>
                         <svg id="faq-icon-5" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -885,7 +885,7 @@
                 </div>
 
                 <!-- FAQ Item 6 -->
-                <div class="glass-effect rounded-xl overflow-hidden faq-item">
+                <div class="faq-item">
                     <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="6">
                         <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.api.q">Gibt es eine API?</h3>
                         <svg id="faq-icon-6" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -920,8 +920,8 @@
                     </p>
                 </div>
                 <div class="landing-final-cta-actions">
-                    <a href="/login?mode=register" class="landing-final-cta-primary bg-cyan-400 text-slate-900 px-10 py-4 font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                        <span data-i18n="landing.cta.primary">Beta-Zugang sichern -></span>
+                    <a href="/login?mode=register" class="landing-final-cta-primary bg-cyan-400 text-slate-900 px-10 py-4 font-bold text-lg inline-flex items-center justify-center">
+                        <span data-i18n="landing.cta.primary">Beta-Zugang sichern →</span>
                     </a>
                     <a href="/status" class="landing-final-cta-secondary inline-flex items-center justify-center">
                         <span data-i18n="landing.cta.secondary">Statusseite ansehen</span>
@@ -943,7 +943,7 @@
             </div>
 
             <div class="landing-rating-grid">
-                <article class="glass-effect rounded-xl p-8 landing-rating-summary-card">
+                <article class="landing-rating-summary-card">
                     <div class="landing-rating-kpi">
                         <div class="landing-rating-average" id="landing-rating-average">--</div>
                         <div class="landing-rating-average-meta" id="landing-rating-average-meta" data-i18n="landing.rating.loading">
@@ -953,7 +953,7 @@
                     <div class="landing-rating-distribution" id="landing-rating-distribution"></div>
                 </article>
 
-                <article class="glass-effect rounded-xl p-8 landing-rating-form-panel">
+                <article class="landing-rating-form-panel">
                     <div class="landing-rating-guest-note" id="landing-rating-guest-note">
                         <span data-i18n="landing.rating.form.login_required">Zum Bewerten bitte anmelden.</span>
                         <a
@@ -1010,7 +1010,7 @@
                 </article>
             </div>
 
-            <section class="glass-effect rounded-xl p-8 landing-rating-recent">
+            <section class="landing-rating-recent">
                 <h3 class="text-2xl font-bold mb-4" data-i18n="landing.rating.recent_title">Neueste Rückmeldungen</h3>
                 <div class="landing-rating-recent-shell" id="landing-rating-recent-shell">
                     <div class="landing-rating-recent-list" id="landing-rating-recent-list"></div>
