@@ -433,12 +433,23 @@ function createOwnerController(dependencies = {}) {
             SUM(CASE WHEN ps.last_status = 'online' THEN 1 ELSE 0 END) AS online_count,
             SUM(CASE WHEN ps.last_status = 'offline' THEN 1 ELSE 0 END) AS offline_count,
             AVG(ps.last_response_ms) AS avg_response_ms,
-            MAX(ps.last_checked_at) AS last_checked_at
+            MAX(ps.last_checked_at) AS last_checked_at,
+            community.id IS NOT NULL AS is_community,
+            community.trust_score,
+            community.trust_state,
+            community.quarantined_until
           FROM monitor_probe_state ps
           JOIN monitors m
             ON m.id = ps.monitor_id
            AND m.user_id IS NOT NULL
-          GROUP BY ps.probe_id
+          LEFT JOIN community_probe_agents community
+            ON community.probe_id = ps.probe_id
+          GROUP BY
+            ps.probe_id,
+            community.id,
+            community.trust_score,
+            community.trust_state,
+            community.quarantined_until
         `
       );
 
@@ -492,6 +503,10 @@ function createOwnerController(dependencies = {}) {
           failureRate10mPercent: roundTo(failureRate10mPercent, 2),
           failureRate24hPercent: roundTo(failureRate24hPercent, 2),
           isCurrentInstance: String(probeId || "").trim() === rowProbeId,
+          isCommunity: Number(row.is_community || 0) === 1,
+          trustScore: row.trust_score === null ? null : Math.max(0, Math.min(100, Number(row.trust_score || 0))),
+          trustState: row.trust_state ? String(row.trust_state) : null,
+          quarantinedUntil: toTimestampMs(row.quarantined_until),
         });
       }
 

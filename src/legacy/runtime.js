@@ -40,6 +40,13 @@ const {
 } = require("../modules/probe-agent/probe-agent-management.controller");
 const { createProbeAgentRepository } = require("../modules/probe-agent/probe-agent.repository");
 const { createProbeJobLeaseService } = require("../modules/probe-agent/probe-job-lease.service");
+const {
+  TRUST_POLICY,
+  assessProbeResult,
+  calculateTrustUpdate,
+  isAgentTrusted,
+  observationForResult,
+} = require("../modules/probe-agent/probe-agent-trust.service");
 const { createStaticFileService } = require("../modules/web/static-file.service");
 const { createTelemetryWriteBuffer } = require("../modules/telemetry/telemetry-write-buffer");
 const { RETENTION_POLICIES } = require("../modules/telemetry/telemetry-retention.service");
@@ -1761,7 +1768,13 @@ async function authenticateProbeAgentRequest(req) {
     return null;
   }
 
-  return { probeId, userId: Number(agent.user_id) };
+  return {
+    probeId,
+    userId: Number(agent.user_id),
+    trustScore: Number(agent.trust_score || 0),
+    trustState: String(agent.trust_state || "probation"),
+    quarantinedUntil: toTimestampMs(agent.quarantined_until) || null,
+  };
 }
 
 function isValidOrigin(req) {
@@ -4694,6 +4707,16 @@ async function ensureSchemaCompatibility() {
       name VARCHAR(80) NOT NULL,
       token_hash CHAR(64) NOT NULL,
       token_prefix VARCHAR(20) NOT NULL,
+      trust_score TINYINT UNSIGNED NOT NULL DEFAULT 25,
+      trust_state ENUM('probation','trusted','quarantined') NOT NULL DEFAULT 'probation',
+      accepted_results BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      audited_results BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      matching_audits BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      mismatching_audits BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      suspicious_results BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      last_trust_audit_at DATETIME(3) NULL,
+      quarantined_until DATETIME(3) NULL,
+      quarantine_reason VARCHAR(128) NULL,
       summary_email_enabled TINYINT(1) NOT NULL DEFAULT 0,
       summary_email_frequency ENUM('weekly','monthly') NOT NULL DEFAULT 'weekly',
       last_summary_sent_at DATETIME(3) NULL,
@@ -4707,6 +4730,47 @@ async function ensureSchemaCompatibility() {
       CONSTRAINT fk_community_probe_agents_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
+    )
+  `);
+
+  const probeAgentTrustColumns = [
+    ["trust_score", "TINYINT UNSIGNED NOT NULL DEFAULT 25 AFTER token_prefix"],
+    ["trust_state", "ENUM('probation','trusted','quarantined') NOT NULL DEFAULT 'probation' AFTER trust_score"],
+    ["accepted_results", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER trust_state"],
+    ["audited_results", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER accepted_results"],
+    ["matching_audits", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER audited_results"],
+    ["mismatching_audits", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER matching_audits"],
+    ["suspicious_results", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER mismatching_audits"],
+    ["last_trust_audit_at", "DATETIME(3) NULL AFTER suspicious_results"],
+    ["quarantined_until", "DATETIME(3) NULL AFTER last_trust_audit_at"],
+    ["quarantine_reason", "VARCHAR(128) NULL AFTER quarantined_until"],
+  ];
+  for (const [columnName, definition] of probeAgentTrustColumns) {
+    if (!(await hasColumn("community_probe_agents", columnName))) {
+      await pool.query(`ALTER TABLE community_probe_agents ADD COLUMN ${columnName} ${definition}`);
+    }
+  }
+  if (!(await hasIndex("community_probe_agents", "idx_community_probe_agents_trust"))) {
+    await pool.query(
+      "ALTER TABLE community_probe_agents ADD INDEX idx_community_probe_agents_trust (trust_state, trust_score, revoked_at)"
+    );
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS probe_agent_trust_audits (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      job_id CHAR(36) NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      monitor_id BIGINT NOT NULL,
+      verdict ENUM('match','mismatch','unverified','suspicious') NOT NULL,
+      reason VARCHAR(128) NOT NULL,
+      reported_status ENUM('online','offline') NULL,
+      reference_status ENUM('online','offline') NULL,
+      score_delta SMALLINT NOT NULL DEFAULT 0,
+      score_after TINYINT UNSIGNED NOT NULL,
+      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      UNIQUE KEY uniq_probe_agent_trust_audit_job (job_id),
+      INDEX idx_probe_agent_trust_audit_probe_time (probe_id, created_at),
+      INDEX idx_probe_agent_trust_audit_monitor_time (monitor_id, created_at)
     )
   `);
   if (!(await hasColumn("community_probe_agents", "summary_email_enabled"))) {
@@ -9047,6 +9111,9 @@ async function sendDueCommunityProbeSummaries() {
         a.name,
         a.summary_email_frequency,
         a.last_heartbeat_at,
+        a.trust_score,
+        a.trust_state,
+        a.quarantined_until,
         u.email,
         COUNT(r.job_id) AS checks_period
       FROM community_probe_agents a
@@ -9072,6 +9139,9 @@ async function sendDueCommunityProbeSummaries() {
         a.name,
         a.summary_email_frequency,
         a.last_heartbeat_at,
+        a.trust_score,
+        a.trust_state,
+        a.quarantined_until,
         u.email
       ORDER BY a.id ASC
       LIMIT 100
@@ -9082,6 +9152,7 @@ async function sendDueCommunityProbeSummaries() {
       const periodLabel = frequency === "monthly" ? "30 Tagen" : "7 Tagen";
       const heartbeatAt = toTimestampMs(row.last_heartbeat_at);
       const online = Number.isFinite(heartbeatAt) && Date.now() - heartbeatAt <= 60000;
+      const trusted = isAgentTrusted(row);
       const checks = Math.max(0, Number(row.checks_period || 0));
       const subject = `Deine PingMyServer Community-Connection: ${String(row.name || row.probe_id)}`;
       const textBody = [
@@ -9089,11 +9160,14 @@ async function sendDueCommunityProbeSummaries() {
         "",
         `deine Community-Connection \"${String(row.name || row.probe_id)}\" ist aktuell ${online ? "online" : "offline"}.`,
         `Ausgeführte und akzeptierte Checks in den letzten ${periodLabel}: ${checks}`,
+        `Trustscore: ${Math.max(0, Math.min(100, Number(row.trust_score || 0)))}/100 (${String(row.trust_state || "probation")})`,
         `Agent-ID: ${String(row.probe_id || "")}`,
         "",
-        online
+        online && trusted
           ? "Dein Community-Vorteil mit bis zu drei kostenlosen Monitoren ist aktiv."
-          : "Starte die Connection erneut, damit dein Community-Vorteil wieder aktiv wird.",
+          : online
+            ? "Deine Connection ist online und baut aktuell Vertrauen für den Community-Vorteil auf."
+            : "Starte die Connection erneut, damit sie weiter Vertrauen aufbauen kann.",
         "",
         `Details: ${getDefaultTrustedOrigin()}/connections#community-probe-agents`,
         "",
@@ -9132,6 +9206,9 @@ async function cleanupOldChecks() {
         SELECT user_id, MAX(last_heartbeat_at) AS last_heartbeat_at
         FROM community_probe_agents
         WHERE revoked_at IS NULL
+          AND trust_state = 'trusted'
+          AND trust_score >= 70
+          AND (quarantined_until IS NULL OR quarantined_until <= UTC_TIMESTAMP(3))
         GROUP BY user_id
       ) AS agents ON agents.user_id = m.user_id
       SET m.retention_class = CASE
@@ -9192,6 +9269,7 @@ async function cleanupOldChecks() {
   }
   await pool.query("DELETE FROM probe_agent_job_assignments WHERE expires_at < UTC_TIMESTAMP(3)");
   await pool.query("DELETE FROM probe_agent_job_receipts WHERE received_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 35 DAY)");
+  await pool.query("DELETE FROM probe_agent_trust_audits WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 90 DAY)");
 }
 
 async function compactMonitorDay(monitorId, dayKey) {
@@ -10409,6 +10487,111 @@ async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = 
   return true;
 }
 
+async function getAuthoritativeProbeReference(database, monitor) {
+  const monitorId = Number(monitor?.id);
+  if (!Number.isInteger(monitorId) || monitorId <= 0) return null;
+  const staleUs = getProbeStateStaleMaxAgeUs(monitor);
+
+  if (!MULTI_LOCATION_ENABLED) {
+    const status = String(monitor?.last_status || "").trim().toLowerCase();
+    const checkedAtMs = new Date(monitor?.last_checked_at || 0).getTime();
+    const ageUs = (Date.now() - checkedAtMs) * 1000;
+    return (status === "online" || status === "offline") && Number.isFinite(ageUs) && ageUs >= 0 && ageUs <= staleUs
+      ? status
+      : null;
+  }
+
+  const [rows] = await database.query(
+    `
+      SELECT ps.last_status
+      FROM monitor_probe_state ps
+      LEFT JOIN community_probe_agents community ON community.probe_id = ps.probe_id
+      WHERE ps.monitor_id = ?
+        AND community.id IS NULL
+        AND ps.last_checked_at IS NOT NULL
+        AND TIMESTAMPDIFF(MICROSECOND, ps.last_checked_at, UTC_TIMESTAMP(3)) <= ?
+    `,
+    [monitorId, staleUs]
+  );
+  const statuses = new Set(
+    rows
+      .map((row) => String(row.last_status || "").trim().toLowerCase())
+      .filter((status) => status === "online" || status === "offline")
+  );
+  return statuses.size === 1 ? [...statuses][0] : null;
+}
+
+async function persistProbeAgentTrustObservation(database, options = {}) {
+  const [agentRows] = await database.query(
+    `
+      SELECT
+        trust_score, trust_state, accepted_results, audited_results,
+        matching_audits, mismatching_audits, suspicious_results,
+        quarantined_until, quarantine_reason, created_at
+      FROM community_probe_agents
+      WHERE probe_id = ? AND revoked_at IS NULL
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [options.probeId]
+  );
+  if (!agentRows.length) return null;
+
+  const update = calculateTrustUpdate(agentRows[0], options.observation, Date.now());
+  await database.query(
+    `
+      UPDATE community_probe_agents
+      SET
+        trust_score = ?,
+        trust_state = ?,
+        accepted_results = ?,
+        audited_results = ?,
+        matching_audits = ?,
+        mismatching_audits = ?,
+        suspicious_results = ?,
+        last_trust_audit_at = UTC_TIMESTAMP(3),
+        quarantined_until = ?,
+        quarantine_reason = ?
+      WHERE probe_id = ? AND revoked_at IS NULL
+      LIMIT 1
+    `,
+    [
+      update.score,
+      update.trustState,
+      update.acceptedResults,
+      update.auditedResults,
+      update.matchingAudits,
+      update.mismatchingAudits,
+      update.suspiciousResults,
+      update.quarantinedUntil,
+      update.quarantineReason,
+      options.probeId,
+    ]
+  );
+
+  await database.query(
+    `
+      INSERT INTO probe_agent_trust_audits (
+        job_id, probe_id, monitor_id, verdict, reason,
+        reported_status, reference_status, score_delta, score_after
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      options.jobId,
+      options.probeId,
+      options.monitorId,
+      options.observation.verdict,
+      String(options.observation.reason || options.observation.verdict).slice(0, 128),
+      options.reportedStatus || null,
+      options.referenceStatus || null,
+      update.delta,
+      update.score,
+    ]
+  );
+  return update;
+}
+
 async function persistProbeAgentResults(probeId, items = []) {
   const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
   const rawItems = Array.isArray(items) ? items.slice(0, PROBE_AGENT_RESULT_MAX_BATCH) : [];
@@ -10453,6 +10636,7 @@ async function persistProbeAgentResults(probeId, items = []) {
   const monitorMap = new Map(rows.map((row) => [Number(row.id), row]));
 
   let accepted = 0;
+  let suspicious = 0;
   for (const { item, claims } of leasedItems) {
     const monitorId = Number(item?.monitorId);
     const monitor = monitorMap.get(monitorId);
@@ -10463,7 +10647,12 @@ async function persistProbeAgentResults(probeId, items = []) {
     try {
       await connection.beginTransaction();
       const [lockedMonitors] = await connection.query(
-        "SELECT config_version FROM monitors WHERE id = ? AND is_paused = 0 FOR UPDATE",
+        `
+          SELECT id, created_at, config_version, interval_ms, last_status, last_checked_at
+          FROM monitors
+          WHERE id = ? AND is_paused = 0
+          FOR UPDATE
+        `,
         [monitorId]
       );
       if (!lockedMonitors.length || Number(lockedMonitors[0].config_version || 1) !== Number(claims.configVersion || 1)) {
@@ -10498,7 +10687,31 @@ async function persistProbeAgentResults(probeId, items = []) {
         continue;
       }
 
-      const persisted = await persistSingleMonitorProbeResult(monitor, item, probe, connection);
+      const assessment = assessProbeResult(item, claims);
+      let persisted = false;
+      let referenceStatus = null;
+      let observation;
+      if (!assessment.valid) {
+        suspicious += 1;
+        observation = { verdict: "suspicious", reason: assessment.reason };
+      } else {
+        if (claims.action === "http") {
+          referenceStatus = await getAuthoritativeProbeReference(connection, lockedMonitors[0]);
+        }
+        observation = claims.action === "http"
+          ? observationForResult(assessment.result, referenceStatus)
+          : { verdict: "unverified", reason: "server_report_job" };
+        persisted = await persistSingleMonitorProbeResult(monitor, assessment.result, probe, connection);
+      }
+
+      await persistProbeAgentTrustObservation(connection, {
+        probeId: probe,
+        jobId: claims.jobId,
+        monitorId,
+        observation,
+        reportedStatus: assessment.valid ? (assessment.result.ok ? "online" : "offline") : null,
+        referenceStatus,
+      });
       await connection.commit();
       if (persisted) accepted += 1;
     } catch (error) {
@@ -10512,6 +10725,7 @@ async function persistProbeAgentResults(probeId, items = []) {
   return {
     received: rawItems.length,
     accepted,
+    suspicious,
     ignored: rawItems.length - accepted,
   };
 }
@@ -10557,7 +10771,19 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     const connectAddress = getMonitorConnectAddress(validation);
     const safeConnectAddress = connectAddress && isPublicIpAddress(connectAddress) ? connectAddress : null;
     const configVersion = Math.max(1, Number(monitor.config_version) || 1);
-    const lease = probeJobLeaseService.issueLease({ probeId: probe, monitorId, configVersion });
+    const action = validation?.allowed && safeConnectAddress ? "http" : "report";
+    const reportCode = action === "report"
+      ? normalizedReason === "dns_unresolved" || (validation?.allowed && !safeConnectAddress)
+        ? "dns_unresolved"
+        : `target_blocked:${normalizedReason || "unknown"}`
+      : "";
+    const lease = probeJobLeaseService.issueLease({
+      probeId: probe,
+      monitorId,
+      configVersion,
+      action,
+      reportCode,
+    });
     const [assignment] = await pool.query(
       `
         INSERT IGNORE INTO probe_agent_job_assignments (job_id, probe_id, monitor_id, slot, expires_at)
@@ -10569,7 +10795,7 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     if (!assignment?.affectedRows) continue;
     activeMonitorIds.add(monitorId);
 
-    if (validation?.allowed && safeConnectAddress) {
+    if (action === "http") {
       jobs.push({
         ...lease,
         monitorId,
@@ -10592,10 +10818,6 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
       continue;
     }
 
-    const blockedMessage =
-      normalizedReason === "dns_unresolved" || (validation?.allowed && !safeConnectAddress)
-        ? "dns_unresolved"
-        : `target_blocked:${normalizedReason || "unknown"}`;
     jobs.push({
       ...lease,
       monitorId,
@@ -10607,7 +10829,7 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
         ok: false,
         responseMs: 0,
         statusCode: null,
-        errorMessage: blockedMessage,
+        errorMessage: reportCode,
       },
     });
   }
@@ -10658,28 +10880,48 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
   const [rows] = await pool.query(
     `
       SELECT
-        probe_id,
-        last_status,
-        last_response_ms,
-        last_status_code,
-        last_error_message
-      FROM monitor_probe_state
-      WHERE monitor_id = ?
-        AND last_checked_at IS NOT NULL
-        AND TIMESTAMPDIFF(MICROSECOND, last_checked_at, UTC_TIMESTAMP(3)) <= ?
+        ps.probe_id,
+        ps.last_status,
+        ps.last_response_ms,
+        ps.last_status_code,
+        ps.last_error_message,
+        community.id IS NOT NULL AS is_community
+      FROM monitor_probe_state ps
+      LEFT JOIN community_probe_agents community ON community.probe_id = ps.probe_id
+      WHERE ps.monitor_id = ?
+        AND ps.last_checked_at IS NOT NULL
+        AND TIMESTAMPDIFF(MICROSECOND, ps.last_checked_at, UTC_TIMESTAMP(3)) <= ?
+        AND (
+          community.id IS NULL
+          OR (
+            community.revoked_at IS NULL
+            AND community.trust_state = 'trusted'
+            AND community.trust_score >= ?
+            AND (community.quarantined_until IS NULL OR community.quarantined_until <= UTC_TIMESTAMP(3))
+          )
+        )
     `,
-    [monitorId, staleUs]
+    [monitorId, staleUs, TRUST_POLICY.trustedScore]
   );
 
   const states = Array.isArray(rows) ? rows : [];
   if (!states.length) return null;
 
+  const authoritativeStates = states.filter((row) => Number(row.is_community || 0) === 0);
+  const authoritativeOnlineStates = authoritativeStates.filter(
+    (row) => String(row.last_status || "").toLowerCase() === "online"
+  );
+  const authoritativeOfflineStates = authoritativeStates.filter(
+    (row) => String(row.last_status || "").toLowerCase() === "offline"
+  );
   const onlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "online");
   const offlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "offline");
   const requiredOfflineConfirmations = Math.max(2, PROBE_MIN_CONFIRMATIONS_OFFLINE);
 
-  if (onlineStates.length) {
-    const sample = pickFastestProbeState(onlineStates);
+  // A community result may confirm an outage or provide a fallback when all
+  // owned probes are stale. It must never hide a fresh owned-probe outage.
+  if (authoritativeOnlineStates.length || (!authoritativeStates.length && onlineStates.length)) {
+    const sample = pickFastestProbeState(authoritativeOnlineStates.length ? authoritativeOnlineStates : onlineStates);
     const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
     return {
       ok: true,
@@ -10691,7 +10933,10 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
     };
   }
 
-  if (offlineStates.length >= requiredOfflineConfirmations) {
+  if (
+    offlineStates.length >= requiredOfflineConfirmations &&
+    (authoritativeOfflineStates.length || !authoritativeStates.length)
+  ) {
     const sample = pickFastestProbeState(offlineStates);
     const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
     return {

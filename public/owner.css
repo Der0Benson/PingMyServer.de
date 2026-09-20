@@ -408,3 +408,21 @@ tbody td {
   background: rgba(76, 201, 240, 0.12);
   color: #b7efff;
 }
+
+.status-pill.owner-probe-trust.probation {
+  color: #ffd48a;
+  border-color: rgba(244, 180, 90, 0.35);
+  background: rgba(244, 180, 90, 0.1);
+}
+
+.status-pill.owner-probe-trust.trusted {
+  color: var(--accent-2);
+  border-color: rgba(185, 242, 124, 0.35);
+  background: rgba(185, 242, 124, 0.1);
+}
+
+.status-pill.owner-probe-trust.quarantined {
+  color: #ff9696;
+  border-color: rgba(242, 107, 107, 0.4);
+  background: rgba(242, 107, 107, 0.12);
+}

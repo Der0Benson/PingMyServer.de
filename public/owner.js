@@ -560,6 +560,20 @@ function renderProbeLocations(items) {
       current.textContent = "Diese Instanz";
       flags.appendChild(current);
     }
+    if (location?.isCommunity) {
+      const trust = document.createElement("span");
+      const trustState = ["trusted", "quarantined"].includes(location?.trustState)
+        ? location.trustState
+        : "probation";
+      const trustLabel = trustState === "trusted"
+        ? "Vertrauenswürdig"
+        : trustState === "quarantined"
+          ? "Quarantäne"
+          : "Probezeit";
+      trust.className = `status-pill owner-probe-trust ${trustState}`;
+      trust.textContent = `${trustLabel} · ${formatInt(location?.trustScore || 0)}/100`;
+      flags.appendChild(trust);
+    }
     const probeId = String(location?.probeId || "").trim().toLowerCase();
     if (probeId === "hk" || probeId === "celle") {
       const strategic = document.createElement("span");
@@ -1158,4 +1172,3 @@ async function init() {
 }
 
 init();
-

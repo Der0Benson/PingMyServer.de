@@ -49,6 +49,8 @@ function createProbeJobLeaseService(options = {}) {
     const probeId = normalizeProbeId(input.probeId);
     const monitorId = normalizeMonitorId(input.monitorId);
     const configVersion = Math.max(1, Math.trunc(Number(input.configVersion) || 1));
+    const action = String(input.action || "http").trim().toLowerCase() === "report" ? "report" : "http";
+    const reportCode = action === "report" ? String(input.reportCode || "").trim().slice(0, 255) : "";
     if (!probeId || !monitorId) throw new TypeError("invalid probe job lease claims");
 
     const issuedAt = Math.trunc(Number(now));
@@ -60,6 +62,8 @@ function createProbeJobLeaseService(options = {}) {
       p: probeId,
       m: monitorId,
       c: configVersion,
+      a: action,
+      ...(reportCode ? { r: reportCode } : {}),
       iat: issuedAt,
       exp: expiresAt,
     };
@@ -88,6 +92,8 @@ function createProbeJobLeaseService(options = {}) {
     const probeId = normalizeProbeId(claims?.p);
     const monitorId = normalizeMonitorId(claims?.m);
     const configVersion = Math.max(1, Math.trunc(Number(claims?.c) || 1));
+    const action = String(claims?.a || "http").trim().toLowerCase() === "report" ? "report" : "http";
+    const reportCode = action === "report" ? String(claims?.r || "").trim().slice(0, 255) : "";
     const jobId = String(claims?.j || "");
     const issuedAt = Number(claims?.iat);
     const expiresAt = Number(claims?.exp);
@@ -120,7 +126,7 @@ function createProbeJobLeaseService(options = {}) {
       return { ok: false, reason: "config_version_mismatch" };
     }
 
-    return { ok: true, claims: { jobId, probeId, monitorId, configVersion, issuedAt, expiresAt } };
+    return { ok: true, claims: { jobId, probeId, monitorId, configVersion, action, reportCode, issuedAt, expiresAt } };
   }
 
   return { issueLease, verifyLease };

@@ -279,13 +279,17 @@ function renderProbeAgents() {
   const list = Array.isArray(probeAgents) ? probeAgents : [];
   const activeCount = list.filter((entry) => entry?.active).length;
   const onlineCount = list.filter((entry) => entry?.online).length;
-  probeAgentsSummaryEl.textContent = `${activeCount} aktiv · ${onlineCount} online`;
+  const trustedCount = list.filter((entry) => entry?.trusted).length;
+  const eligibleCount = list.filter((entry) => entry?.benefitEligible).length;
+  probeAgentsSummaryEl.textContent = `${activeCount} aktiv · ${onlineCount} online · ${trustedCount} vertrauenswürdig`;
   if (probeBenefitStatusEl) {
-    probeBenefitStatusEl.classList.toggle("active", onlineCount > 0);
+    probeBenefitStatusEl.classList.toggle("active", eligibleCount > 0);
     probeBenefitStatusEl.textContent =
-      onlineCount > 0
+      eligibleCount > 0
         ? "Community-Vorteil aktiv: Du kannst bis zu 3 Monitore kostenlos nutzen."
-        : "Free: 1 Monitor · Mit Live-Connection: 3 Monitore";
+        : onlineCount > 0
+          ? "Connection online: Der Agent baut noch Vertrauen auf. Der Community-Vorteil startet nach erfolgreicher Prüfung."
+          : "Free: 1 Monitor · Mit vertrauenswürdigem Community-Agenten: 3 Monitore";
   }
 
   if (!list.length) {
@@ -311,6 +315,23 @@ function renderProbeAgents() {
       const probeId = escapeHtml(agent?.probeId || "");
       const summaryEnabled = !!agent?.summaryEmailEnabled;
       const summaryFrequency = agent?.summaryEmailFrequency === "monthly" ? "monthly" : "weekly";
+      const trustState = ["trusted", "quarantined"].includes(agent?.trustState) ? agent.trustState : "probation";
+      const trustLabel = trustState === "trusted"
+        ? "Vertrauenswürdig"
+        : trustState === "quarantined"
+          ? "Quarantäne"
+          : "Probezeit";
+      const trustScore = Math.max(0, Math.min(100, Number(agent?.trustScore) || 0));
+      const auditedResults = Math.max(0, Number(agent?.auditedResults) || 0);
+      const matchingAudits = Math.max(0, Number(agent?.matchingAudits) || 0);
+      const mismatchRate = Number(agent?.mismatchRate);
+      const mismatchText = Number.isFinite(mismatchRate) ? `${Math.round(mismatchRate * 100)} % Abweichung` : "Noch nicht geprüft";
+      const quarantinedUntil = Number(agent?.quarantinedUntil);
+      const trustNote = trustState === "trusted"
+        ? "Verifizierte Ergebnisse dieses Agenten dürfen in den offiziellen Status einfließen."
+        : trustState === "quarantined"
+          ? `Der Agent ist wegen auffälliger Ergebnisse vorübergehend gesperrt${Number.isFinite(quarantinedUntil) && quarantinedUntil > 0 ? ` – bis ${formatDateTime(quarantinedUntil)}` : ""}.`
+          : "Ergebnisse werden mit eigenen Servermessungen verglichen. Bis zur Freigabe beeinflussen sie keinen offiziellen Status.";
       return `
         <article class="probe-agent-item">
           <div class="probe-agent-head">
@@ -318,7 +339,10 @@ function renderProbeAgents() {
               <div class="probe-agent-title">${escapeHtml(agent?.name || "Community-Agent")}</div>
               <div class="domain-code">${probeId}</div>
             </div>
-            <span class="domain-badge probe-agent-badge ${statusClass}">${statusText}</span>
+            <div class="probe-agent-badges">
+              <span class="domain-badge probe-agent-badge ${statusClass}">${statusText}</span>
+              <span class="domain-badge probe-agent-trust-badge ${trustState}">${trustLabel} · ${formatInt(trustScore)}/100</span>
+            </div>
           </div>
           <div class="probe-agent-meta">
             <span>Letztes Lebenszeichen: ${escapeHtml(heartbeatText)}</span>
@@ -329,7 +353,11 @@ function renderProbeAgents() {
             <div class="probe-agent-stat"><strong>${formatInt(agent?.checks24h)}</strong><span>Checks in 24 Stunden</span></div>
             <div class="probe-agent-stat"><strong>${formatInt(agent?.checks7d)}</strong><span>Checks in 7 Tagen</span></div>
             <div class="probe-agent-stat"><strong>${formatInt(agent?.checks30d)}</strong><span>Checks in 30 Tagen</span></div>
+            <div class="probe-agent-stat"><strong>${formatInt(trustScore)}/100</strong><span>Trustscore</span></div>
+            <div class="probe-agent-stat"><strong>${formatInt(matchingAudits)}/${formatInt(auditedResults)}</strong><span>Bestätigte Prüfungen</span></div>
+            <div class="probe-agent-stat"><strong>${escapeHtml(mismatchText)}</strong><span>Referenzvergleich</span></div>
           </div>
+          <div class="probe-agent-trust-note ${trustState}">${escapeHtml(trustNote)}</div>
           ${
             active
               ? `<div class="probe-agent-summary-settings">

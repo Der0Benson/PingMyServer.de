@@ -17,7 +17,7 @@ PingMyServer.de überwacht Webseiten und HTTP(S)-Dienste, dokumentiert Ausfälle
 | Stufe | Monitore | Kürzestes Prüfintervall | Besonderheit |
 | --- | ---: | ---: | --- |
 | Kostenlos | 1 | 60 Sekunden | Grundfunktionen ohne Zahlung |
-| Community | 3 | 60 Sekunden | Wird freigeschaltet, solange mindestens ein eigener Probe-Agent live ist |
+| Community | 3 | 60 Sekunden | Wird freigeschaltet, solange mindestens ein eigener, vertrauenswürdiger Probe-Agent live ist |
 | Bezahlt | konfigurierbares Limit | 30 Sekunden | Erweiterte Kapazität und schnellere Prüfungen |
 
 Für aktive Community-Verbindungen ist ein Abo-Rabatt von 40 Prozent vorgesehen. Der Rabatt wird erst nach einer separaten Vertrauensprüfung angewendet; ein Heartbeat allein löst keine Stripe-Gutschrift aus.
@@ -41,7 +41,11 @@ Der Agent ist bewusst begrenzt:
 - Sperre privater, lokaler und reservierter Zielnetze
 - standardmäßige Beschränkung auf die Zielports 80 und 443
 - signierte, kurzlebige und nur einmal verwendbare Job-Leases
+- serverseitiger Trustscore mit Referenzvergleichen, Auditspur und automatischer Quarantäne
+- Ausschluss ungeprüfter oder quarantänisierter Ergebnisse vom offiziellen Monitorstatus
 - nichtprivilegierter Container ohne Linux-Capabilities und mit schreibgeschütztem Dateisystem
+
+Neue Agenten starten in einer Probezeit. Die Freigabe erfordert mindestens 50 bestätigte Vergleiche, einen Trustscore von 70/100, eine geringe Abweichungsquote und 24 Stunden Laufzeit. Ein Heartbeat oder eine große Zahl ungeprüfter Resultate reicht nicht. Der Trustscore reduziert Manipulationsrisiken, ersetzt aber keinen kryptografischen Nachweis der Messung; eigene Server-Probes bleiben die maßgebliche Referenz.
 
 Installation und Betrieb sind in [docker/probe-agent/README.md](docker/probe-agent/README.md) beschrieben. Das serverseitige Sicherheits- und Lease-Modell steht in [docs/community-probe-protocol.md](docs/community-probe-protocol.md).
 
