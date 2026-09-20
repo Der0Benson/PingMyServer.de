@@ -26,6 +26,7 @@ const probeAgentCreateButton = document.getElementById("probe-agent-create");
 const probeAgentSecretEl = document.getElementById("probe-agent-secret");
 const probeAgentCreatedIdEl = document.getElementById("probe-agent-created-id");
 const probeAgentCreatedTokenEl = document.getElementById("probe-agent-created-token");
+const probeAgentInstallCommandEl = document.getElementById("probe-agent-install-command");
 const probeAgentCopyConfigButton = document.getElementById("probe-agent-copy-config");
 
 const passwordForm = document.getElementById("password-form");
@@ -882,6 +883,9 @@ async function createProbeAgent(event) {
     };
     if (probeAgentCreatedIdEl) probeAgentCreatedIdEl.textContent = createdProbeAgentCredentials.probeId;
     if (probeAgentCreatedTokenEl) probeAgentCreatedTokenEl.textContent = createdProbeAgentCredentials.token;
+    if (probeAgentInstallCommandEl) {
+      probeAgentInstallCommandEl.textContent = buildProbeAgentInstallCommand(createdProbeAgentCredentials.probeId);
+    }
     if (probeAgentSecretEl) probeAgentSecretEl.hidden = false;
     if (probeAgentNameEl) probeAgentNameEl.value = "";
     setPanelMessage(probeAgentsMessageEl, "Agent erstellt. Sichere jetzt die einmalig angezeigten Zugangsdaten.", "success");
@@ -924,20 +928,18 @@ async function revokeProbeAgent(probeId) {
 
 async function copyProbeAgentConfig() {
   if (!createdProbeAgentCredentials) return;
-  const content = [
-    ".env:",
-    `PROBE_AGENT_API_URL=${window.location.origin}`,
-    `PROBE_AGENT_ID=${createdProbeAgentCredentials.probeId}`,
-    "",
-    "secrets/probe-agent-token.txt:",
-    createdProbeAgentCredentials.token,
-  ].join("\n");
+  const content = buildProbeAgentInstallCommand(createdProbeAgentCredentials.probeId);
   try {
     await navigator.clipboard.writeText(content);
-    setPanelMessage(probeAgentsMessageEl, "Einrichtungsdaten wurden kopiert.", "success");
+    setPanelMessage(probeAgentsMessageEl, "Quick-Install wurde kopiert. Der Token wird beim Start verdeckt abgefragt.", "success");
   } catch (error) {
     setPanelMessage(probeAgentsMessageEl, "Kopieren nicht möglich. Bitte kopiere ID und Token manuell.", "error");
   }
+}
+
+function buildProbeAgentInstallCommand(probeId) {
+  const normalizedId = String(probeId || "").trim();
+  return `curl -fsSL https://raw.githubusercontent.com/Der0Benson/PingMyServer.de/main/docker/probe-agent/install.sh | bash -s -- --id '${normalizedId}'`;
 }
 
 async function updateProbeAgentSummaryEmail(probeId, enabled, frequency) {

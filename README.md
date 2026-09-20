@@ -49,6 +49,8 @@ Neue Agenten starten in einer Probezeit. Die Freigabe erfordert mindestens 50 be
 
 Installation und Betrieb sind in [docker/probe-agent/README.md](docker/probe-agent/README.md) beschrieben. Das serverseitige Sicherheits- und Lease-Modell steht in [docs/community-probe-protocol.md](docs/community-probe-protocol.md).
 
+Nach dem Anlegen eines Agenten erzeugt das Connections-Dashboard einen Quick-Install-Befehl. Der Installer fragt den nur einmal angezeigten Token verdeckt ab, damit er nicht in Shell-History oder Prozessliste erscheint. Docker Engine und Docker Compose bleiben bewusst explizite Voraussetzungen.
+
 ## Architektur
 
 Das Backend verwendet Node.js mit CommonJS und MySQL. Der Einstiegspunkt `server.js` startet die Anwendung aus `src/`. Neue Funktionen sind nach Verantwortlichkeit gegliedert:
