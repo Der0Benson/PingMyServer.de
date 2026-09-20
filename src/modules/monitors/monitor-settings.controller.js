@@ -163,7 +163,8 @@ function createMonitorSettingsController(dependencies = {}) {
           http_body_contains = ?,
           http_follow_redirects = ?,
           http_max_redirects = ?,
-          http_timeout_ms = ?
+          http_timeout_ms = ?,
+          config_version = config_version + 1
         WHERE id = ?
           AND user_id = ?
         LIMIT 1
@@ -241,7 +242,7 @@ function createMonitorSettingsController(dependencies = {}) {
       sendJson(res, 403, { ok: false, error: "interval not available", minimumIntervalMs });
       return;
     }
-    await pool.query("UPDATE monitors SET interval_ms = ? WHERE id = ? AND user_id = ? LIMIT 1", [
+    await pool.query("UPDATE monitors SET interval_ms = ?, config_version = config_version + 1 WHERE id = ? AND user_id = ? LIMIT 1", [
       intervalMs,
       monitor.id,
       user.id,

@@ -48,6 +48,7 @@ function createProbeJobLeaseService(options = {}) {
   function issueLease(input = {}, now = Date.now()) {
     const probeId = normalizeProbeId(input.probeId);
     const monitorId = normalizeMonitorId(input.monitorId);
+    const configVersion = Math.max(1, Math.trunc(Number(input.configVersion) || 1));
     if (!probeId || !monitorId) throw new TypeError("invalid probe job lease claims");
 
     const issuedAt = Math.trunc(Number(now));
@@ -58,6 +59,7 @@ function createProbeJobLeaseService(options = {}) {
       j: crypto.randomUUID(),
       p: probeId,
       m: monitorId,
+      c: configVersion,
       iat: issuedAt,
       exp: expiresAt,
     };
@@ -85,6 +87,7 @@ function createProbeJobLeaseService(options = {}) {
 
     const probeId = normalizeProbeId(claims?.p);
     const monitorId = normalizeMonitorId(claims?.m);
+    const configVersion = Math.max(1, Math.trunc(Number(claims?.c) || 1));
     const jobId = String(claims?.j || "");
     const issuedAt = Number(claims?.iat);
     const expiresAt = Number(claims?.exp);
@@ -113,8 +116,11 @@ function createProbeJobLeaseService(options = {}) {
     if (expected.jobId && jobId !== String(expected.jobId)) {
       return { ok: false, reason: "job_mismatch" };
     }
+    if (expected.configVersion && configVersion !== Math.max(1, Math.trunc(Number(expected.configVersion)))) {
+      return { ok: false, reason: "config_version_mismatch" };
+    }
 
-    return { ok: true, claims: { jobId, probeId, monitorId, issuedAt, expiresAt } };
+    return { ok: true, claims: { jobId, probeId, monitorId, configVersion, issuedAt, expiresAt } };
   }
 
   return { issueLease, verifyLease };
