@@ -317,14 +317,14 @@
 }
 
 .form-actions .btn {
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 0.77rem;
+  border-radius: 8px;
+  padding: 8px 13px;
+  font-size: 0.8rem;
 }
 
 .form-actions .btn.primary {
   border-color: rgba(76, 201, 240, 0.5);
-  box-shadow: 0 8px 20px rgba(10, 22, 36, 0.42);
+  box-shadow: none;
 }
 
 .form-actions .btn.ghost {

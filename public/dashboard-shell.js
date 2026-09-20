@@ -5,6 +5,52 @@
 
   if (!sidebarEl || !mobileNavToggle || !mobileNavBackdrop) return;
 
+  function decorateNavigation() {
+    const english = String(document.documentElement.lang || "").toLowerCase().startsWith("en");
+    const navDescriptions = english
+      ? {
+          "/app": "Status and measurements",
+          "/monitors": "Manage targets",
+          "/incidents": "Review outages",
+          "/notifications": "Email, Discord and webhooks",
+          "/connections": "Logins, agents and security",
+          "/owner": "Operations and diagnostics",
+          "/status": "Public view",
+        }
+      : {
+          "/app": "Status und Messwerte",
+          "/monitors": "Ziele verwalten",
+          "/incidents": "Ausfälle nachvollziehen",
+          "/notifications": "E-Mail, Discord und Webhooks",
+          "/connections": "Logins, Agenten und Sicherheit",
+          "/owner": "Betrieb und Diagnose",
+          "/status": "Öffentliche Ansicht",
+        };
+
+    for (const link of sidebarEl.querySelectorAll(".side-nav a")) {
+      const href = link.getAttribute("href") || "";
+      const description = navDescriptions[href];
+      if (!description || link.querySelector(".side-nav-description")) continue;
+      const label = document.createElement("span");
+      label.className = "side-nav-label";
+      label.textContent = link.textContent.trim();
+      const hint = document.createElement("small");
+      hint.className = "side-nav-description";
+      hint.textContent = description;
+      link.textContent = "";
+      link.append(label, hint);
+      if (href === "/connections") {
+        link.setAttribute("title", english ? "Manage account and connections" : "Konto und Verbindungen verwalten");
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", decorateNavigation, { once: true });
+  } else {
+    decorateNavigation();
+  }
+
   const mobileNavQuery =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia("(max-width: 900px)")

@@ -525,6 +525,7 @@ function renderAppConnections() {
         : t("connections.app_connections.status.disconnected", null, "not connected"));
     const account = String(item.account || "").trim();
     const available = !!item.available;
+    const providerPath = ["github", "google", "discord"].includes(provider) ? provider : "";
 
     const row = document.createElement("article");
     row.className = "app-connection-item";
@@ -555,12 +556,32 @@ function renderAppConnections() {
                 "Google login (Gmail) can be linked via the login page."
               )
             : t("connections.app_connections.meta.google_disabled", null, "Google login (Gmail) is currently disabled.")
+          : provider === "github"
+          ? available
+            ? t("connections.app_connections.meta.github_enabled", null, "GitHub login is available for this account.")
+            : t("connections.app_connections.meta.github_disabled", null, "GitHub login is currently disabled.")
           : provider === "discord"
           ? available
             ? t("connections.app_connections.meta.discord_enabled", null, "Discord login can be linked via the login page.")
             : t("connections.app_connections.meta.discord_disabled", null, "Discord login is currently disabled.")
           : t("connections.app_connections.meta.generic", null, "Provider status is managed via your account.")
       )}</div>
+      ${
+        !connectedState && available && providerPath
+          ? `<div class="app-connection-actions">
+              <span>${escapeHtml(
+                t(
+                  "connections.app_connections.connect_hint",
+                  null,
+                  "Use the same email address as in your PingMyServer account."
+                )
+              )}</span>
+              <a class="btn primary" href="/api/auth/${encodeURIComponent(providerPath)}">${escapeHtml(
+                t("connections.app_connections.connect", { provider: label }, `Connect ${label}`)
+              )}</a>
+            </div>`
+          : ""
+      }
     `;
 
     appConnectionsListEl.appendChild(row);

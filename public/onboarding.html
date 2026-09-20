@@ -54,56 +54,90 @@
           </div>
         </div>
 
-        <h1 data-i18n="onboarding.h1">Welche Website willst du überwachen?</h1>
-        <p>
-          <span data-i18n="onboarding.p1">Gib eine Domain oder URL an. Beispiele:</span> <code>example.com</code>
-          <span data-i18n="onboarding.p2">oder</span> <code>https://example.com</code>.
-        </p>
+        <div class="onboarding-intro">
+          <span class="eyebrow" data-i18n="onboarding.setup.eyebrow">MONITOR EINRICHTEN</span>
+          <h1 data-i18n="onboarding.setup.title">Was sollen wir für dich überwachen?</h1>
+          <p data-i18n="onboarding.setup.intro">Lege Ziel, Prüfintervall und Benachrichtigung jetzt fest. Du kannst alles später im Dashboard ändern.</p>
+        </div>
 
         <form id="onboarding-form" novalidate>
-          <label for="monitor-url" data-i18n="onboarding.label.url">URL oder Domain</label>
-          <input
-            id="monitor-url"
-            name="url"
-            type="text"
-            placeholder="https://example.com"
-            autocomplete="url"
-            required
-          />
+          <section class="setup-section" aria-labelledby="target-heading">
+            <div class="section-number">1</div>
+            <div class="section-content">
+              <h2 id="target-heading" data-i18n="onboarding.setup.target_title">Ziel auswählen</h2>
+              <p class="section-help" data-i18n="onboarding.setup.target_help">Eine öffentliche Website, API oder ein Webdienst auf einer Server-IP.</p>
 
-          <label for="monitor-name" data-i18n="onboarding.label.name">Name (optional)</label>
-          <input
-            id="monitor-name"
-            name="name"
-            type="text"
-            data-i18n-placeholder="onboarding.placeholder.name"
-            placeholder="Mein Shop"
-            maxlength="255"
-          />
+              <div class="choice-grid target-choices">
+                <label class="choice-card">
+                  <input type="radio" name="target-type" value="website" checked />
+                  <span><strong data-i18n="onboarding.setup.website">Website oder API</strong><small data-i18n="onboarding.setup.website_help">Domain, URL oder HTTP-Endpunkt</small></span>
+                </label>
+                <label class="choice-card">
+                  <input type="radio" name="target-type" value="server" />
+                  <span><strong data-i18n="onboarding.setup.server">Server-IP</strong><small data-i18n="onboarding.setup.server_help">Webdienst über HTTP oder HTTPS</small></span>
+                </label>
+                <div class="choice-card is-disabled" aria-disabled="true">
+                  <span class="choice-placeholder" aria-hidden="true"></span>
+                  <span><strong data-i18n="onboarding.setup.game">Gameserver</strong><small data-i18n="onboarding.setup.game_help">Direkte Port-Checks folgen als Nächstes</small></span>
+                  <span class="coming-badge" data-i18n="onboarding.setup.coming">In Vorbereitung</span>
+                </div>
+              </div>
 
-          <details class="endpoint-batch">
-            <summary data-i18n="onboarding.endpoints.summary">API Endpunkte (optional)</summary>
-            <p class="endpoint-hint">
-              <span data-i18n="onboarding.endpoints.hint1">Ein Pfad pro Zeile. Beispiel:</span>
-              <code>/API/Ping.php</code>
-              <span data-i18n="onboarding.endpoints.hint2">oder</span>
-              <code>/API/get.php</code>.
-              <span data-i18n="onboarding.endpoints.hint3">Tipp: f&uuml;r die Root-URL</span>
-              <code>/</code>
-              <span data-i18n="onboarding.endpoints.hint4">eintragen.</span>
-            </p>
+              <div class="field-grid">
+                <label class="field" for="monitor-url">
+                  <span id="monitor-url-label" data-i18n="onboarding.setup.url">Domain oder URL</span>
+                  <input id="monitor-url" name="url" type="text" placeholder="https://example.com" autocomplete="url" required />
+                  <small id="monitor-url-help" data-i18n="onboarding.setup.url_help">Ohne Protokoll verwenden wir automatisch HTTPS.</small>
+                </label>
+                <label class="field" for="monitor-name">
+                  <span>Name <small>(optional)</small></span>
+                  <input id="monitor-name" name="name" type="text" placeholder="Mein Shop" maxlength="255" />
+                  <small data-i18n="onboarding.setup.name_help">So findest du den Monitor später schneller wieder.</small>
+                </label>
+              </div>
 
-            <label for="monitor-endpoints" data-i18n="onboarding.endpoints.label">Endpoints (1 pro Zeile)</label>
-            <textarea
-              id="monitor-endpoints"
-              name="endpoints"
-              data-i18n-placeholder="onboarding.endpoints.placeholder"
-              placeholder="/API/Ping.php&#10;/API/get.php"
-              rows="5"
-            ></textarea>
-          </details>
+              <details class="endpoint-batch">
+                <summary>Mehrere API-Endpunkte überwachen</summary>
+                <p class="endpoint-hint">Ein Pfad pro Zeile, zum Beispiel <code>/health</code> oder <code>/api/status</code>.</p>
+                <label class="field" for="monitor-endpoints">
+                  <span>Endpunkte</span>
+                  <textarea id="monitor-endpoints" name="endpoints" placeholder="/health&#10;/api/status" rows="5"></textarea>
+                </label>
+              </details>
+            </div>
+          </section>
 
-          <button type="submit" data-i18n="onboarding.button.create">Monitor erstellen</button>
+          <section class="setup-section" aria-labelledby="interval-heading">
+            <div class="section-number">2</div>
+            <div class="section-content">
+              <h2 id="interval-heading" data-i18n="onboarding.setup.interval_title">Wie oft sollen wir prüfen?</h2>
+              <p class="section-help" data-i18n="onboarding.setup.interval_help">Kürzere Intervalle erkennen Ausfälle schneller, erzeugen aber mehr Messungen.</p>
+              <div class="choice-grid interval-choices">
+                <label class="choice-card"><input type="radio" name="interval" value="60000" checked /><span><strong data-i18n="onboarding.setup.minute">Jede Minute</strong><small data-i18n="onboarding.setup.minute_help">Empfohlen für den Start</small></span></label>
+                <label class="choice-card"><input type="radio" name="interval" value="300000" /><span><strong data-i18n="onboarding.setup.five_minutes">Alle 5 Minuten</strong><small data-i18n="onboarding.setup.five_minutes_help">Für weniger kritische Seiten</small></span></label>
+                <label class="choice-card"><input type="radio" name="interval" value="900000" /><span><strong data-i18n="onboarding.setup.fifteen_minutes">Alle 15 Minuten</strong><small data-i18n="onboarding.setup.fifteen_minutes_help">Für einfache Verfügbarkeit</small></span></label>
+              </div>
+              <p class="plan-note" data-i18n="onboarding.setup.plan_note">Je nach Tarif stehen später im Dashboard auch schnellere Intervalle zur Verfügung.</p>
+            </div>
+          </section>
+
+          <section class="setup-section" aria-labelledby="notification-heading">
+            <div class="section-number">3</div>
+            <div class="section-content">
+              <h2 id="notification-heading" data-i18n="onboarding.setup.notify_title">Wie möchtest du informiert werden?</h2>
+              <p class="section-help" data-i18n="onboarding.setup.notify_help">Wir melden uns bei einem Ausfall und erneut, sobald dein Ziel wieder erreichbar ist.</p>
+              <div class="choice-grid notification-choices">
+                <label class="choice-card"><input type="radio" name="email-notifications" value="yes" checked /><span><strong data-i18n="onboarding.setup.email_on">E-Mail aktivieren</strong><small data-i18n="onboarding.setup.email_on_help">An die E-Mail-Adresse deines Kontos</small></span></label>
+                <label class="choice-card"><input type="radio" name="email-notifications" value="no" /><span><strong data-i18n="onboarding.setup.email_off">Vorerst ohne E-Mail</strong><small data-i18n="onboarding.setup.email_off_help">Später unter Benachrichtigungen aktivierbar</small></span></label>
+              </div>
+              <a class="inline-link" href="/notifications" data-i18n="onboarding.setup.more_channels">Weitere Kanäle wie Discord, Slack oder Webhook verwalten</a>
+            </div>
+          </section>
+
+          <div class="submit-row">
+            <div><strong data-i18n="onboarding.setup.ready">Bereit zum Start</strong><span data-i18n="onboarding.setup.ready_help">Die erste Messung beginnt direkt nach der Erstellung.</span></div>
+            <button type="submit" data-i18n="onboarding.setup.create">Monitor erstellen und starten</button>
+          </div>
         </form>
 
         <p id="onboarding-message" class="message"></p>
@@ -139,4 +173,3 @@
     <script src="/assets/onboarding.js"></script>
   </body>
 </html>
-

@@ -2,6 +2,8 @@
 const urlInput = document.getElementById("monitor-url");
 const nameInput = document.getElementById("monitor-name");
 const endpointsInput = document.getElementById("monitor-endpoints");
+const urlLabelEl = document.getElementById("monitor-url-label");
+const urlHelpEl = document.getElementById("monitor-url-help");
 const messageEl = document.getElementById("onboarding-message");
 const warmupModal = document.getElementById("warmup-modal");
 const warmupModalTitleEl = document.getElementById("warmup-modal-title");
@@ -313,7 +315,7 @@ async function redirectIfMonitorExists() {
   }
 }
 
-async function submitCreateRequest(encodedUrl, encodedName) {
+async function submitCreateRequest(encodedUrl, encodedName, intervalMs) {
   const response = await fetch("/api/monitors", {
     method: "POST",
     headers: {
@@ -322,6 +324,7 @@ async function submitCreateRequest(encodedUrl, encodedName) {
     body: JSON.stringify({
       url_b64: encodedUrl,
       name_b64: encodedName,
+      intervalMs,
     }),
   });
   const parsed = await readApiResponse(response);
@@ -356,11 +359,11 @@ async function submitCreatePathRequest(baseEndpoint, encodedUrl, encodedName, op
   return { response, ...parsed };
 }
 
-async function createMonitorWithFallbacks(url, name) {
+async function createMonitorWithFallbacks(url, name, intervalMs) {
   const encodedUrl = encodeBase64UrlUtf8(url);
   const encodedName = name ? encodeBase64UrlUtf8(name) : "";
 
-  let result = await submitCreateRequest(encodedUrl, encodedName);
+  let result = await submitCreateRequest(encodedUrl, encodedName, intervalMs);
 
   if (
     (!result.response.ok || !result.payload?.ok) &&
@@ -409,12 +412,46 @@ async function createMonitorWithFallbacks(url, name) {
   return result;
 }
 
+async function applyInitialMonitorSettings(monitorId, intervalMs, emailEnabled, configureAccountEmail = true) {
+  const id = encodeURIComponent(String(monitorId || ""));
+  if (!id) return;
+
+  const requests = [
+    fetch(`/api/monitors/${id}/interval`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intervalMs }),
+    }),
+    fetch(`/api/monitors/${id}/email-notifications`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: emailEnabled }),
+    }),
+  ];
+
+  if (emailEnabled && configureAccountEmail) {
+    requests.push(
+      fetch("/api/account/notifications/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: true }),
+      })
+    );
+  }
+
+  const responses = await Promise.all(requests);
+  const failed = responses.find((response) => !response.ok);
+  if (failed) throw new Error("initial_monitor_settings_failed");
+}
+
 async function createMonitor(event) {
   event.preventDefault();
 
   const url = String(urlInput?.value || "").trim();
   const name = String(nameInput?.value || "").trim();
   const endpointLines = parseEndpointLines(String(endpointsInput?.value || "").trim());
+  const intervalMs = Number(form?.querySelector('input[name="interval"]:checked')?.value || 60000);
+  const emailEnabled = form?.querySelector('input[name="email-notifications"]:checked')?.value !== "no";
 
   if (!url) {
     setMessage(t("onboarding.msg.enter_url", null, "Please enter a domain or URL."), "error");
@@ -434,7 +471,7 @@ async function createMonitor(event) {
 
   try {
     if (!isBatch) {
-      const result = await createMonitorWithFallbacks(url, name);
+      const result = await createMonitorWithFallbacks(url, name, intervalMs);
       if (!result.response.ok || !result.payload?.ok) {
         const fallback = result.rawText && !result.payload ? result.rawText.slice(0, 180) : "";
         setMessage(toCreateMonitorErrorMessage(result.payload, fallback), "error");
@@ -443,6 +480,19 @@ async function createMonitor(event) {
 
       setMessage(t("onboarding.msg.created_redirect", null, "Monitor created. Redirecting..."), "success");
       const monitorId = result.payload.id;
+      try {
+        await applyInitialMonitorSettings(monitorId, intervalMs, emailEnabled);
+      } catch (error) {
+        setMessage(
+          t(
+            "onboarding.setup.settings_failed",
+            null,
+            "Monitor created. One selected setting could not be saved; please check it in the dashboard."
+          ),
+          "error"
+        );
+        return;
+      }
       await redirectAfterWarmupNotice(monitorId ? `/app/monitors/${monitorId}` : "/app", 1);
       return;
     }
@@ -485,7 +535,7 @@ async function createMonitor(event) {
       const endpointLabel = endpointLabelFromLine(line);
       const monitorName = composeBatchMonitorName(baseName, endpointLabel);
 
-      const result = await createMonitorWithFallbacks(endpointUrl, monitorName);
+      const result = await createMonitorWithFallbacks(endpointUrl, monitorName, intervalMs);
       if (!result.response.ok || !result.payload?.ok) {
         const fallback = result.rawText && !result.payload ? result.rawText.slice(0, 180) : "";
         const detail = toCreateMonitorErrorMessage(result.payload, fallback);
@@ -501,6 +551,7 @@ async function createMonitor(event) {
       }
 
       createdIds.push(result.payload.id);
+      await applyInitialMonitorSettings(result.payload.id, intervalMs, emailEnabled, createdIds.length === 1);
       setMessage(
         t(
           "onboarding.msg.creating_many_progress",
@@ -528,6 +579,25 @@ async function createMonitor(event) {
 async function init() {
   if (form) {
     form.addEventListener("submit", createMonitor);
+    form.addEventListener("change", (event) => {
+      if (event.target?.name !== "target-type") return;
+      const isServer = event.target.value === "server";
+      if (urlLabelEl) {
+        urlLabelEl.textContent = isServer
+          ? t("onboarding.setup.server_url", null, "Server IP or URL")
+          : t("onboarding.setup.url", null, "Domain or URL");
+      }
+      if (urlHelpEl) {
+        urlHelpEl.textContent = isServer
+          ? t(
+              "onboarding.setup.server_url_help",
+              null,
+              "Example: http://203.0.113.10:8080 – the service must be publicly reachable."
+            )
+          : t("onboarding.setup.url_help", null, "Without a protocol, we use HTTPS automatically.");
+      }
+      if (urlInput) urlInput.placeholder = isServer ? "http://203.0.113.10:8080" : "https://example.com";
+    });
   }
 
   const ok = await ensureAuthenticated();
@@ -544,4 +614,3 @@ if (warmupModal) {
 }
 
 init();
-

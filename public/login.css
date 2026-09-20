@@ -1,6 +1,6 @@
 :root {
   --bg: #070b14;
-  --panel: rgba(15, 22, 37, 0.86);
+  --panel: #141a23;
   --panel-border: rgba(255, 255, 255, 0.14);
   --text: #ecf4ff;
   --muted: #a5b8d3;
@@ -19,10 +19,7 @@ body {
   min-height: 100%;
   font-family: "Manrope", sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at 15% 0%, rgba(102, 199, 255, 0.18), transparent 38%),
-    radial-gradient(circle at 85% 10%, rgba(177, 255, 109, 0.14), transparent 34%),
-    linear-gradient(150deg, #050914 0%, #081223 52%, #091b16 100%);
+  background: #0b0f14;
 }
 
 .auth-page {
@@ -39,9 +36,8 @@ body {
   width: min(460px, 100%);
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 22px;
+  border-radius: 14px;
   padding: 28px;
-  backdrop-filter: blur(7px);
 }
 
 .auth-page .site-footer {
@@ -183,7 +179,7 @@ input:focus {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, var(--accent), #64a9ff);
+  background: var(--accent);
   color: var(--accent-dark);
 }
 
