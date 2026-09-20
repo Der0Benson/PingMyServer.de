@@ -14,6 +14,12 @@ function serializeAgent(row, toTimestampMs, now = Date.now()) {
   const createdAt = toTimestampMs(row?.created_at);
   const active = !Number.isFinite(revokedAt);
   const online = active && Number.isFinite(lastHeartbeatAt) && now - lastHeartbeatAt <= 60000;
+  const quarantinedUntil = toTimestampMs(row?.quarantined_until);
+  const trustState = ["probation", "trusted", "quarantined"].includes(String(row?.trust_state || ""))
+    ? String(row.trust_state)
+    : "probation";
+  const auditedResults = Math.max(0, Number(row?.audited_results || 0));
+  const mismatchingAudits = Math.max(0, Number(row?.mismatching_audits || 0));
 
   return {
     probeId: String(row?.probe_id || ""),
@@ -28,6 +34,19 @@ function serializeAgent(row, toTimestampMs, now = Date.now()) {
     checks7d: Number(row?.checks_7d || 0),
     checks30d: Number(row?.checks_30d || 0),
     activeDays30d: Number(row?.active_days_30d || 0),
+    trustScore: Math.max(0, Math.min(100, Number(row?.trust_score || 0))),
+    trustState,
+    trusted: trustState === "trusted" && !(Number.isFinite(quarantinedUntil) && quarantinedUntil > now),
+    benefitEligible: trustState === "trusted" && online && !(Number.isFinite(quarantinedUntil) && quarantinedUntil > now),
+    acceptedResults: Math.max(0, Number(row?.accepted_results || 0)),
+    auditedResults,
+    matchingAudits: Math.max(0, Number(row?.matching_audits || 0)),
+    mismatchingAudits,
+    mismatchRate: auditedResults > 0 ? mismatchingAudits / auditedResults : 0,
+    suspiciousResults: Math.max(0, Number(row?.suspicious_results || 0)),
+    lastTrustAuditAt: toTimestampMs(row?.last_trust_audit_at) || null,
+    quarantinedUntil: Number.isFinite(quarantinedUntil) ? quarantinedUntil : null,
+    quarantineReason: String(row?.quarantine_reason || "") || null,
     summaryEmailEnabled: Number(row?.summary_email_enabled || 0) === 1,
     summaryEmailFrequency: String(row?.summary_email_frequency || "weekly") === "monthly" ? "monthly" : "weekly",
   };
@@ -102,6 +121,10 @@ function createProbeAgentManagementController(dependencies = {}) {
           tokenPrefix: record.tokenPrefix,
           active: true,
           online: false,
+          trustScore: 25,
+          trustState: "probation",
+          trusted: false,
+          benefitEligible: false,
           lastHeartbeatAt: null,
           revokedAt: null,
           createdAt: Date.now(),

@@ -40,7 +40,16 @@ const {
 } = require("../modules/probe-agent/probe-agent-management.controller");
 const { createProbeAgentRepository } = require("../modules/probe-agent/probe-agent.repository");
 const { createProbeJobLeaseService } = require("../modules/probe-agent/probe-job-lease.service");
+const {
+  TRUST_POLICY,
+  assessProbeResult,
+  calculateTrustUpdate,
+  isAgentTrusted,
+  observationForResult,
+} = require("../modules/probe-agent/probe-agent-trust.service");
 const { createStaticFileService } = require("../modules/web/static-file.service");
+const { createTelemetryWriteBuffer } = require("../modules/telemetry/telemetry-write-buffer");
+const { RETENTION_POLICIES } = require("../modules/telemetry/telemetry-retention.service");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -419,7 +428,21 @@ const SLO_OBJECTIVE_WINDOW_DAYS = readEnvNumber("SLO_OBJECTIVE_WINDOW_DAYS", 30,
 const CHECK_TIMEOUT_MS = requireEnvNumber("TIMEOUT_MS", { integer: true, min: 100, max: 120000 });
 const CHECK_CONCURRENCY = requireEnvNumber("CHECK_CONCURRENCY", { integer: true, min: 1, max: 1000 });
 const CHECK_SCHEDULER_MS = requireEnvNumber("CHECK_SCHEDULER_MS", { integer: true, min: 100 });
-const RETENTION_DAYS = requireEnvNumber("RETENTION_DAYS", { integer: true, min: 1 });
+const CHECK_DISPATCH_BATCH_SIZE = readEnvNumber("CHECK_DISPATCH_BATCH_SIZE", 64, {
+  integer: true,
+  min: 1,
+  max: 1000,
+});
+const TELEMETRY_WRITE_BATCH_SIZE = readEnvNumber("TELEMETRY_WRITE_BATCH_SIZE", 64, {
+  integer: true,
+  min: 1,
+  max: 500,
+});
+const TELEMETRY_WRITE_FLUSH_MS = readEnvNumber("TELEMETRY_WRITE_FLUSH_MS", 250, {
+  integer: true,
+  min: 10,
+  max: 5000,
+});
 const SERIES_LIMIT = requireEnvNumber("SERIES_LIMIT", { integer: true, min: 1, max: 10000 });
 const INCIDENT_LOOKBACK_DAYS = requireEnvNumber("INCIDENT_LOOKBACK_DAYS", { integer: true, min: 1 });
 const INCIDENT_LOOKBACK_DAYS_MAX = requireEnvNumber("INCIDENT_LOOKBACK_DAYS_MAX", {
@@ -1745,7 +1768,13 @@ async function authenticateProbeAgentRequest(req) {
     return null;
   }
 
-  return { probeId, userId: Number(agent.user_id) };
+  return {
+    probeId,
+    userId: Number(agent.user_id),
+    trustScore: Number(agent.trust_score || 0),
+    trustState: String(agent.trust_state || "probation"),
+    quarantinedUntil: toTimestampMs(agent.quarantined_until) || null,
+  };
 }
 
 function isValidOrigin(req) {
@@ -4678,6 +4707,16 @@ async function ensureSchemaCompatibility() {
       name VARCHAR(80) NOT NULL,
       token_hash CHAR(64) NOT NULL,
       token_prefix VARCHAR(20) NOT NULL,
+      trust_score TINYINT UNSIGNED NOT NULL DEFAULT 25,
+      trust_state ENUM('probation','trusted','quarantined') NOT NULL DEFAULT 'probation',
+      accepted_results BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      audited_results BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      matching_audits BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      mismatching_audits BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      suspicious_results BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      last_trust_audit_at DATETIME(3) NULL,
+      quarantined_until DATETIME(3) NULL,
+      quarantine_reason VARCHAR(128) NULL,
       summary_email_enabled TINYINT(1) NOT NULL DEFAULT 0,
       summary_email_frequency ENUM('weekly','monthly') NOT NULL DEFAULT 'weekly',
       last_summary_sent_at DATETIME(3) NULL,
@@ -4691,6 +4730,47 @@ async function ensureSchemaCompatibility() {
       CONSTRAINT fk_community_probe_agents_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
+    )
+  `);
+
+  const probeAgentTrustColumns = [
+    ["trust_score", "TINYINT UNSIGNED NOT NULL DEFAULT 25 AFTER token_prefix"],
+    ["trust_state", "ENUM('probation','trusted','quarantined') NOT NULL DEFAULT 'probation' AFTER trust_score"],
+    ["accepted_results", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER trust_state"],
+    ["audited_results", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER accepted_results"],
+    ["matching_audits", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER audited_results"],
+    ["mismatching_audits", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER matching_audits"],
+    ["suspicious_results", "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER mismatching_audits"],
+    ["last_trust_audit_at", "DATETIME(3) NULL AFTER suspicious_results"],
+    ["quarantined_until", "DATETIME(3) NULL AFTER last_trust_audit_at"],
+    ["quarantine_reason", "VARCHAR(128) NULL AFTER quarantined_until"],
+  ];
+  for (const [columnName, definition] of probeAgentTrustColumns) {
+    if (!(await hasColumn("community_probe_agents", columnName))) {
+      await pool.query(`ALTER TABLE community_probe_agents ADD COLUMN ${columnName} ${definition}`);
+    }
+  }
+  if (!(await hasIndex("community_probe_agents", "idx_community_probe_agents_trust"))) {
+    await pool.query(
+      "ALTER TABLE community_probe_agents ADD INDEX idx_community_probe_agents_trust (trust_state, trust_score, revoked_at)"
+    );
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS probe_agent_trust_audits (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      job_id CHAR(36) NOT NULL,
+      probe_id VARCHAR(64) NOT NULL,
+      monitor_id BIGINT NOT NULL,
+      verdict ENUM('match','mismatch','unverified','suspicious') NOT NULL,
+      reason VARCHAR(128) NOT NULL,
+      reported_status ENUM('online','offline') NULL,
+      reference_status ENUM('online','offline') NULL,
+      score_delta SMALLINT NOT NULL DEFAULT 0,
+      score_after TINYINT UNSIGNED NOT NULL,
+      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      UNIQUE KEY uniq_probe_agent_trust_audit_job (job_id),
+      INDEX idx_probe_agent_trust_audit_probe_time (probe_id, created_at),
+      INDEX idx_probe_agent_trust_audit_monitor_time (monitor_id, created_at)
     )
   `);
   if (!(await hasColumn("community_probe_agents", "summary_email_enabled"))) {
@@ -4939,6 +5019,17 @@ async function ensureSchemaCompatibility() {
   if (!(await hasColumn("monitors", "is_paused"))) {
     await pool.query("ALTER TABLE monitors ADD COLUMN is_paused TINYINT(1) NOT NULL DEFAULT 0 AFTER interval_ms");
   }
+  if (!(await hasColumn("monitors", "config_version"))) {
+    await pool.query("ALTER TABLE monitors ADD COLUMN config_version BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER http_timeout_ms");
+  }
+  if (!(await hasColumn("monitors", "retention_class"))) {
+    await pool.query(
+      "ALTER TABLE monitors ADD COLUMN retention_class ENUM('free','community','pro') NOT NULL DEFAULT 'free' AFTER config_version"
+    );
+  }
+  if (!(await hasIndex("monitors", "idx_monitors_due"))) {
+    await pool.query("ALTER TABLE monitors ADD INDEX idx_monitors_due (is_paused, last_checked_at, id)");
+  }
   if (!(await hasColumn("monitors", "last_checked_at"))) {
     await pool.query("ALTER TABLE monitors ADD COLUMN last_checked_at DATETIME(3) NULL AFTER last_check_at");
   }
@@ -4964,6 +5055,15 @@ async function ensureSchemaCompatibility() {
 
   if (!(await hasColumn("monitor_checks", "error_message"))) {
     await pool.query("ALTER TABLE monitor_checks ADD COLUMN error_message VARCHAR(255) NULL AFTER status_code");
+  }
+  if (!(await hasColumn("monitor_checks", "result_id"))) {
+    await pool.query("ALTER TABLE monitor_checks ADD COLUMN result_id CHAR(36) NULL AFTER error_message");
+  }
+  if (!(await hasColumn("monitor_checks", "config_version"))) {
+    await pool.query("ALTER TABLE monitor_checks ADD COLUMN config_version BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER result_id");
+  }
+  if (!(await hasIndex("monitor_checks", "uniq_monitor_checks_result"))) {
+    await pool.query("ALTER TABLE monitor_checks ADD UNIQUE INDEX uniq_monitor_checks_result (result_id)");
   }
 
   if (!(await hasColumn("monitor_daily_stats", "incidents"))) {
@@ -5395,6 +5495,8 @@ async function initDb() {
       http_follow_redirects TINYINT(1) NOT NULL DEFAULT 1,
       http_max_redirects INT NOT NULL DEFAULT 5,
       http_timeout_ms INT NOT NULL DEFAULT 0,
+      config_version BIGINT UNSIGNED NOT NULL DEFAULT 1,
+      retention_class ENUM('free','community','pro') NOT NULL DEFAULT 'free',
       is_paused TINYINT(1) NOT NULL DEFAULT 0,
       last_status ENUM('online','offline') NOT NULL DEFAULT 'online',
       status_since DATETIME(3) NULL,
@@ -5440,8 +5542,11 @@ async function initDb() {
       response_ms INT NOT NULL,
       status_code INT NULL,
       error_message VARCHAR(255) NULL,
+      result_id CHAR(36) NULL,
+      config_version BIGINT UNSIGNED NOT NULL DEFAULT 1,
       INDEX idx_checks_monitor_time (monitor_id, checked_at),
       INDEX idx_checks_time (checked_at),
+      UNIQUE KEY uniq_monitor_checks_result (result_id),
       CONSTRAINT fk_checks_monitor
         FOREIGN KEY (monitor_id) REFERENCES monitors(id)
         ON DELETE CASCADE
@@ -9006,6 +9111,9 @@ async function sendDueCommunityProbeSummaries() {
         a.name,
         a.summary_email_frequency,
         a.last_heartbeat_at,
+        a.trust_score,
+        a.trust_state,
+        a.quarantined_until,
         u.email,
         COUNT(r.job_id) AS checks_period
       FROM community_probe_agents a
@@ -9031,6 +9139,9 @@ async function sendDueCommunityProbeSummaries() {
         a.name,
         a.summary_email_frequency,
         a.last_heartbeat_at,
+        a.trust_score,
+        a.trust_state,
+        a.quarantined_until,
         u.email
       ORDER BY a.id ASC
       LIMIT 100
@@ -9041,6 +9152,7 @@ async function sendDueCommunityProbeSummaries() {
       const periodLabel = frequency === "monthly" ? "30 Tagen" : "7 Tagen";
       const heartbeatAt = toTimestampMs(row.last_heartbeat_at);
       const online = Number.isFinite(heartbeatAt) && Date.now() - heartbeatAt <= 60000;
+      const trusted = isAgentTrusted(row);
       const checks = Math.max(0, Number(row.checks_period || 0));
       const subject = `Deine PingMyServer Community-Connection: ${String(row.name || row.probe_id)}`;
       const textBody = [
@@ -9048,11 +9160,14 @@ async function sendDueCommunityProbeSummaries() {
         "",
         `deine Community-Connection \"${String(row.name || row.probe_id)}\" ist aktuell ${online ? "online" : "offline"}.`,
         `Ausgeführte und akzeptierte Checks in den letzten ${periodLabel}: ${checks}`,
+        `Trustscore: ${Math.max(0, Math.min(100, Number(row.trust_score || 0)))}/100 (${String(row.trust_state || "probation")})`,
         `Agent-ID: ${String(row.probe_id || "")}`,
         "",
-        online
+        online && trusted
           ? "Dein Community-Vorteil mit bis zu drei kostenlosen Monitoren ist aktiv."
-          : "Starte die Connection erneut, damit dein Community-Vorteil wieder aktiv wird.",
+          : online
+            ? "Deine Connection ist online und baut aktuell Vertrauen für den Community-Vorteil auf."
+            : "Starte die Connection erneut, damit sie weiter Vertrauen aufbauen kann.",
         "",
         `Details: ${getDefaultTrustedOrigin()}/connections#community-probe-agents`,
         "",
@@ -9080,11 +9195,81 @@ async function sendDueCommunityProbeSummaries() {
 }
 
 async function cleanupOldChecks() {
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  await pool.query("DELETE FROM monitor_checks WHERE checked_at < ?", [cutoff]);
-  await pool.query("DELETE FROM monitor_probe_checks WHERE checked_at < ?", [cutoff]);
+  await compactClosedDays();
+  await compactProbeClosedDays();
+
+  await pool.query(
+    `
+      UPDATE monitors AS m
+      JOIN users AS u ON u.id = m.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(last_heartbeat_at) AS last_heartbeat_at
+        FROM community_probe_agents
+        WHERE revoked_at IS NULL
+          AND trust_state = 'trusted'
+          AND trust_score >= 70
+          AND (quarantined_until IS NULL OR quarantined_until <= UTC_TIMESTAMP(3))
+        GROUP BY user_id
+      ) AS agents ON agents.user_id = m.user_id
+      SET m.retention_class = CASE
+        WHEN LOWER(COALESCE(u.stripe_subscription_status, '')) IN ('active', 'trialing', 'past_due') THEN 'pro'
+        WHEN agents.last_heartbeat_at >= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 60 SECOND) THEN 'community'
+        ELSE 'free'
+      END
+    `
+  );
+
+  for (const [retentionClass, policy] of Object.entries(RETENTION_POLICIES)) {
+    const rawCutoff = new Date(Date.now() - policy.rawDays * DAY_MS);
+    const aggregateCutoff = new Date(Date.now() - policy.aggregateDays * DAY_MS);
+    await pool.query(
+      `
+        DELETE c FROM monitor_checks c
+        JOIN monitors m ON m.id = c.monitor_id
+        WHERE m.retention_class = ?
+          AND c.checked_at < ?
+          AND EXISTS (
+            SELECT 1 FROM monitor_daily_stats d
+            WHERE d.monitor_id = c.monitor_id AND d.day_date = DATE(c.checked_at)
+          )
+      `,
+      [retentionClass, rawCutoff]
+    );
+    await pool.query(
+      `
+        DELETE c FROM monitor_probe_checks c
+        JOIN monitors m ON m.id = c.monitor_id
+        WHERE m.retention_class = ?
+          AND c.checked_at < ?
+          AND EXISTS (
+            SELECT 1 FROM monitor_probe_daily_stats d
+            WHERE d.monitor_id = c.monitor_id
+              AND d.probe_id = c.probe_id
+              AND d.day_date = DATE(c.checked_at)
+          )
+      `,
+      [retentionClass, rawCutoff]
+    );
+    await pool.query(
+      `DELETE s FROM monitor_daily_stats s JOIN monitors m ON m.id = s.monitor_id WHERE m.retention_class = ? AND s.day_date < ?`,
+      [retentionClass, aggregateCutoff]
+    );
+    await pool.query(
+      `DELETE e FROM monitor_daily_error_codes e JOIN monitors m ON m.id = e.monitor_id WHERE m.retention_class = ? AND e.day_date < ?`,
+      [retentionClass, aggregateCutoff]
+    );
+    await pool.query(
+      `DELETE s FROM monitor_probe_daily_stats s JOIN monitors m ON m.id = s.monitor_id WHERE m.retention_class = ? AND s.day_date < ?`,
+      [retentionClass, aggregateCutoff]
+    );
+    await pool.query(
+      `DELETE e FROM monitor_probe_daily_error_codes e JOIN monitors m ON m.id = e.monitor_id WHERE m.retention_class = ? AND e.day_date < ?`,
+      [retentionClass, aggregateCutoff]
+    );
+  }
   await pool.query("DELETE FROM probe_agent_job_assignments WHERE expires_at < UTC_TIMESTAMP(3)");
   await pool.query("DELETE FROM probe_agent_job_receipts WHERE received_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 35 DAY)");
+  await pool.query("DELETE FROM probe_agent_trust_audits WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 90 DAY)");
 }
 
 async function compactMonitorDay(monitorId, dayKey) {
@@ -9223,21 +9408,20 @@ async function compactMonitorDay(monitorId, dayKey) {
     );
   }
 
-  await pool.query(
-    "DELETE FROM monitor_checks WHERE monitor_id = ? AND checked_at >= ? AND checked_at < ?",
-    [monitorId, dayStart, dayEnd]
-  );
-
   return true;
 }
 
 async function compactClosedDays() {
   const [candidateRows] = await pool.query(
     `
-      SELECT monitor_id, DATE_FORMAT(checked_at, '%Y-%m-%d') AS day_key
-      FROM monitor_checks
-      WHERE checked_at < UTC_DATE()
-      GROUP BY monitor_id, day_key
+      SELECT c.monitor_id, DATE_FORMAT(c.checked_at, '%Y-%m-%d') AS day_key
+      FROM monitor_checks c
+      LEFT JOIN monitor_daily_stats d
+        ON d.monitor_id = c.monitor_id
+        AND d.day_date = DATE(c.checked_at)
+      WHERE c.checked_at < UTC_DATE()
+        AND d.monitor_id IS NULL
+      GROUP BY c.monitor_id, day_key
       ORDER BY day_key ASC
     `
   );
@@ -9400,21 +9584,21 @@ async function compactProbeMonitorDay(monitorId, probeId, dayKey) {
     );
   }
 
-  await pool.query(
-    "DELETE FROM monitor_probe_checks WHERE monitor_id = ? AND probe_id = ? AND checked_at >= ? AND checked_at < ?",
-    [monitorId, probe, dayStart, dayEnd]
-  );
-
   return true;
 }
 
 async function compactProbeClosedDays() {
   const [candidateRows] = await pool.query(
     `
-      SELECT monitor_id, probe_id, DATE_FORMAT(checked_at, '%Y-%m-%d') AS day_key
-      FROM monitor_probe_checks
-      WHERE checked_at < UTC_DATE()
-      GROUP BY monitor_id, probe_id, day_key
+      SELECT c.monitor_id, c.probe_id, DATE_FORMAT(c.checked_at, '%Y-%m-%d') AS day_key
+      FROM monitor_probe_checks c
+      LEFT JOIN monitor_probe_daily_stats d
+        ON d.monitor_id = c.monitor_id
+        AND d.probe_id = c.probe_id
+        AND d.day_date = DATE(c.checked_at)
+      WHERE c.checked_at < UTC_DATE()
+        AND d.monitor_id IS NULL
+      GROUP BY c.monitor_id, c.probe_id, day_key
       ORDER BY day_key ASC
     `
   );
@@ -9453,6 +9637,8 @@ async function getDueMonitors() {
         http_follow_redirects,
         http_max_redirects,
         http_timeout_ms,
+        config_version,
+        retention_class,
         notify_email_enabled,
         is_paused,
         last_status,
@@ -9471,7 +9657,10 @@ async function getDueMonitors() {
             UTC_TIMESTAMP(3)
           ) >= interval_ms * 1000
         )
-    `
+      ORDER BY COALESCE(last_checked_at, last_check_at) ASC, id ASC
+      LIMIT ?
+    `,
+    [CHECK_DISPATCH_BATCH_SIZE]
   );
   return rows.filter((monitor) => !!getMonitorUrl(monitor));
 }
@@ -9495,6 +9684,8 @@ async function getDueMonitorsForProbe(probeId = PROBE_ID) {
         m.http_follow_redirects,
         m.http_max_redirects,
         m.http_timeout_ms,
+        m.config_version,
+        m.retention_class,
         m.notify_email_enabled,
         m.is_paused,
         m.created_at
@@ -10061,97 +10252,177 @@ function shouldSuppressOfflineDuringWarmup(monitor, nextStatus, nowMs = Date.now
   return getMonitorWarmupRemainingMs(monitor, nowMs) > 0;
 }
 
-async function checkSingleMonitor(monitor) {
-  const { monitorId, targetUrl, ok, elapsedMs, statusCode, errorMessage } = await performSingleMonitorHttpCheck(monitor);
-
-  const nextStatus = ok ? "online" : "offline";
+function buildMonitorCheckWrite(monitor, result) {
+  const nextStatus = result.ok ? "online" : "offline";
   const previousStatus = String(monitor.last_status || "online");
-  const now = new Date();
-  const nowMs = now.getTime();
-  const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus, nowMs);
+  const checkedAt = new Date();
+  const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus, checkedAt.getTime());
   const effectiveNextStatus = suppressOffline ? previousStatus : nextStatus;
   const statusChanged = previousStatus !== effectiveNextStatus;
+  const statusSince = !monitor.status_since || statusChanged
+    ? checkedAt
+    : monitor.status_since instanceof Date
+      ? monitor.status_since
+      : checkedAt;
 
-  let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
-  if (!monitor.status_since || statusChanged) {
-    statusSince = now;
-  }
+  return {
+    resultId: crypto.randomUUID(),
+    monitor,
+    monitorId: Number(monitor.id),
+    configVersion: Math.max(1, Number(monitor.config_version) || 1),
+    targetUrl: result.targetUrl || getMonitorUrl(monitor),
+    checkedAt,
+    ok: !!result.ok,
+    responseMs: Math.max(0, Math.round(Number(result.elapsedMs ?? result.responseMs) || 0)),
+    statusCode: result.statusCode ?? null,
+    errorMessage: result.errorMessage || null,
+    suppressOffline,
+    previousStatus,
+    effectiveNextStatus,
+    statusChanged,
+    statusSince,
+    intervalMs: getMonitorIntervalMs(monitor),
+  };
+}
 
-  if (!suppressOffline) {
-    await pool.query(
-      `
-        INSERT INTO monitor_checks (
-          monitor_id,
-          checked_at,
-          ok,
-          response_ms,
-          status_code,
-          error_message
-        )
-        VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
-      `,
-      [monitorId, ok ? 1 : 0, elapsedMs, statusCode, errorMessage]
+async function persistMonitorCheckBatch(items) {
+  const writes = Array.isArray(items) ? items.filter((item) => item?.monitorId) : [];
+  if (!writes.length) return [];
+  const ids = writes.map((item) => item.monitorId);
+  const placeholders = ids.map(() => "?").join(", ");
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [currentRows] = await connection.query(
+      `SELECT id, config_version FROM monitors WHERE id IN (${placeholders}) FOR UPDATE`,
+      ids
     );
-  }
+    const versions = new Map(currentRows.map((row) => [Number(row.id), Number(row.config_version)]));
+    const currentWrites = writes.filter((item) => versions.get(item.monitorId) === item.configVersion);
 
-  await pool.query(
-    `
-      UPDATE monitors
-      SET
-        last_status = ?,
-        status_since = ?,
-        last_checked_at = UTC_TIMESTAMP(3),
-        last_check_at = UTC_TIMESTAMP(3),
-        last_response_ms = ?,
-        url = ?,
-        target_url = ?,
-        interval_ms = ?
-      WHERE id = ?
-    `,
-    [effectiveNextStatus, statusSince, elapsedMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
-  );
+    const historyWrites = currentWrites.filter((item) => !item.suppressOffline);
+    if (historyWrites.length) {
+      const values = historyWrites.map(() => "(?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
+      const params = historyWrites.flatMap((item) => [
+        item.monitorId,
+        item.checkedAt,
+        item.ok ? 1 : 0,
+        item.responseMs,
+        item.statusCode,
+        item.errorMessage,
+        item.resultId,
+        item.configVersion,
+      ]);
+      await connection.query(
+        `
+          INSERT IGNORE INTO monitor_checks (
+            monitor_id, checked_at, ok, response_ms, status_code, error_message, result_id, config_version
+          ) VALUES ${values}
+        `,
+        params
+      );
+    }
 
-  if (statusChanged) {
-    Promise.allSettled([
-      sendEmailStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs,
-        statusCode,
-        errorMessage,
-        previousStatusSince: monitor.status_since,
-      }),
-      sendDiscordStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs,
-        statusCode,
-        errorMessage,
-      }),
-      sendSlackStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs,
-        statusCode,
-        errorMessage,
-      }),
-      sendWebhookStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs,
-        statusCode,
-        errorMessage,
-      }),
-    ]).catch(() => {});
+    if (currentWrites.length) {
+      const selectRows = currentWrites.map((item, index) => index === 0
+        ? "SELECT ? AS id, ? AS config_version, ? AS last_status, ? AS status_since, ? AS checked_at, ? AS response_ms, ? AS target_url, ? AS interval_ms"
+        : "SELECT ?, ?, ?, ?, ?, ?, ?, ?").join(" UNION ALL ");
+      const updateParams = currentWrites.flatMap((item) => [
+        item.monitorId,
+        item.configVersion,
+        item.effectiveNextStatus,
+        item.statusSince,
+        item.checkedAt,
+        item.responseMs,
+        item.targetUrl,
+        item.intervalMs,
+      ]);
+      await connection.query(
+        `
+          UPDATE monitors AS m
+          JOIN (${selectRows}) AS batch
+            ON batch.id = m.id
+            AND batch.config_version = m.config_version
+          SET
+            m.last_status = batch.last_status,
+            m.status_since = batch.status_since,
+            m.last_checked_at = batch.checked_at,
+            m.last_check_at = batch.checked_at,
+            m.last_response_ms = batch.response_ms,
+            m.url = batch.target_url,
+            m.target_url = batch.target_url,
+            m.interval_ms = batch.interval_ms
+        `,
+        updateParams
+      );
+    }
+
+    await connection.commit();
+    return writes.map((item) => versions.get(item.monitorId) === item.configVersion);
+  } catch (error) {
+    await connection.rollback().catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
   }
+}
+
+const monitorCheckWriteBuffer = createTelemetryWriteBuffer({
+  batchSize: TELEMETRY_WRITE_BATCH_SIZE,
+  flushIntervalMs: TELEMETRY_WRITE_FLUSH_MS,
+  writeBatch: persistMonitorCheckBatch,
+  logger: runtimeLogger,
+});
+
+function sendMonitorStatusChangeNotifications(item) {
+  if (!item.statusChanged) return;
+  const { monitor } = item;
+  Promise.allSettled([
+    sendEmailStatusNotificationForMonitorChange({
+      userId: monitor.user_id,
+      monitor,
+      previousStatus: item.previousStatus,
+      nextStatus: item.effectiveNextStatus,
+      elapsedMs: item.responseMs,
+      statusCode: item.statusCode,
+      errorMessage: item.errorMessage,
+      previousStatusSince: monitor.status_since,
+    }),
+    sendDiscordStatusNotificationForMonitorChange({
+      userId: monitor.user_id,
+      monitor,
+      previousStatus: item.previousStatus,
+      nextStatus: item.effectiveNextStatus,
+      elapsedMs: item.responseMs,
+      statusCode: item.statusCode,
+      errorMessage: item.errorMessage,
+    }),
+    sendSlackStatusNotificationForMonitorChange({
+      userId: monitor.user_id,
+      monitor,
+      previousStatus: item.previousStatus,
+      nextStatus: item.effectiveNextStatus,
+      elapsedMs: item.responseMs,
+      statusCode: item.statusCode,
+      errorMessage: item.errorMessage,
+    }),
+    sendWebhookStatusNotificationForMonitorChange({
+      userId: monitor.user_id,
+      monitor,
+      previousStatus: item.previousStatus,
+      nextStatus: item.effectiveNextStatus,
+      elapsedMs: item.responseMs,
+      statusCode: item.statusCode,
+      errorMessage: item.errorMessage,
+    }),
+  ]).catch(() => {});
+}
+
+async function checkSingleMonitor(monitor) {
+  const result = await performSingleMonitorHttpCheck(monitor);
+  const item = buildMonitorCheckWrite(monitor, result);
+  const persistedAsCurrent = await monitorCheckWriteBuffer.enqueue(item);
+  if (persistedAsCurrent) sendMonitorStatusChangeNotifications(item);
 }
 
 async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = PROBE_ID, database = pool) {
@@ -10216,6 +10487,111 @@ async function persistSingleMonitorProbeResult(monitor, payload = {}, probeId = 
   return true;
 }
 
+async function getAuthoritativeProbeReference(database, monitor) {
+  const monitorId = Number(monitor?.id);
+  if (!Number.isInteger(monitorId) || monitorId <= 0) return null;
+  const staleUs = getProbeStateStaleMaxAgeUs(monitor);
+
+  if (!MULTI_LOCATION_ENABLED) {
+    const status = String(monitor?.last_status || "").trim().toLowerCase();
+    const checkedAtMs = new Date(monitor?.last_checked_at || 0).getTime();
+    const ageUs = (Date.now() - checkedAtMs) * 1000;
+    return (status === "online" || status === "offline") && Number.isFinite(ageUs) && ageUs >= 0 && ageUs <= staleUs
+      ? status
+      : null;
+  }
+
+  const [rows] = await database.query(
+    `
+      SELECT ps.last_status
+      FROM monitor_probe_state ps
+      LEFT JOIN community_probe_agents community ON community.probe_id = ps.probe_id
+      WHERE ps.monitor_id = ?
+        AND community.id IS NULL
+        AND ps.last_checked_at IS NOT NULL
+        AND TIMESTAMPDIFF(MICROSECOND, ps.last_checked_at, UTC_TIMESTAMP(3)) <= ?
+    `,
+    [monitorId, staleUs]
+  );
+  const statuses = new Set(
+    rows
+      .map((row) => String(row.last_status || "").trim().toLowerCase())
+      .filter((status) => status === "online" || status === "offline")
+  );
+  return statuses.size === 1 ? [...statuses][0] : null;
+}
+
+async function persistProbeAgentTrustObservation(database, options = {}) {
+  const [agentRows] = await database.query(
+    `
+      SELECT
+        trust_score, trust_state, accepted_results, audited_results,
+        matching_audits, mismatching_audits, suspicious_results,
+        quarantined_until, quarantine_reason, created_at
+      FROM community_probe_agents
+      WHERE probe_id = ? AND revoked_at IS NULL
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [options.probeId]
+  );
+  if (!agentRows.length) return null;
+
+  const update = calculateTrustUpdate(agentRows[0], options.observation, Date.now());
+  await database.query(
+    `
+      UPDATE community_probe_agents
+      SET
+        trust_score = ?,
+        trust_state = ?,
+        accepted_results = ?,
+        audited_results = ?,
+        matching_audits = ?,
+        mismatching_audits = ?,
+        suspicious_results = ?,
+        last_trust_audit_at = UTC_TIMESTAMP(3),
+        quarantined_until = ?,
+        quarantine_reason = ?
+      WHERE probe_id = ? AND revoked_at IS NULL
+      LIMIT 1
+    `,
+    [
+      update.score,
+      update.trustState,
+      update.acceptedResults,
+      update.auditedResults,
+      update.matchingAudits,
+      update.mismatchingAudits,
+      update.suspiciousResults,
+      update.quarantinedUntil,
+      update.quarantineReason,
+      options.probeId,
+    ]
+  );
+
+  await database.query(
+    `
+      INSERT INTO probe_agent_trust_audits (
+        job_id, probe_id, monitor_id, verdict, reason,
+        reported_status, reference_status, score_delta, score_after
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      options.jobId,
+      options.probeId,
+      options.monitorId,
+      options.observation.verdict,
+      String(options.observation.reason || options.observation.verdict).slice(0, 128),
+      options.reportedStatus || null,
+      options.referenceStatus || null,
+      update.delta,
+      update.score,
+    ]
+  );
+  return update;
+}
+
 async function persistProbeAgentResults(probeId, items = []) {
   const probe = normalizeProbeId(probeId, "PROBE_ID") || PROBE_ID;
   const rawItems = Array.isArray(items) ? items.slice(0, PROBE_AGENT_RESULT_MAX_BATCH) : [];
@@ -10249,7 +10625,7 @@ async function persistProbeAgentResults(probeId, items = []) {
   const placeholders = monitorIds.map(() => "?").join(", ");
   const [rows] = await pool.query(
     `
-      SELECT id, created_at
+      SELECT id, created_at, config_version
       FROM monitors
       WHERE user_id IS NOT NULL
         AND is_paused = 0
@@ -10260,14 +10636,29 @@ async function persistProbeAgentResults(probeId, items = []) {
   const monitorMap = new Map(rows.map((row) => [Number(row.id), row]));
 
   let accepted = 0;
+  let suspicious = 0;
   for (const { item, claims } of leasedItems) {
     const monitorId = Number(item?.monitorId);
     const monitor = monitorMap.get(monitorId);
     if (!monitor) continue;
+    if (Number(claims.configVersion || 1) !== Number(monitor.config_version || 1)) continue;
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      const [lockedMonitors] = await connection.query(
+        `
+          SELECT id, created_at, config_version, interval_ms, last_status, last_checked_at
+          FROM monitors
+          WHERE id = ? AND is_paused = 0
+          FOR UPDATE
+        `,
+        [monitorId]
+      );
+      if (!lockedMonitors.length || Number(lockedMonitors[0].config_version || 1) !== Number(claims.configVersion || 1)) {
+        await connection.rollback();
+        continue;
+      }
       const [assignment] = await connection.query(
         `
           DELETE FROM probe_agent_job_assignments
@@ -10296,7 +10687,31 @@ async function persistProbeAgentResults(probeId, items = []) {
         continue;
       }
 
-      const persisted = await persistSingleMonitorProbeResult(monitor, item, probe, connection);
+      const assessment = assessProbeResult(item, claims);
+      let persisted = false;
+      let referenceStatus = null;
+      let observation;
+      if (!assessment.valid) {
+        suspicious += 1;
+        observation = { verdict: "suspicious", reason: assessment.reason };
+      } else {
+        if (claims.action === "http") {
+          referenceStatus = await getAuthoritativeProbeReference(connection, lockedMonitors[0]);
+        }
+        observation = claims.action === "http"
+          ? observationForResult(assessment.result, referenceStatus)
+          : { verdict: "unverified", reason: "server_report_job" };
+        persisted = await persistSingleMonitorProbeResult(monitor, assessment.result, probe, connection);
+      }
+
+      await persistProbeAgentTrustObservation(connection, {
+        probeId: probe,
+        jobId: claims.jobId,
+        monitorId,
+        observation,
+        reportedStatus: assessment.valid ? (assessment.result.ok ? "online" : "offline") : null,
+        referenceStatus,
+      });
       await connection.commit();
       if (persisted) accepted += 1;
     } catch (error) {
@@ -10310,6 +10725,7 @@ async function persistProbeAgentResults(probeId, items = []) {
   return {
     received: rawItems.length,
     accepted,
+    suspicious,
     ignored: rawItems.length - accepted,
   };
 }
@@ -10354,7 +10770,20 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     const normalizedReason = normalizeTargetValidationReasonForTelemetry(validation?.reason);
     const connectAddress = getMonitorConnectAddress(validation);
     const safeConnectAddress = connectAddress && isPublicIpAddress(connectAddress) ? connectAddress : null;
-    const lease = probeJobLeaseService.issueLease({ probeId: probe, monitorId });
+    const configVersion = Math.max(1, Number(monitor.config_version) || 1);
+    const action = validation?.allowed && safeConnectAddress ? "http" : "report";
+    const reportCode = action === "report"
+      ? normalizedReason === "dns_unresolved" || (validation?.allowed && !safeConnectAddress)
+        ? "dns_unresolved"
+        : `target_blocked:${normalizedReason || "unknown"}`
+      : "";
+    const lease = probeJobLeaseService.issueLease({
+      probeId: probe,
+      monitorId,
+      configVersion,
+      action,
+      reportCode,
+    });
     const [assignment] = await pool.query(
       `
         INSERT IGNORE INTO probe_agent_job_assignments (job_id, probe_id, monitor_id, slot, expires_at)
@@ -10366,10 +10795,11 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
     if (!assignment?.affectedRows) continue;
     activeMonitorIds.add(monitorId);
 
-    if (validation?.allowed && safeConnectAddress) {
+    if (action === "http") {
       jobs.push({
         ...lease,
         monitorId,
+        configVersion,
         publicId: String(monitor.public_id || "").trim() || null,
         targetUrl,
         connectAddress: safeConnectAddress || null,
@@ -10388,13 +10818,10 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
       continue;
     }
 
-    const blockedMessage =
-      normalizedReason === "dns_unresolved" || (validation?.allowed && !safeConnectAddress)
-        ? "dns_unresolved"
-        : `target_blocked:${normalizedReason || "unknown"}`;
     jobs.push({
       ...lease,
       monitorId,
+      configVersion,
       publicId: String(monitor.public_id || "").trim() || null,
       targetUrl,
       action: "report",
@@ -10402,7 +10829,7 @@ async function getProbeAgentJobs(probeId, limit = PROBE_AGENT_DEFAULT_BATCH_LIMI
         ok: false,
         responseMs: 0,
         statusCode: null,
-        errorMessage: blockedMessage,
+        errorMessage: reportCode,
       },
     });
   }
@@ -10453,28 +10880,48 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
   const [rows] = await pool.query(
     `
       SELECT
-        probe_id,
-        last_status,
-        last_response_ms,
-        last_status_code,
-        last_error_message
-      FROM monitor_probe_state
-      WHERE monitor_id = ?
-        AND last_checked_at IS NOT NULL
-        AND TIMESTAMPDIFF(MICROSECOND, last_checked_at, UTC_TIMESTAMP(3)) <= ?
+        ps.probe_id,
+        ps.last_status,
+        ps.last_response_ms,
+        ps.last_status_code,
+        ps.last_error_message,
+        community.id IS NOT NULL AS is_community
+      FROM monitor_probe_state ps
+      LEFT JOIN community_probe_agents community ON community.probe_id = ps.probe_id
+      WHERE ps.monitor_id = ?
+        AND ps.last_checked_at IS NOT NULL
+        AND TIMESTAMPDIFF(MICROSECOND, ps.last_checked_at, UTC_TIMESTAMP(3)) <= ?
+        AND (
+          community.id IS NULL
+          OR (
+            community.revoked_at IS NULL
+            AND community.trust_state = 'trusted'
+            AND community.trust_score >= ?
+            AND (community.quarantined_until IS NULL OR community.quarantined_until <= UTC_TIMESTAMP(3))
+          )
+        )
     `,
-    [monitorId, staleUs]
+    [monitorId, staleUs, TRUST_POLICY.trustedScore]
   );
 
   const states = Array.isArray(rows) ? rows : [];
   if (!states.length) return null;
 
+  const authoritativeStates = states.filter((row) => Number(row.is_community || 0) === 0);
+  const authoritativeOnlineStates = authoritativeStates.filter(
+    (row) => String(row.last_status || "").toLowerCase() === "online"
+  );
+  const authoritativeOfflineStates = authoritativeStates.filter(
+    (row) => String(row.last_status || "").toLowerCase() === "offline"
+  );
   const onlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "online");
   const offlineStates = states.filter((row) => String(row.last_status || "").toLowerCase() === "offline");
   const requiredOfflineConfirmations = Math.max(2, PROBE_MIN_CONFIRMATIONS_OFFLINE);
 
-  if (onlineStates.length) {
-    const sample = pickFastestProbeState(onlineStates);
+  // A community result may confirm an outage or provide a fallback when all
+  // owned probes are stale. It must never hide a fresh owned-probe outage.
+  if (authoritativeOnlineStates.length || (!authoritativeStates.length && onlineStates.length)) {
+    const sample = pickFastestProbeState(authoritativeOnlineStates.length ? authoritativeOnlineStates : onlineStates);
     const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
     return {
       ok: true,
@@ -10486,7 +10933,10 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
     };
   }
 
-  if (offlineStates.length >= requiredOfflineConfirmations) {
+  if (
+    offlineStates.length >= requiredOfflineConfirmations &&
+    (authoritativeOfflineStates.length || !authoritativeStates.length)
+  ) {
     const sample = pickFastestProbeState(offlineStates);
     const responseMs = Math.max(0, Math.round(Number(sample?.last_response_ms) || 0));
     return {
@@ -10503,100 +10953,17 @@ async function computeAggregateMonitorResultFromProbes(monitor) {
 }
 
 async function checkSingleMonitorAggregate(monitor) {
-  const targetUrl = getMonitorUrl(monitor);
-  const monitorId = Number(monitor.id);
   const aggregate = await computeAggregateMonitorResultFromProbes(monitor);
   if (!aggregate) return;
-
-  const { ok, responseMs, statusCode, errorMessage } = aggregate;
-  const nextStatus = ok ? "online" : "offline";
-  const previousStatus = String(monitor.last_status || "online");
-  const now = new Date();
-  const nowMs = now.getTime();
-  const suppressOffline = shouldSuppressOfflineDuringWarmup(monitor, nextStatus, nowMs);
-  const effectiveNextStatus = suppressOffline ? previousStatus : nextStatus;
-  const statusChanged = previousStatus !== effectiveNextStatus;
-
-  let statusSince = monitor.status_since instanceof Date ? monitor.status_since : now;
-  if (!monitor.status_since || statusChanged) {
-    statusSince = now;
-  }
-
-  if (!suppressOffline) {
-    await pool.query(
-      `
-        INSERT INTO monitor_checks (
-          monitor_id,
-          checked_at,
-          ok,
-          response_ms,
-          status_code,
-          error_message
-        )
-        VALUES (?, UTC_TIMESTAMP(3), ?, ?, ?, ?)
-      `,
-      [monitorId, ok ? 1 : 0, responseMs, statusCode, errorMessage]
-    );
-  }
-
-  await pool.query(
-    `
-      UPDATE monitors
-      SET
-        last_status = ?,
-        status_since = ?,
-        last_checked_at = UTC_TIMESTAMP(3),
-        last_check_at = UTC_TIMESTAMP(3),
-        last_response_ms = ?,
-        url = ?,
-        target_url = ?,
-        interval_ms = ?
-      WHERE id = ?
-    `,
-    [effectiveNextStatus, statusSince, responseMs, targetUrl, targetUrl, getMonitorIntervalMs(monitor), monitorId]
-  );
-
-  if (statusChanged) {
-    Promise.allSettled([
-      sendEmailStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs: responseMs,
-        statusCode,
-        errorMessage,
-        previousStatusSince: monitor.status_since,
-      }),
-      sendDiscordStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs: responseMs,
-        statusCode,
-        errorMessage,
-      }),
-      sendSlackStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs: responseMs,
-        statusCode,
-        errorMessage,
-      }),
-      sendWebhookStatusNotificationForMonitorChange({
-        userId: monitor.user_id,
-        monitor,
-        previousStatus,
-        nextStatus: effectiveNextStatus,
-        elapsedMs: responseMs,
-        statusCode,
-        errorMessage,
-      }),
-    ]).catch(() => {});
-  }
+  const item = buildMonitorCheckWrite(monitor, {
+    targetUrl: getMonitorUrl(monitor),
+    ok: aggregate.ok,
+    responseMs: aggregate.responseMs,
+    statusCode: aggregate.statusCode,
+    errorMessage: aggregate.errorMessage,
+  });
+  const persistedAsCurrent = await monitorCheckWriteBuffer.enqueue(item);
+  if (persistedAsCurrent) sendMonitorStatusChangeNotifications(item);
 }
 
 async function runWithConcurrency(items, concurrency, workerFn) {

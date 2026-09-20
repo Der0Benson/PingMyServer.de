@@ -665,6 +665,9 @@ async function executeJob(job) {
     ...result,
     jobId: job.jobId,
     leaseToken: job.leaseToken,
+    ...(job.configVersion === undefined
+      ? {}
+      : { configVersion: Math.max(1, Math.trunc(Number(job.configVersion) || 1)) }),
   });
 
   if (String(job?.action || "").trim() === "report") {

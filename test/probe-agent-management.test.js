@@ -35,6 +35,13 @@ test("agent serialization derives active and online status", () => {
       checks_7d: 80,
       checks_30d: 320,
       active_days_30d: 8,
+      trust_score: 82,
+      trust_state: "trusted",
+      accepted_results: 400,
+      audited_results: 100,
+      matching_audits: 98,
+      mismatching_audits: 2,
+      suspicious_results: 0,
       summary_email_enabled: 1,
       summary_email_frequency: "monthly",
     },
@@ -44,6 +51,10 @@ test("agent serialization derives active and online status", () => {
   assert.equal(online.active, true);
   assert.equal(online.online, true);
   assert.equal(online.checks30d, 320);
+  assert.equal(online.trustScore, 82);
+  assert.equal(online.trusted, true);
+  assert.equal(online.benefitEligible, true);
+  assert.equal(online.mismatchRate, 0.02);
   assert.equal(online.summaryEmailEnabled, true);
   assert.equal(online.summaryEmailFrequency, "monthly");
 
@@ -110,6 +121,32 @@ test("probe endpoints await database authentication and record heartbeats", asyn
   assert.equal(heartbeatProbeId, "pa_database");
   assert.equal(responses[0].status, 200);
   assert.equal(responses[0].body.data.probeId, "pa_database");
+});
+
+test("quarantined agents receive no jobs and see their trust state", async () => {
+  const responses = [];
+  let jobRequests = 0;
+  const quarantinedUntil = Date.now() + 60000;
+  const controller = createProbeAgentController({
+    sendJson: (_res, status, body) => responses.push({ status, body }),
+    authenticateProbeAgentRequest: async () => ({
+      probeId: "pa_quarantined",
+      trustScore: 4,
+      trustState: "quarantined",
+      quarantinedUntil,
+    }),
+    getProbeAgentJobs: async () => {
+      jobRequests += 1;
+      return [{ jobId: "must-not-be-returned" }];
+    },
+  });
+
+  await controller.handleProbeAgentJobs({}, {}, { searchParams: new URLSearchParams() });
+
+  assert.equal(jobRequests, 0);
+  assert.deepEqual(responses[0].body.data.jobs, []);
+  assert.equal(responses[0].body.data.trust.state, "quarantined");
+  assert.equal(responses[0].body.data.trust.quarantinedUntil, quarantinedUntil);
 });
 
 test("users can enable a weekly summary only for their own agent", async () => {

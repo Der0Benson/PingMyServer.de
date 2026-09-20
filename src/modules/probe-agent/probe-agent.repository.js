@@ -4,7 +4,11 @@ function createProbeAgentRepository(dependencies = {}) {
   async function findActiveByProbeId(probeId) {
     const [rows] = await pool.query(
       `
-        SELECT id, user_id, probe_id, name, token_hash, last_heartbeat_at, created_at
+        SELECT
+          id, user_id, probe_id, name, token_hash, last_heartbeat_at, created_at,
+          trust_score, trust_state, accepted_results, audited_results,
+          matching_audits, mismatching_audits, suspicious_results,
+          last_trust_audit_at, quarantined_until, quarantine_reason
         FROM community_probe_agents
         WHERE probe_id = ? AND revoked_at IS NULL
         LIMIT 1
@@ -21,6 +25,16 @@ function createProbeAgentRepository(dependencies = {}) {
           a.probe_id,
           a.name,
           a.token_prefix,
+          a.trust_score,
+          a.trust_state,
+          a.accepted_results,
+          a.audited_results,
+          a.matching_audits,
+          a.mismatching_audits,
+          a.suspicious_results,
+          a.last_trust_audit_at,
+          a.quarantined_until,
+          a.quarantine_reason,
           a.summary_email_enabled,
           a.summary_email_frequency,
           a.last_heartbeat_at,
@@ -37,6 +51,16 @@ function createProbeAgentRepository(dependencies = {}) {
           a.probe_id,
           a.name,
           a.token_prefix,
+          a.trust_score,
+          a.trust_state,
+          a.accepted_results,
+          a.audited_results,
+          a.matching_audits,
+          a.mismatching_audits,
+          a.suspicious_results,
+          a.last_trust_audit_at,
+          a.quarantined_until,
+          a.quarantine_reason,
           a.summary_email_enabled,
           a.summary_email_frequency,
           a.last_heartbeat_at,
@@ -140,6 +164,9 @@ function createProbeAgentRepository(dependencies = {}) {
             WHERE user_id = ?
               AND revoked_at IS NULL
               AND last_heartbeat_at >= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 60 SECOND)
+              AND trust_state = 'trusted'
+              AND trust_score >= 70
+              AND (quarantined_until IS NULL OR quarantined_until <= UTC_TIMESTAMP(3))
           ) AS has_live_agent,
           COALESCE((
             SELECT COUNT(*)

@@ -6,6 +6,26 @@ Der Community-Probe-Agent holt maximal zehn kurzlebige Prüfaufträge von PingMy
 
 Voraussetzungen: Docker Engine mit Docker Compose.
 
+### Quick-Install
+
+Nach dem Erstellen eines Agenten zeigt das Dashboard einen vorbereiteten Befehl mit dessen Agent-ID an. Der Token wird danach verdeckt abgefragt und landet deshalb weder im Befehl noch in der Shell-History oder Prozessliste:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Der0Benson/PingMyServer.de/main/docker/probe-agent/install.sh | bash -s -- --id 'AGENT_ID'
+```
+
+Der Installer prüft ID und Token, akzeptiert für die API ausschließlich HTTPS, legt Konfiguration und Secret mit restriktiven Dateirechten ab und startet den gehärteten Container. Standardziel ist `./pingmyserver-agent`. Docker Engine, Docker Compose v2, Git und curl werden bewusst nicht automatisch installiert.
+
+Wie bei jedem `curl | bash`-Befehl sollte der Installer vor dem Ausführen geprüft werden. Er kann ohne Ausführung heruntergeladen werden:
+
+```bash
+curl -fsSLo install-probe-agent.sh https://raw.githubusercontent.com/Der0Benson/PingMyServer.de/main/docker/probe-agent/install.sh
+less install-probe-agent.sh
+bash install-probe-agent.sh --id 'AGENT_ID'
+```
+
+### Manuelle Installation
+
 ```bash
 cd docker/probe-agent
 cp .env.example .env

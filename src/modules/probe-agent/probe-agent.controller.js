@@ -45,12 +45,19 @@ function createProbeAgentController(dependencies = {}) {
     const limit = clampBatchLimit(url?.searchParams?.get("limit"));
 
     try {
-      const jobs = await getProbeAgentJobs(agent.probeId, limit);
+      const quarantineUntilMs = new Date(agent.quarantinedUntil || 0).getTime();
+      const quarantined = agent.trustState === "quarantined" && quarantineUntilMs > Date.now();
+      const jobs = quarantined ? [] : await getProbeAgentJobs(agent.probeId, limit);
       sendJson(res, 200, {
         ok: true,
         data: {
           probeId: agent.probeId,
           jobs,
+          trust: {
+            score: Number(agent.trustScore || 0),
+            state: String(agent.trustState || "probation"),
+            quarantinedUntil: Number.isFinite(quarantineUntilMs) && quarantineUntilMs > 0 ? quarantineUntilMs : null,
+          },
         },
       });
     } catch (error) {
@@ -102,6 +109,11 @@ function createProbeAgentController(dependencies = {}) {
         data: {
           probeId: agent.probeId,
           serverTime: Date.now(),
+          trust: {
+            score: Number(agent.trustScore || 0),
+            state: String(agent.trustState || "probation"),
+            quarantinedUntil: agent.quarantinedUntil || null,
+          },
         },
       });
     } catch (error) {
