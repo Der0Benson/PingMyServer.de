@@ -40,7 +40,8 @@
     <link rel="stylesheet" href="/assets/landing-tailwind.css" />
     <link rel="stylesheet" href="/assets/landing.css" />
     <link rel="stylesheet" href="/assets/i18n.css" />
-</head>
+    <link rel="stylesheet" href="/assets/craft.css" />
+  </head>
 <body class="landing-page gradient-bg text-white">
     
     <!-- Navigation -->
@@ -234,7 +235,7 @@
                     <div class="landing-hero-editorial">
                         <h1 class="landing-hero-display text-5xl lg:text-7xl font-bold leading-none">
                             <span class="landing-hero-line" data-i18n="landing.hero.h1.line1">Ausfälle früh erkennen,</span>
-                            <span class="landing-hero-line text-cyan-400" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
+                            <span class="landing-hero-line" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
                             <span class="landing-hero-line" data-i18n="landing.hero.h1.line2">sie melden</span>
                         </h1>
 
@@ -242,13 +243,13 @@
                             <span class="landing-hero-lead-line" aria-hidden="true"></span>
                             <p class="text-xl text-slate-300" data-i18n="landing.hero.lead">
                                 PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr.
-                                Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.
+                                Bei einem Ausfall erhältst du sofort eine Nachricht per Discord, Webhook oder E-Mail.
                             </p>
                         </div>
 
                         <div class="landing-hero-cta-bar">
                             <a href="/login?mode=register" class="landing-hero-cta-primary bg-cyan-400 text-slate-900 px-8 py-4 font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                                <span data-i18n="landing.hero.cta_primary">Early Access starten -></span>
+                                <span data-i18n="landing.hero.cta_primary">Early Access starten →</span>
                             </a>
                             <a href="/status" class="landing-hero-cta-secondary inline-flex items-center">
                                 <span data-i18n="landing.hero.cta_secondary">Live-Demo ansehen</span>
@@ -292,7 +293,7 @@
                                 <span data-i18n="landing.live.title">Live Status</span>
                             </div>
                             <div class="landing-hero-console-state">
-                                <div id="landing-live-dot" class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                <div id="landing-live-dot" class="w-2 h-2 bg-green-400 rounded-full"></div>
                                 <span
                                     id="landing-live-overall"
                                     class="text-green-400 text-sm font-semibold"
@@ -405,10 +406,9 @@
                         <span class="landing-section-line" aria-hidden="true"></span>
                         <span data-i18n="landing.nav.features">Features</span>
                     </div>
-                    <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Alles, was du für professionelles Monitoring brauchst</h2>
+                    <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Monitoring, Vorfälle und Benachrichtigungen an einem Ort</h2>
                     <p class="text-xl text-slate-300" data-i18n="landing.features.lead">
-                        Von einfachen HTTP-Checks bis zu komplexen API-Überwachungen –
-                        PingMyServer bietet alle Tools für zuverlässiges Uptime-Monitoring
+                        PingMyServer prüft einfache Websites ebenso wie API-Endpunkte und hält Ausfälle, Antwortzeiten und Zertifikate nachvollziehbar fest.
                     </p>
                     <div class="landing-features-heading-rule" aria-hidden="true"></div>
                 </div>
@@ -543,7 +543,7 @@
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4" data-i18n="landing.about.h2">Warum wir PingMyServer gebaut haben</h2>
-                <p class="text-xl text-slate-300" data-i18n="landing.about.sub">Ein Student-Projekt mit echter Mission</p>
+                <p class="text-xl text-slate-300" data-i18n="landing.about.sub">Ein Azubi-Projekt aus eigener Erfahrung</p>
             </div>
 
             <div class="max-w-4xl mx-auto">
@@ -602,7 +602,7 @@
             <div class="text-center mt-12">
                 <p class="text-slate-400 mb-4" data-i18n="landing.about.contact_prompt">Du hast Fragen oder Feedback?</p>
                 <a href="mailto:pritzsche.ben.luca@gmail.com" class="glass-effect px-6 py-3 rounded-lg font-semibold hover:bg-slate-700 transition inline-flex items-center justify-center">
-                    <span data-i18n="landing.about.contact_cta">Kontakt per E-Mail -></span>
+                    <span data-i18n="landing.about.contact_cta">Kontakt per E-Mail →</span>
                 </a>
             </div>
         </div>
@@ -921,7 +921,7 @@
                 </div>
                 <div class="landing-final-cta-actions">
                     <a href="/login?mode=register" class="landing-final-cta-primary bg-cyan-400 text-slate-900 px-10 py-4 font-bold text-lg hover:bg-cyan-300 transition pulse-glow shine-effect inline-flex items-center justify-center">
-                        <span data-i18n="landing.cta.primary">Beta-Zugang sichern -></span>
+                        <span data-i18n="landing.cta.primary">Beta-Zugang sichern →</span>
                     </a>
                     <a href="/status" class="landing-final-cta-secondary inline-flex items-center justify-center">
                         <span data-i18n="landing.cta.secondary">Statusseite ansehen</span>

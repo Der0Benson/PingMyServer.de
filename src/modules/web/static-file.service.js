@@ -15,6 +15,9 @@ function contentTypeFromPath(filePath) {
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
   if (ext === ".webp") return "image/webp";
   if (ext === ".ico") return "image/x-icon";
+  if (ext === ".ttf") return "font/ttf";
+  if (ext === ".woff") return "font/woff";
+  if (ext === ".woff2") return "font/woff2";
   return "application/octet-stream";
 }
 

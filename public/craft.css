@@ -1,0 +1,1012 @@
+/*
+ * PingMyServer interface system
+ * Direction: a quiet operations console — precise, flat and information-led.
+ * This file intentionally loads after page-specific styles and consolidates
+ * the visual language without changing page behaviour or content.
+ */
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/assets/fonts/ibm-plex-sans-400.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/assets/fonts/ibm-plex-sans-600.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/assets/fonts/ibm-plex-sans-700.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/assets/fonts/ibm-plex-mono-500.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #091018;
+  --bg-2: #0c141d;
+  --surface: #101923;
+  --surface-2: #14202b;
+  --surface-3: #0b121a;
+  --stroke: #263542;
+  --stroke-strong: #3a4c59;
+  --text: #f1f5f7;
+  --muted: #b6c1c9;
+  --muted-2: #8796a1;
+  --accent: #41c7df;
+  --accent-strong: #74d8e9;
+  --accent-ink: #051318;
+  --accent-2: #8fcea4;
+  --success: #8fcea4;
+  --warning: #e4b66d;
+  --danger: #e58a8a;
+  --radius-control: 4px;
+  --radius-panel: 8px;
+  --shadow: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+body {
+  min-width: 320px;
+  color: var(--text);
+  background: var(--bg);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand-name,
+.landing-brand-name,
+.wordmark-name,
+.brand-title {
+  font-family: "IBM Plex Sans", sans-serif !important;
+  letter-spacing: -0.025em !important;
+}
+
+p,
+li,
+label,
+input,
+textarea,
+select,
+button {
+  line-height: 1.55;
+}
+
+small,
+.text-xs,
+.auth-divider,
+.auth-footer span,
+.landing-hero-eyebrow,
+.landing-section-kicker,
+.landing-social-rule-text,
+.landing-hero-note,
+.status-badge,
+.overview-chip,
+.coming-badge {
+  font-size: 0.875rem !important;
+}
+
+.transition-all {
+  transition-property: color, background-color, border-color, opacity !important;
+}
+
+a,
+button,
+input,
+textarea,
+select,
+summary {
+  -webkit-tap-highlight-color: rgba(65, 199, 223, 0.18);
+  touch-action: manipulation;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 3px;
+  box-shadow: none !important;
+}
+
+button,
+.btn,
+.social-btn,
+.mode-btn,
+.dns-submit-btn,
+.dns-link-btn,
+.landing-hero-cta-primary,
+.landing-final-cta-primary,
+.landing-mobile-cta,
+.landing-nav-cta,
+.landing-rating-submit,
+.landing-rating-toggle {
+  border-radius: var(--radius-control) !important;
+  transition-property: color, background-color, border-color, opacity !important;
+  transition-duration: 160ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+input,
+textarea,
+select {
+  border-radius: var(--radius-control) !important;
+  font-size: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Shared product shell */
+.dashboard-page {
+  background: var(--bg) !important;
+}
+
+.dashboard-page .app {
+  background: var(--bg) !important;
+}
+
+.dashboard-page .sidebar {
+  background: #0b131b !important;
+  border-right: 1px solid var(--stroke) !important;
+  box-shadow: none !important;
+}
+
+.dashboard-page .sidebar::before,
+.dashboard-page .card::after {
+  display: none !important;
+}
+
+.dashboard-page .page {
+  background: var(--bg) !important;
+}
+
+.dashboard-page .card,
+.dashboard-page .settings-launch-card,
+.dashboard-page .monitor-group-card,
+.dashboard-page .monitors-card,
+.dashboard-page .insight-card,
+.dashboard-page .stat-item,
+.dashboard-page .incidents-controls-card,
+.dashboard-page .incidents-list-card,
+.dashboard-page .incidents-hidden-card {
+  border: 1px solid var(--stroke) !important;
+  border-radius: var(--radius-panel) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+}
+
+.dashboard-page .card-title,
+.dashboard-page .page h1,
+.dashboard-page .page h2,
+.dashboard-page .page h3 {
+  font-family: "IBM Plex Sans", sans-serif !important;
+}
+
+.dashboard-page .stat-value,
+.dashboard-page .card-value,
+.dashboard-page .status-big,
+.dashboard-page code,
+.dashboard-page pre,
+.dashboard-page .domain-code,
+.dashboard-page .probe-agent-secret {
+  font-family: "IBM Plex Mono", monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-page .user-pill,
+.dashboard-page [class*="-badge"],
+.dashboard-page [class*="-pill"] {
+  border-radius: var(--radius-control) !important;
+  box-shadow: none !important;
+}
+
+.dashboard-page .user-pill {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+
+.dashboard-page .user-pill:hover {
+  background: var(--surface) !important;
+  border-color: var(--stroke) !important;
+}
+
+.dashboard-page .side-nav a {
+  border-radius: var(--radius-control) !important;
+}
+
+.dashboard-page .side-nav a.active {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  box-shadow: inset 2px 0 0 var(--accent) !important;
+}
+
+.dashboard-page .btn.primary,
+.dashboard-page .feature-activate-btn {
+  color: var(--accent-ink) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+}
+
+.dashboard-page .btn:hover,
+.dashboard-page .feature-activate-btn:hover,
+.dashboard-page .danger-btn:hover,
+.dashboard-page .incident-hide-btn:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.auth-overlay,
+.settings-modal,
+.response-help-modal {
+  background: rgba(3, 8, 12, 0.82) !important;
+  backdrop-filter: none !important;
+}
+
+.auth-overlay .auth-card,
+.settings-modal-card,
+.response-help-modal-card,
+.warmup-modal {
+  border: 1px solid var(--stroke-strong) !important;
+  border-radius: var(--radius-panel) !important;
+  background: var(--surface) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34) !important;
+}
+
+/* Notifications: integrations read as a settings list, not promo cards. */
+.notifications-overview,
+.notification-channel {
+  border: 1px solid var(--stroke) !important;
+  border-radius: var(--radius-panel) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+}
+
+.notification-channel::before {
+  display: none !important;
+}
+
+.channel-icon {
+  width: 28px !important;
+  height: 28px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: var(--muted) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.status-row {
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-top: 1px solid var(--stroke) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.overview-chip,
+.email-hint-chip,
+.status-badge {
+  border-radius: var(--radius-control) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.overview-chip-icon {
+  color: var(--accent) !important;
+  background: transparent !important;
+}
+
+.status-badge::before {
+  box-shadow: none !important;
+}
+
+/* Landing page */
+body.landing-page {
+  background-color: var(--bg) !important;
+  background-image:
+    linear-gradient(rgba(151, 180, 194, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(151, 180, 194, 0.035) 1px, transparent 1px) !important;
+  background-size: 80px 80px !important;
+  color: var(--text) !important;
+  font-family: "IBM Plex Sans", sans-serif !important;
+  font-size: 16px !important;
+}
+
+body.landing-page::before,
+.landing-hero::before,
+.landing-hero::after,
+.landing-nav-shell::before,
+.landing-hero-editorial::before,
+.landing-hero-console::before,
+.landing-status-board::before,
+.landing-traffic-shell::before,
+.interactive-surface::after {
+  display: none !important;
+}
+
+.landing-page h1,
+.landing-page h2,
+.landing-page h3,
+.landing-page h4 {
+  font-family: "IBM Plex Sans", sans-serif !important;
+  letter-spacing: -0.035em !important;
+}
+
+.landing-page p {
+  color: var(--muted) !important;
+}
+
+.landing-nav-shell {
+  background: rgba(9, 16, 24, 0.97) !important;
+  border-bottom: 1px solid var(--stroke) !important;
+  backdrop-filter: none !important;
+}
+
+.landing-nav-product-panel,
+.landing-mobile-menu {
+  border: 1px solid var(--stroke-strong) !important;
+  border-radius: var(--radius-panel) !important;
+  background: #0b131b !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3) !important;
+}
+
+.landing-nav-product-row,
+.landing-nav-product-side-link,
+.landing-nav-product-demo {
+  border-radius: var(--radius-control) !important;
+  background: transparent !important;
+}
+
+.landing-nav-product-row:hover,
+.landing-nav-product-side-link:hover,
+.landing-nav-product-demo:hover {
+  background: var(--surface) !important;
+  transform: none !important;
+}
+
+.landing-nav-product-dot,
+.landing-section-line,
+.landing-social-rule-line,
+.landing-features-heading-rule,
+.landing-hero-lead-line,
+.landing-hero-console-corner,
+.landing-hero-live-pip {
+  display: none !important;
+}
+
+.landing-hero {
+  padding-top: 132px !important;
+  padding-bottom: 72px !important;
+}
+
+.landing-hero-grid {
+  gap: 72px !important;
+  align-items: center !important;
+}
+
+.landing-hero-copy,
+.landing-hero-editorial {
+  gap: 24px !important;
+}
+
+.landing-hero-editorial {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.landing-hero-eyebrow,
+.landing-section-kicker,
+.landing-social-rule-text,
+.landing-hero-console-label,
+.landing-hero-note,
+.dns-kicker,
+.blog-feed-kicker,
+.blog-panel-kicker {
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  color: var(--muted-2) !important;
+}
+
+.landing-hero-stamp {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.landing-hero-display {
+  max-width: 12ch !important;
+  font-size: clamp(3.3rem, 6.5vw, 6.5rem) !important;
+  font-weight: 700 !important;
+  line-height: 0.94 !important;
+  letter-spacing: -0.065em !important;
+}
+
+.landing-hero-display .text-cyan-400 {
+  color: var(--text) !important;
+}
+
+.landing-hero-lead-wrap {
+  display: block !important;
+  max-width: 62ch !important;
+  padding-left: 0 !important;
+}
+
+.landing-hero-editorial p {
+  font-size: 1.08rem !important;
+  line-height: 1.65 !important;
+}
+
+.landing-hero-cta-primary,
+.landing-final-cta-primary,
+.landing-mobile-cta,
+.landing-nav-cta,
+.landing-pricing a.bg-cyan-400 {
+  color: var(--accent-ink) !important;
+  background: var(--accent) !important;
+  border: 1px solid var(--accent) !important;
+  border-radius: var(--radius-control) !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+}
+
+.landing-hero-cta-primary::before,
+.landing-final-cta-primary::before,
+.shine-effect::before {
+  display: none !important;
+}
+
+.landing-hero-cta-primary:hover,
+.landing-final-cta-primary:hover,
+.landing-pricing a.bg-cyan-400:hover {
+  color: var(--accent-ink) !important;
+  background: var(--accent-strong) !important;
+  transform: none !important;
+}
+
+.pulse-glow,
+.floating {
+  animation: none !important;
+}
+
+.landing-hero-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  max-width: 36rem;
+  border-top: 1px solid var(--stroke) !important;
+}
+
+.landing-hero-metric {
+  padding: 14px 20px 14px 0 !important;
+  border: 0 !important;
+}
+
+.landing-hero-metric:nth-child(even) {
+  padding-left: 20px !important;
+  border-left: 1px solid var(--stroke) !important;
+}
+
+.landing-hero-metric:nth-child(n + 3) {
+  border-top: 1px solid var(--stroke) !important;
+}
+
+.landing-hero-metric .stat-number {
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 1rem !important;
+  color: var(--text) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-hero-metric p {
+  margin-top: 2px !important;
+  font-family: "IBM Plex Sans", sans-serif !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.landing-hero-console,
+.landing-traffic-shell,
+.landing-status-board {
+  border: 1px solid var(--stroke) !important;
+  border-radius: var(--radius-panel) !important;
+  background: #0b131b !important;
+  box-shadow: none !important;
+}
+
+.landing-hero-console {
+  padding: 18px !important;
+}
+
+#landing-live-overall {
+  min-height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+#landing-live-dot {
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+.landing-traffic-globe {
+  background: #0d1822 !important;
+  box-shadow: none !important;
+}
+
+.landing-traffic-ping,
+.landing-traffic-ping::before,
+.landing-traffic-ping::after {
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+.landing-console-bars > div {
+  border-radius: 1px !important;
+  background: var(--success) !important;
+  box-shadow: none !important;
+}
+
+.landing-social-proof {
+  padding-top: 32px !important;
+  padding-bottom: 32px !important;
+  border-color: var(--stroke) !important;
+  background: #0b131b !important;
+}
+
+.landing-social-rule {
+  display: block !important;
+}
+
+.landing-social-copy {
+  margin-top: 4px !important;
+}
+
+.landing-section-kicker {
+  margin-bottom: 16px !important;
+}
+
+.landing-features-shell {
+  gap: 64px !important;
+}
+
+.landing-features-heading h2 {
+  max-width: 12ch !important;
+}
+
+.feature-card {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  padding: 24px 0 !important;
+  border-bottom: 1px solid var(--stroke) !important;
+  background: transparent !important;
+}
+
+.feature-index-col {
+  display: none !important;
+}
+
+.feature-icon-shell {
+  width: 18px !important;
+  height: 18px !important;
+  color: var(--muted) !important;
+  background: transparent !important;
+}
+
+.feature-icon-accent,
+.feature-icon-accent-alt {
+  color: var(--muted) !important;
+}
+
+.glass-effect,
+.landing-about .glass-effect,
+.landing-pricing .glass-effect,
+.landing-faq .glass-effect,
+.landing-rating .glass-effect {
+  border: 1px solid var(--stroke) !important;
+  border-radius: var(--radius-panel) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.interactive-surface,
+.interactive-surface:hover,
+.landing-pricing .glass-effect:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.landing-pricing > div > .text-center,
+.landing-faq > div > .text-center,
+.landing-rating-intro {
+  max-width: 46rem;
+  margin-right: auto !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+}
+
+.landing-pricing .grid {
+  gap: 0 !important;
+  max-width: none !important;
+  border-top: 1px solid var(--stroke) !important;
+  border-bottom: 1px solid var(--stroke) !important;
+}
+
+.landing-pricing .grid > .glass-effect {
+  padding: 32px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--stroke) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+.landing-pricing .grid > .glass-effect:last-child {
+  border-right: 0 !important;
+}
+
+.landing-pricing .absolute span,
+.coming-badge,
+.blog-badge,
+.dns-pill,
+.dns-meta-chip {
+  border: 1px solid var(--stroke-strong) !important;
+  border-radius: var(--radius-control) !important;
+  color: var(--muted) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.landing-pricing svg {
+  color: var(--muted) !important;
+}
+
+.landing-faq {
+  background: #0b131b !important;
+  border-top: 1px solid var(--stroke);
+  border-bottom: 1px solid var(--stroke);
+}
+
+.landing-faq .space-y-4 {
+  border-top: 1px solid var(--stroke);
+}
+
+.faq-item {
+  border: 0 !important;
+  border-bottom: 1px solid var(--stroke) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.landing-faq button {
+  min-height: 64px;
+  padding: 18px 0 !important;
+  background: transparent !important;
+}
+
+.landing-faq button:hover {
+  color: var(--accent) !important;
+  background: transparent !important;
+}
+
+.faq-content > div {
+  padding-right: 0 !important;
+  padding-left: 0 !important;
+}
+
+.landing-final-cta {
+  padding-top: 64px !important;
+  padding-bottom: 64px !important;
+}
+
+.landing-final-cta-shell {
+  padding: 32px 0 !important;
+  border: 0 !important;
+  border-top: 1px solid var(--stroke) !important;
+  border-bottom: 1px solid var(--stroke) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.landing-final-cta h2 {
+  font-size: clamp(2rem, 4vw, 3.5rem) !important;
+}
+
+.landing-final-cta-note {
+  font-family: "IBM Plex Sans", sans-serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.landing-rating-grid {
+  gap: 0 !important;
+  border-top: 1px solid var(--stroke);
+  border-bottom: 1px solid var(--stroke);
+}
+
+.landing-rating-grid > article {
+  border: 0 !important;
+  border-right: 1px solid var(--stroke) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.landing-rating-grid > article:last-child {
+  border-right: 0 !important;
+}
+
+.landing-rating-recent {
+  margin-top: 32px;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.landing-rating-recent-list {
+  animation: none !important;
+}
+
+.landing-rating-recent-item {
+  border-radius: var(--radius-control) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+}
+
+.landing-footer {
+  border-color: var(--stroke) !important;
+  background: #070d13 !important;
+}
+
+/* Standalone tools, status, legal, blog, login and onboarding */
+.auth-page,
+.onboarding-page,
+.legal-shell,
+.status-page,
+.dns-tool-page,
+.blog-page {
+  background: var(--bg) !important;
+  background-image: none !important;
+}
+
+.auth-card,
+.onboarding-card,
+.legal-card,
+.status-card,
+.hero-card,
+.maintenance-banner,
+.incident-item,
+.dns-card,
+.dns-form-card,
+.dns-help-card,
+.dns-results-card,
+.dns-result-item,
+.port-reference-card,
+.blog-panel,
+.blog-feed-card,
+.blog-stat-card,
+.blog-entry {
+  border: 1px solid var(--stroke) !important;
+  border-radius: var(--radius-panel) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.auth-page {
+  align-items: start !important;
+  padding-top: clamp(40px, 8vh, 96px) !important;
+}
+
+.auth-card {
+  max-width: 520px !important;
+}
+
+.social-btn,
+.mode-btn,
+.auth-page .btn {
+  border-radius: var(--radius-control) !important;
+  box-shadow: none !important;
+}
+
+.mode-btn.active,
+.auth-page .btn.primary {
+  color: var(--accent-ink) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.onboarding-card {
+  max-width: 980px !important;
+}
+
+.eyebrow,
+.dns-kicker,
+.blog-feed-kicker,
+.blog-panel-kicker {
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+}
+
+.choice-card,
+.endpoint-batch,
+.submit-row {
+  border: 1px solid var(--stroke) !important;
+  border-radius: var(--radius-control) !important;
+  background: var(--surface-3) !important;
+  box-shadow: none !important;
+}
+
+.choice-card:has(input:checked) {
+  border-color: var(--accent) !important;
+  background: var(--surface-2) !important;
+  box-shadow: inset 2px 0 0 var(--accent) !important;
+}
+
+.section-number {
+  border-radius: var(--radius-control) !important;
+  font-family: "IBM Plex Mono", monospace !important;
+}
+
+.status-pill,
+.incident-badge,
+.maintenance-badge,
+.blog-badge,
+.dns-pill,
+.dns-meta-chip {
+  border-radius: var(--radius-control) !important;
+  box-shadow: none !important;
+}
+
+.status-dot,
+.uptime-bars span,
+.dns-result-accent,
+.blog-entry-dot {
+  box-shadow: none !important;
+}
+
+.dns-background,
+.dns-background::before,
+.dns-background::after {
+  display: none !important;
+}
+
+.dns-hero,
+.blog-hero {
+  text-align: left !important;
+}
+
+.dns-result-item,
+.blog-entry {
+  transform: none !important;
+}
+
+@media (max-width: 900px) {
+  .landing-pricing .grid,
+  .landing-rating-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-pricing .grid > .glass-effect,
+  .landing-rating-grid > article {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--stroke) !important;
+  }
+
+  .landing-pricing .grid > .glass-effect:last-child,
+  .landing-rating-grid > article:last-child {
+    border-bottom: 0 !important;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 16px;
+  }
+
+  button,
+  .btn,
+  .social-btn,
+  .mode-btn,
+  .dns-submit-btn,
+  .dns-link-btn,
+  .landing-hero-cta-primary,
+  .landing-final-cta-primary,
+  .landing-mobile-cta,
+  .landing-nav-cta,
+  .landing-rating-submit,
+  .landing-rating-toggle,
+  summary {
+    min-height: 44px;
+  }
+
+  .landing-hero {
+    padding-top: 104px !important;
+  }
+
+  .landing-hero-display {
+    font-size: clamp(2.75rem, 15vw, 4.6rem) !important;
+  }
+
+  .landing-hero-metrics {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-hero-metric,
+  .landing-hero-metric:nth-child(even) {
+    padding: 12px 0 !important;
+    border-left: 0 !important;
+    border-top: 1px solid var(--stroke) !important;
+  }
+
+  .landing-hero-metric:first-child {
+    border-top: 0 !important;
+  }
+
+  .landing-features-heading {
+    position: static !important;
+  }
+
+  .landing-hero-console {
+    padding: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

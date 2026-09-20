@@ -1051,7 +1051,6 @@
     renderLatestAlert(normalizedMetrics);
   }
 
-  initRevealAnimations();
   initLandingRatingSection();
   loadPreviewData();
   setInterval(loadPreviewData, previewPollIntervalMs);

@@ -341,13 +341,13 @@
             line2: "sie melden",
           },
           lead:
-            "PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr. Erhalte sofortige Benachrichtigungen bei Ausfällen – per Discord, Webhook oder E-Mail.",
+            "PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr. Bei einem Ausfall erhältst du sofort eine Nachricht per Discord, Webhook oder E-Mail.",
           benefit: {
             setup: "Setup in unter 60 Sekunden",
             no_cc: "Keine Kreditkarte erforderlich",
             public_status: "Öffentliche Statusseite inklusive",
           },
-          cta_primary: "Early Access starten ->",
+          cta_primary: "Early Access starten →",
           cta_secondary: "Live-Demo ansehen",
           note: "Komplett kostenlos während Early Access • Made in Germany",
         },
@@ -436,9 +436,9 @@
           },
         },
         features: {
-          h2: "Alles, was du für professionelles Monitoring brauchst",
+          h2: "Monitoring, Vorfälle und Benachrichtigungen an einem Ort",
           lead:
-            "Von einfachen HTTP-Checks bis zu komplexen API-Überwachungen – PingMyServer bietet alle Tools für zuverlässiges Uptime-Monitoring",
+            "PingMyServer prüft einfache Websites ebenso wie API-Endpunkte und hält Ausfälle, Antwortzeiten und Zertifikate nachvollziehbar fest.",
           cards: {
             fast_checks: {
               title: "Blitzschnelle Checks",
@@ -469,7 +469,7 @@
         },
         about: {
           h2: "Warum wir PingMyServer gebaut haben",
-          sub: "Ein Student-Projekt mit echter Mission",
+          sub: "Ein Azubi-Projekt aus eigener Erfahrung",
           founder_title: "Gründer & Developer",
           story: {
             p1:
@@ -494,7 +494,7 @@
             },
           },
           contact_prompt: "Du hast Fragen oder Feedback?",
-          contact_cta: "Kontakt per E-Mail ->",
+          contact_cta: "Kontakt per E-Mail →",
         },
         pricing: {
           h2: "Preise",
@@ -575,7 +575,7 @@
           h2: "Bereit, Teil der Community zu werden?",
           p1: "Sichere dir jetzt deinen kostenlosen Beta-Zugang und hilf uns dabei,",
           p2: "das beste Uptime-Monitoring-Tool für Developer zu bauen.",
-          primary: "Beta-Zugang sichern ->",
+          primary: "Beta-Zugang sichern →",
           secondary: "Statusseite ansehen",
           note: "Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany",
         },
@@ -2096,7 +2096,7 @@
             no_cc: "No credit card required",
             public_status: "Public status page included",
           },
-          cta_primary: "Start early access ->",
+          cta_primary: "Start early access →",
           cta_secondary: "View live demo",
           note: "Completely free during early access • Made in Germany",
         },
@@ -2243,7 +2243,7 @@
             },
           },
           contact_prompt: "Got questions or feedback?",
-          contact_cta: "Contact via email ->",
+          contact_cta: "Contact via email →",
         },
         pricing: {
           h2: "Pricing",
@@ -2324,7 +2324,7 @@
           h2: "Ready to join the community?",
           p1: "Get your free beta access now and help us",
           p2: "build the best uptime monitoring tool for developers.",
-          primary: "Get beta access ->",
+          primary: "Get beta access →",
           secondary: "View status page",
           note: "Completely free • No credit card • Made with heart in Germany",
         },
