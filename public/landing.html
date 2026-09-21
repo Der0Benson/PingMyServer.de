@@ -1,14 +1,10 @@
-﻿<!DOCTYPE html>
+<!doctype html>
 <html lang="__PMS_PRIMARY_LANG__">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="meta.landing.title">PingMyServer - Uptime Monitoring für Websites, APIs und Services</title>
-    <meta
-      name="description"
-      data-i18n-content="meta.landing.description"
-      content="PingMyServer überwacht Websites, APIs und Services rund um die Uhr. Erhalte Ausfall-Alerts per Discord, E-Mail und Webhook in Sekunden."
-    />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="meta.landing.title">PingMyServer – Uptime Monitoring für Websites und HTTP-Dienste</title>
+    <meta name="description" data-i18n-content="meta.landing.description" content="PingMyServer überwacht Websites und HTTP-Dienste, dokumentiert Ausfälle und informiert per E-Mail, Discord, Slack oder Webhook." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="__PMS_ORIGIN__/" />
     <link rel="alternate" hreflang="de-DE" href="https://pingmyserver.de/" />
@@ -17,1069 +13,152 @@
     <meta property="og:locale" content="__PMS_OG_LOCALE__" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PingMyServer" />
-    <meta property="og:title" data-i18n-content="meta.landing.og_title" content="PingMyServer - Uptime Monitoring für Websites, APIs und Services" />
-    <meta
-      property="og:description"
-      data-i18n-content="meta.landing.og_description"
-      content="Uptime-Monitoring für Websites, APIs und Services mit schnellen Alerts und öffentlicher Statusseite."
-    />
+    <meta property="og:title" data-i18n-content="meta.landing.og_title" content="PingMyServer – Uptime Monitoring" />
+    <meta property="og:description" data-i18n-content="meta.landing.og_description" content="Überwache Websites und HTTP-Dienste und erfahre, wenn etwas nicht stimmt." />
     <meta property="og:url" content="__PMS_ORIGIN__/" />
     <meta property="og:image" content="__PMS_ORIGIN__/assets/pingmyserverlogo.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" data-i18n-content="meta.landing.twitter_title" content="PingMyServer - Uptime Monitoring" />
-    <meta
-      name="twitter:description"
-      data-i18n-content="meta.landing.twitter_description"
-      content="Überwache Websites und APIs 24/7 und erhalte Alerts in Sekunden."
-    />
+    <meta name="twitter:title" data-i18n-content="meta.landing.twitter_title" content="PingMyServer – Uptime Monitoring" />
+    <meta name="twitter:description" data-i18n-content="meta.landing.twitter_description" content="Überwache Websites und HTTP-Dienste und erfahre, wenn etwas nicht stimmt." />
     <meta name="twitter:image" content="__PMS_ORIGIN__/assets/pingmyserverlogo.png" />
-    <meta name="theme-color" content="#070d1a" />
+    <meta name="theme-color" content="#050505" />
     <link rel="icon" type="image/png" href="/assets/pingmyserverlogo.png" />
     <link rel="apple-touch-icon" href="/assets/pingmyserverlogo.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <link rel="stylesheet" href="/assets/landing-tailwind.css" />
-    <link rel="stylesheet" href="/assets/landing.css" />
     <link rel="stylesheet" href="/assets/i18n.css" />
-    <link rel="stylesheet" href="/assets/craft.css" />
+    <link rel="stylesheet" href="/assets/landing.css" />
   </head>
-<body class="landing-page gradient-bg text-white">
-    
-    <!-- Navigation -->
-    <nav class="fixed w-full top-0 z-50 landing-nav-shell">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="landing-nav-main">
-                <a class="landing-brand" href="/" aria-label="PingMyServer Startseite">
-                    <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
-                    <span class="landing-brand-name">PingMyServer.de</span>
-                </a>
-                <div class="landing-nav-links hidden md:flex">
-                    <details class="landing-nav-product" data-landing-product-menu>
-                        <summary class="landing-nav-product-summary" data-i18n="landing.nav.product">Produkt</summary>
-                        <div class="landing-nav-product-panel" data-i18n-aria-label="landing.nav.product" aria-label="Produkt">
-                            <div class="landing-nav-product-grid">
-                                <div class="landing-nav-product-col landing-nav-product-col-main">
-                                    <a href="#features" class="landing-nav-product-row is-active" data-landing-product-link>
-                                        <span class="landing-nav-product-dot dot-cyan"></span>
-                                        <span class="landing-nav-product-row-copy">
-                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</span>
-                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.monitoring_desc">Überwache Websites, APIs und Services rund um die Uhr.</span>
-                                        </span>
-                                        <span class="landing-nav-product-arrow">›</span>
-                                    </a>
-                                    <a href="#features" class="landing-nav-product-row" data-landing-product-link>
-                                        <span class="landing-nav-product-dot dot-orange"></span>
-                                        <span class="landing-nav-product-row-copy">
-                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</span>
-                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.incidents_desc">Historie, Ausfallzeiten und Ursachen auf einen Blick.</span>
-                                        </span>
-                                        <span class="landing-nav-product-arrow">›</span>
-                                    </a>
-                                    <a href="#features" class="landing-nav-product-row" data-landing-product-link>
-                                        <span class="landing-nav-product-dot dot-amber"></span>
-                                        <span class="landing-nav-product-row-copy">
-                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</span>
-                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.alerting_desc">Discord, E-Mail und Webhooks für sofortige Reaktion.</span>
-                                        </span>
-                                        <span class="landing-nav-product-arrow">›</span>
-                                    </a>
-                                    <a href="/status" class="landing-nav-product-row" data-landing-product-link>
-                                        <span class="landing-nav-product-dot dot-emerald"></span>
-                                        <span class="landing-nav-product-row-copy">
-                                            <span class="landing-nav-product-row-title" data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</span>
-                                            <span class="landing-nav-product-row-desc" data-i18n="landing.nav.product_items.status_desc">Live-Transparenz für Nutzer und Kunden.</span>
-                                        </span>
-                                        <span class="landing-nav-product-arrow">›</span>
-                                    </a>
-                                </div>
-                                <div class="landing-nav-product-col landing-nav-product-col-side">
-                                    <a href="#features" class="landing-nav-product-side-link" data-landing-product-link>
-                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.kpi_title">Realtime KPI Dashboard</span>
-                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.kpi_desc">Response-Zeiten, Uptime und Trends sofort sehen.</span>
-                                    </a>
-                                    <a href="#features" class="landing-nav-product-side-link" data-landing-product-link>
-                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.ssl_title">Domain & SSL Monitoring</span>
-                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.ssl_desc">Ablaufdaten und Zertifikate automatisch überwachen.</span>
-                                    </a>
-                                    <a href="/dns-lookup" class="landing-nav-product-side-link" data-landing-product-link>
-                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.dns_title">DNS Lookup Tool</span>
-                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.dns_desc">Prüfe A-, MX-, TXT- und weitere Records kostenlos.</span>
-                                    </a>
-                                    <a href="/port-checker" class="landing-nav-product-side-link" data-landing-product-link>
-                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.port_title">Port Checker</span>
-                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.port_desc">Teste, ob öffentliche TCP-Ports von außen erreichbar sind.</span>
-                                    </a>
-                                    <a href="/status" class="landing-nav-product-side-link" data-landing-product-link>
-                                        <span class="landing-nav-product-side-title" data-i18n="landing.nav.product_side.demo_title">Live Demo</span>
-                                        <span class="landing-nav-product-side-desc" data-i18n="landing.nav.product_side.demo_desc">Sieh dir die öffentliche Statusseite direkt an.</span>
-                                    </a>
-                                </div>
-                            </div>
-                            <a href="/status" class="landing-nav-product-demo" data-landing-product-link>
-                                <img src="/assets/demo.png" alt="" aria-hidden="true" class="landing-nav-product-demo-avatar" />
-                                <span class="landing-nav-product-demo-copy">
-                                    <span class="landing-nav-product-demo-title" data-i18n="landing.nav.demo_title">Demo ansehen</span>
-                                    <span class="landing-nav-product-demo-desc" data-i18n="landing.nav.demo_desc">Kurzer Einblick in die Live-Features von PingMyServer.</span>
-                                </span>
-                            </a>
-                        </div>
-                    </details>
-                    <a href="#about" class="hover:text-cyan-400 transition" data-i18n="landing.nav.why_us">Warum wir</a>
-                    <a href="#bewertungen" class="hover:text-cyan-400 transition" data-i18n="landing.nav.customers">Kunden</a>
-                    <a href="/blog" class="hover:text-cyan-400 transition">Blog</a>
-                    <a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a>
-                </div>
-                <div class="landing-nav-actions">
-                    <div class="lang-picker">
-                        <span class="sr-only" data-i18n="common.language">Sprache</span>
-                        <details class="lang-menu">
-                            <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Language">
-                                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
-                                <img
-                                    class="lang-flag-img"
-                                    data-lang-block="en"
-                                    src="/assets/flags/gb.svg"
-                                    alt=""
-                                    aria-hidden="true"
-                                    hidden
-                                />
-                            </summary>
-                            <div class="lang-options" data-i18n-aria-label="common.language" aria-label="Language">
-                                <button class="lang-option" type="button" data-set-lang="de" data-i18n-aria-label="common.lang_de" aria-label="Deutsch">
-                                    <img class="lang-flag-img" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
-                                </button>
-                                <button class="lang-option" type="button" data-set-lang="en" data-i18n-aria-label="common.lang_en" aria-label="English">
-                                    <img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </details>
-                    </div>
-                    <a
-                        id="landing-nav-login"
-                        data-landing-login
-                        href="/login"
-                        class="landing-nav-login text-sm hover:text-cyan-400 transition inline-flex items-center"
-                        data-i18n="landing.nav.login"
-                    >Anmelden</a>
-                    <a
-                        id="landing-nav-primary-cta"
-                        data-landing-primary-cta
-                        href="/login?mode=register"
-                        class="landing-nav-cta bg-cyan-400 text-slate-900 px-5 py-2 font-semibold inline-flex items-center"
-                        data-i18n="landing.nav.cta"
-                    >
-                        Kostenlos starten
-                    </a>
-                    <button
-                        id="landing-mobile-menu-toggle"
-                        class="landing-mobile-toggle"
-                        type="button"
-                        aria-controls="landing-mobile-menu"
-                        aria-expanded="false"
-                        aria-label="Navigation öffnen"
-                    >
-                        <span class="landing-mobile-toggle-line"></span>
-                        <span class="landing-mobile-toggle-line"></span>
-                        <span class="landing-mobile-toggle-line"></span>
-                    </button>
-                </div>
-            </div>
-            <div id="landing-mobile-menu" class="landing-mobile-menu" hidden>
-                <div class="landing-mobile-links">
-                    <details class="landing-mobile-company" data-landing-mobile-product>
-                        <summary class="landing-mobile-company-summary" data-i18n="landing.nav.product">Produkt</summary>
-                        <div class="landing-mobile-company-links">
-                            <a href="#features" data-landing-mobile-link data-i18n="landing.nav.product_items.monitoring_title">Uptime Monitoring</a>
-                            <a href="#features" data-landing-mobile-link data-i18n="landing.nav.product_items.incidents_title">Incident Tracking</a>
-                            <a href="#features" data-landing-mobile-link data-i18n="landing.nav.product_items.alerting_title">Alerting & Integrationen</a>
-                            <a href="/status" data-landing-mobile-link data-i18n="landing.nav.product_items.status_title">Öffentliche Statusseite</a>
-                            <a href="/dns-lookup" data-landing-mobile-link data-i18n="landing.nav.product_side.dns_title">DNS Lookup Tool</a>
-                            <a href="/port-checker" data-landing-mobile-link data-i18n="landing.nav.product_side.port_title">Port Checker</a>
-                        </div>
-                    </details>
-                    <a href="#about" data-landing-mobile-link data-i18n="landing.nav.why_us">Warum wir</a>
-                    <a href="#bewertungen" data-landing-mobile-link data-i18n="landing.nav.customers">Kunden</a>
-                    <a href="/blog" data-landing-mobile-link>Blog</a>
-                    <a href="#preise" data-landing-mobile-link data-i18n="landing.nav.pricing">Preise</a>
-                </div>
-                <div class="landing-mobile-actions">
-                    <a
-                        href="/login"
-                        data-landing-login
-                        class="landing-mobile-login"
-                        data-i18n="landing.nav.login"
-                    >Anmelden</a>
-                    <a
-                        href="/login?mode=register"
-                        data-landing-primary-cta
-                        class="landing-mobile-cta"
-                        data-i18n="landing.nav.cta"
-                    >
-                        Kostenlos starten
-                    </a>
-                </div>
-            </div>
+  <body class="landing-page">
+    <a class="skip-link" href="#main" data-i18n="landing.accessibility.skip">Zum Inhalt springen</a>
+
+    <header class="site-header" data-site-header>
+      <div class="site-shell header-inner">
+        <a class="brand" href="/" aria-label="PingMyServer Startseite">
+          <img src="/assets/pingmyserverlogo.png" alt="" width="38" height="38" />
+          <span>PingMyServer</span>
+        </a>
+        <nav class="desktop-nav" aria-label="Hauptnavigation">
+          <a href="#produkt" data-i18n="landing.nav.product">Produkt</a>
+          <a href="#funktionen" data-i18n="landing.nav.features">Funktionen</a>
+          <a href="#preise" data-i18n="landing.nav.pricing">Preise</a>
+          <a href="/blog">Blog</a>
+          <a href="/status" data-i18n="landing.nav.status">Status</a>
+        </nav>
+        <div class="header-actions">
+          <div class="lang-picker">
+            <span class="sr-only" data-i18n="common.language">Sprache</span>
+            <details class="lang-menu">
+              <summary class="lang-summary" data-i18n-aria-label="common.language" aria-label="Sprache">
+                <img class="lang-flag-img" data-lang-block="de" src="/assets/flags/de.svg" alt="" aria-hidden="true" />
+                <img class="lang-flag-img" data-lang-block="en" src="/assets/flags/gb.svg" alt="" aria-hidden="true" hidden />
+              </summary>
+              <div class="lang-options">
+                <button class="lang-option" type="button" data-set-lang="de" aria-label="Deutsch"><img class="lang-flag-img" src="/assets/flags/de.svg" alt="" /></button>
+                <button class="lang-option" type="button" data-set-lang="en" aria-label="English"><img class="lang-flag-img" src="/assets/flags/gb.svg" alt="" /></button>
+              </div>
+            </details>
+          </div>
+          <a class="header-login" href="/login" data-landing-login data-i18n="landing.nav.login">Anmelden</a>
+          <a class="button button-light header-cta" href="/login?mode=register" data-landing-primary-cta data-i18n="landing.nav.cta">Kostenlos starten</a>
+          <button id="landing-mobile-menu-toggle" class="menu-toggle" type="button" aria-controls="landing-mobile-menu" aria-expanded="false" aria-label="Navigation öffnen"><span></span><span></span></button>
         </div>
-    </nav>
+      </div>
+      <nav id="landing-mobile-menu" class="mobile-nav" aria-label="Mobile Navigation" hidden>
+        <a href="#produkt" data-landing-mobile-link data-i18n="landing.nav.product">Produkt</a>
+        <a href="#funktionen" data-landing-mobile-link data-i18n="landing.nav.features">Funktionen</a>
+        <a href="#preise" data-landing-mobile-link data-i18n="landing.nav.pricing">Preise</a>
+        <a href="/dns-lookup" data-landing-mobile-link data-i18n="landing.nav.product_side.dns_title">DNS Lookup</a>
+        <a href="/port-checker" data-landing-mobile-link data-i18n="landing.nav.product_side.port_title">Port Checker</a>
+        <a href="/blog" data-landing-mobile-link>Blog</a>
+        <a href="/status" data-landing-mobile-link data-i18n="landing.nav.status">Status</a>
+        <div class="mobile-nav-actions"><a href="/login" data-landing-login data-i18n="landing.nav.login">Anmelden</a><a class="button button-light" href="/login?mode=register" data-landing-primary-cta data-i18n="landing.nav.cta">Kostenlos starten</a></div>
+      </nav>
+    </header>
 
-    <!-- Hero Section -->
-    <section class="landing-hero pt-32 pb-20 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto">
-            <div class="grid landing-hero-grid lg:grid-cols-2 gap-16 items-start">
-                <div class="landing-hero-copy">
-                    <div class="landing-hero-eyebrow">
-                        <span class="landing-section-line" aria-hidden="true"></span>
-                        <span class="landing-hero-stamp" data-i18n="landing.hero.badge">Jetzt im Early Access</span>
-                        <span class="landing-hero-live-pip" aria-hidden="true"></span>
-                    </div>
+    <main id="main">
+      <section class="hero" id="produkt">
+        <div class="site-shell hero-grid">
+          <div class="hero-copy">
+            <p class="section-label" data-i18n="landing.hero.badge">Uptime Monitoring · Made in Germany</p>
+            <h1><span data-i18n="landing.hero.h1.line1">Wissen, wenn</span><span data-i18n="landing.hero.h1.highlight">etwas ausfällt.</span><span class="quiet" data-i18n="landing.hero.h1.line2">Bevor es jemand meldet.</span></h1>
+            <p class="hero-lead" data-i18n="landing.hero.lead">PingMyServer prüft Websites und HTTP-Dienste fortlaufend, speichert Antwortzeiten und meldet Statuswechsel per E-Mail, Discord, Slack oder Webhook.</p>
+            <div class="hero-actions"><a class="button button-light" href="/login?mode=register" data-landing-primary-cta data-i18n="landing.hero.cta_primary">Kostenlos starten</a><a class="text-link" href="/status" data-i18n="landing.hero.cta_secondary">Live-Status ansehen <span aria-hidden="true">↗</span></a></div>
+            <dl class="hero-facts" aria-label="Kostenloser Einstieg">
+              <div><dt data-i18n="landing.hero.fact.monitor">Monitor</dt><dd>1</dd></div>
+              <div><dt data-i18n="landing.hero.fact.interval">Prüfintervall</dt><dd>60 s</dd></div>
+              <div><dt data-i18n="landing.hero.fact.price">Einstieg</dt><dd>0 €</dd></div>
+            </dl>
+          </div>
 
-                    <div class="landing-hero-editorial">
-                        <h1 class="landing-hero-display text-5xl lg:text-7xl font-bold leading-none">
-                            <span class="landing-hero-line" data-i18n="landing.hero.h1.line1">Ausfälle früh erkennen,</span>
-                            <span class="landing-hero-line" data-i18n="landing.hero.h1.highlight">bevor Nutzer</span>
-                            <span class="landing-hero-line" data-i18n="landing.hero.h1.line2">sie melden</span>
-                        </h1>
-
-                        <div class="landing-hero-lead-wrap">
-                            <span class="landing-hero-lead-line" aria-hidden="true"></span>
-                            <p class="text-xl text-slate-300" data-i18n="landing.hero.lead">
-                                PingMyServer überwacht deine Websites, APIs und Services rund um die Uhr.
-                                Bei einem Ausfall erhältst du sofort eine Nachricht per Discord, Webhook oder E-Mail.
-                            </p>
-                        </div>
-
-                        <div class="landing-hero-cta-bar">
-                            <a href="/login?mode=register" class="landing-hero-cta-primary bg-cyan-400 text-slate-900 px-8 py-4 font-bold text-lg inline-flex items-center justify-center">
-                                <span data-i18n="landing.hero.cta_primary">Early Access starten →</span>
-                            </a>
-                            <a href="/status" class="landing-hero-cta-secondary inline-flex items-center">
-                                <span data-i18n="landing.hero.cta_secondary">Live-Demo ansehen</span>
-                                <svg class="landing-inline-arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path d="M3 8h10M9 4l4 4-4 4"></path>
-                                </svg>
-                            </a>
-                        </div>
-
-                        <p class="landing-hero-note text-sm text-slate-400" data-i18n="landing.hero.note">
-                            Komplett kostenlos während Early Access • Made in Germany
-                        </p>
-                    </div>
-
-                    <div class="landing-hero-metrics">
-                        <div class="landing-hero-metric">
-                            <div class="stat-number">24/7</div>
-                            <p class="text-slate-400" data-i18n="landing.social.stat.monitoring">Monitoring</p>
-                        </div>
-                        <div class="landing-hero-metric">
-                            <div class="stat-number">&lt;60s</div>
-                            <p class="text-slate-400" data-i18n="landing.social.stat.interval">Check-Intervall</p>
-                        </div>
-                        <div class="landing-hero-metric">
-                            <div class="stat-number">99.9%</div>
-                            <p class="text-slate-400" data-i18n="landing.social.stat.uptime">Ziel-Uptime</p>
-                        </div>
-                        <div class="landing-hero-metric">
-                            <div class="stat-number">DE</div>
-                            <p class="text-slate-400" data-i18n="landing.social.stat.made_in">Made in Germany</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="floating landing-hero-stage">
-                    <div class="landing-hero-console">
-                        <span class="landing-hero-console-corner" aria-hidden="true"></span>
-                        <div class="landing-hero-console-head">
-                            <div class="landing-hero-console-label">
-                                <span class="landing-section-line" aria-hidden="true"></span>
-                                <span data-i18n="landing.live.title">Live Status</span>
-                            </div>
-                            <div class="landing-hero-console-state">
-                                <div id="landing-live-dot" class="w-2 h-2 bg-green-400 rounded-full"></div>
-                                <span
-                                    id="landing-live-overall"
-                                    class="text-green-400 text-sm font-semibold"
-                                    data-i18n="landing.live.overall_loading"
-                                >Lade Monitor-Daten ...</span>
-                            </div>
-                        </div>
-
-                        <div class="landing-hero-console-stack">
-                            <div class="landing-traffic-shell">
-                                <div class="landing-traffic-globe-panel">
-                                    <div class="landing-traffic-globe-wrap">
-                                        <canvas
-                                            id="landing-traffic-globe"
-                                            class="landing-traffic-globe"
-                                            width="640"
-                                            height="640"
-                                            data-i18n-aria-label="landing.live.traffic_canvas_label"
-                                            aria-label="Animierter Globus mit aktiven Probe-Regionen"
-                                        ></canvas>
-                                        <div class="landing-traffic-pings" aria-hidden="true">
-                                            <span class="landing-traffic-ping landing-traffic-ping-us"></span>
-                                            <span class="landing-traffic-ping landing-traffic-ping-de"></span>
-                                            <span class="landing-traffic-ping landing-traffic-ping-hk"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="landing-status-board">
-                                <div class="landing-live-primary">
-                                    <div class="landing-console-panel-head">
-                                        <span id="landing-monitor-1-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
-                                        <span
-                                            id="landing-monitor-1-status"
-                                            class="text-slate-400 text-sm"
-                                            data-i18n="landing.live.checking"
-                                        >Prüfung ...</span>
-                                    </div>
-                                    <div class="landing-console-meta text-sm text-slate-400">
-                                        <span id="landing-monitor-1-response" data-i18n="landing.live.response_placeholder">Response: --</span>
-                                        <span>•</span>
-                                        <span id="landing-monitor-1-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
-                                    </div>
-                                    <div class="landing-console-bars-wrap">
-                                        <div id="landing-monitor-1-bars" class="landing-console-bars">
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                            <div class="h-8 w-1 bg-slate-700 rounded"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="landing-status-board-lower">
-                                    <div id="landing-monitor-2-card" class="landing-console-mini hidden">
-                                        <div class="landing-console-panel-head">
-                                            <span id="landing-monitor-2-name" class="font-medium" data-i18n="landing.live.monitor_loading">Monitor wird geladen ...</span>
-                                            <span
-                                                id="landing-monitor-2-status"
-                                                class="text-slate-400 text-sm"
-                                                data-i18n="landing.live.checking"
-                                            >Prüfung ...</span>
-                                        </div>
-                                        <div class="landing-console-meta text-sm text-slate-400">
-                                            <span id="landing-monitor-2-response" data-i18n="landing.live.response_placeholder">Response: --</span>
-                                            <span>•</span>
-                                            <span id="landing-monitor-2-uptime" data-i18n="landing.live.uptime_placeholder">--% Uptime</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="landing-live-alert">
-                                        <div class="landing-console-panel-head">
-                                            <span class="font-medium" data-i18n="landing.live.alert_title">Recent Alert</span>
-                                            <span id="landing-alert-time" class="text-cyan-400 text-sm" data-i18n="landing.live.alert_now">gerade eben</span>
-                                        </div>
-                                        <p id="landing-alert-text" class="text-sm text-slate-300" data-i18n="landing.live.alert_none">Noch keine Vorfälle gefunden.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+          <div class="network-stage" data-network-stage="0">
+            <div class="network-stage-head"><span class="mono-label" data-i18n="landing.network.label">MONITORING NETWORK</span><span class="network-state"><i aria-hidden="true"></i><span id="landing-live-overall" data-i18n="landing.live.overall_loading">Live-Daten werden geladen</span></span></div>
+            <div class="network-canvas-wrap">
+              <canvas id="landing-traffic-globe" class="network-canvas" width="760" height="760" role="img" data-i18n-aria-label="landing.live.traffic_canvas_label" aria-label="Abstrakter Globus aus Monitoring-Nodes und Verbindungen"></canvas>
+              <div class="network-fallback" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="network-label label-origin" data-network-label="origin">PingMyServer</div>
+              <div class="network-label label-target" data-network-label="target">HTTP TARGET</div>
+              <div class="network-label label-alert" data-network-label="alert">ALERT</div>
             </div>
+            <div class="live-readout" aria-live="polite">
+              <div><span class="readout-key" data-i18n="landing.live.title">Live Status</span><strong id="landing-monitor-1-name" data-i18n="landing.live.monitor_loading">Monitor wird geladen</strong></div>
+              <div><span class="readout-key" data-i18n="landing.live.response_placeholder">Antwortzeit</span><strong id="landing-monitor-1-response">–</strong></div>
+              <div><span class="readout-key">24H</span><strong id="landing-monitor-1-uptime">–</strong></div>
+              <span id="landing-monitor-1-status" class="readout-status" data-i18n="landing.live.checking">Prüfung …</span>
+              <span id="landing-live-dot" hidden></span><span id="landing-monitor-1-bars" hidden></span><span id="landing-monitor-2-card" hidden></span><span id="landing-monitor-2-name" hidden></span><span id="landing-monitor-2-status" hidden></span><span id="landing-monitor-2-response" hidden></span><span id="landing-monitor-2-uptime" hidden></span><span id="landing-alert-time" hidden></span><span id="landing-alert-text" hidden></span>
+            </div>
+          </div>
         </div>
-    </section>
+      </section>
 
-    <!-- Social Proof Stats -->
-    <section class="landing-social-proof py-16 px-4 sm:px-6 lg:px-8 border-y border-slate-700">
-        <div class="max-w-7xl mx-auto">
-            <div class="landing-social-rule">
-                <span class="landing-section-line" aria-hidden="true"></span>
-                <span class="landing-social-rule-text" data-i18n="landing.social.h3">Built by developers, for developers</span>
-                <span class="landing-social-rule-line" aria-hidden="true"></span>
-            </div>
-            <p class="landing-social-copy" data-i18n="landing.social.sub">Ein Azubi-Projekt mit professionellem Anspruch</p>
+      <section class="proof-strip" aria-label="Produktumfang"><div class="site-shell proof-grid"><span>HTTP / HTTPS</span><span data-i18n="landing.proof.history">Antwortzeiten & Verlauf</span><span data-i18n="landing.proof.incidents">Incident-Historie</span><span data-i18n="landing.proof.alerts">E-Mail · Discord · Slack · Webhook</span><span data-i18n="landing.proof.status">Öffentliche Statusseite</span></div></section>
+
+      <section class="story" id="so-funktioniert-es">
+        <div class="site-shell story-layout">
+          <div class="story-visual" aria-hidden="true"><div class="story-diagram" data-story-diagram>
+            <div class="diagram-node diagram-product">PMS</div><div class="diagram-node diagram-probe">NODE</div><div class="diagram-node diagram-target">HTTP</div><div class="diagram-node diagram-store">LOG</div><div class="diagram-node diagram-alert">!</div>
+            <svg viewBox="0 0 600 600" preserveAspectRatio="none"><path class="diagram-line line-dispatch" d="M300 135 L178 275" /><path class="diagram-line line-check" d="M198 300 L402 300" /><path class="diagram-line line-result" d="M420 320 L330 455" /><path class="diagram-line line-alert" d="M310 470 L175 505" /></svg>
+            <span class="diagram-caption" data-story-caption data-i18n="landing.story.stage0">Ein Ziel. Ein klarer Status.</span>
+          </div></div>
+          <div class="story-copy">
+            <header class="section-head"><p class="section-label" data-i18n="landing.story.kicker">Vom Ziel bis zur Meldung</p><h2 data-i18n="landing.story.title">Was bei jeder Prüfung passiert.</h2></header>
+            <ol class="story-steps">
+              <li class="story-step is-active" data-story-step="0"><span>01</span><div><h3 data-i18n="landing.story.steps.add.title">Ziel hinzufügen</h3><p data-i18n="landing.story.steps.add.body">Website oder HTTP-Endpunkt eintragen und Prüfintervall festlegen.</p></div></li>
+              <li class="story-step" data-story-step="1"><span>02</span><div><h3 data-i18n="landing.story.steps.dispatch.title">Prüfung ausführen</h3><p data-i18n="landing.story.steps.dispatch.body">PingMyServer oder ein freigegebener Community-Node ruft das Ziel ab.</p></div></li>
+              <li class="story-step" data-story-step="2"><span>03</span><div><h3 data-i18n="landing.story.steps.measure.title">Antwort messen</h3><p data-i18n="landing.story.steps.measure.body">Statuscode, Antwortzeit und konfigurierte HTTP-Assertions werden ausgewertet.</p></div></li>
+              <li class="story-step" data-story-step="3"><span>04</span><div><h3 data-i18n="landing.story.steps.store.title">Verlauf speichern</h3><p data-i18n="landing.story.steps.store.body">Messwerte, Ausfälle und Wiederherstellungen bleiben nachvollziehbar.</p></div></li>
+              <li class="story-step" data-story-step="4"><span>05</span><div><h3 data-i18n="landing.story.steps.alert.title">Statuswechsel melden</h3><p data-i18n="landing.story.steps.alert.body">E-Mail, Discord, Slack oder Webhook informieren dich bei Ausfall und Wiederherstellung.</p></div></li>
+            </ol>
+          </div>
         </div>
-    </section>
+      </section>
 
-    <!-- Features Section -->
-    <section id="features" class="landing-features py-20 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto">
-            <div class="landing-features-shell">
-                <div class="landing-features-heading">
-                    <div class="landing-section-kicker">
-                        <span class="landing-section-line" aria-hidden="true"></span>
-                        <span data-i18n="landing.nav.features">Features</span>
-                    </div>
-                    <h2 class="text-4xl font-bold mb-4" data-i18n="landing.features.h2">Monitoring, Vorfälle und Benachrichtigungen an einem Ort</h2>
-                    <p class="text-xl text-slate-300" data-i18n="landing.features.lead">
-                        PingMyServer prüft einfache Websites ebenso wie API-Endpunkte und hält Ausfälle, Antwortzeiten und Zertifikate nachvollziehbar fest.
-                    </p>
-                    <div class="landing-features-heading-rule" aria-hidden="true"></div>
-                </div>
-
-                <div class="landing-features-list">
-                    <article class="feature-card">
-                        <div class="feature-index-col">
-                            <span class="feature-index">01</span>
-                            <span class="feature-index-rail" aria-hidden="true"></span>
-                        </div>
-                        <div class="feature-copy">
-                            <div class="feature-head">
-                                <span class="feature-icon-shell">
-                                    <svg class="feature-icon feature-icon-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                    </svg>
-                                </span>
-                                <h3 class="feature-title" data-i18n="landing.features.cards.fast_checks.title">Blitzschnelle Checks</h3>
-                            </div>
-                            <p class="feature-desc" data-i18n="landing.features.cards.fast_checks.body">
-                                Überwache deine Endpoints alle 60 Sekunden. Erhalte Alerts innerhalb von Sekunden nach einem Ausfall – bevor deine Kunden es merken.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article class="feature-card">
-                        <div class="feature-index-col">
-                            <span class="feature-index">02</span>
-                            <span class="feature-index-rail is-alt" aria-hidden="true"></span>
-                        </div>
-                        <div class="feature-copy">
-                            <div class="feature-head">
-                                <span class="feature-icon-shell is-alt">
-                                    <svg class="feature-icon feature-icon-accent-alt" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                    </svg>
-                                </span>
-                                <h3 class="feature-title" data-i18n="landing.features.cards.incident_history.title">Detaillierte Incident-Historie</h3>
-                            </div>
-                            <p class="feature-desc" data-i18n="landing.features.cards.incident_history.body">
-                                Vollständige Aufzeichnung aller Vorfälle mit Dauer, Fehlerquote und Verlauf. Perfekt für Postmortems und Reporting.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article class="feature-card">
-                        <div class="feature-index-col">
-                            <span class="feature-index">03</span>
-                            <span class="feature-index-rail" aria-hidden="true"></span>
-                        </div>
-                        <div class="feature-copy">
-                            <div class="feature-head">
-                                <span class="feature-icon-shell">
-                                    <svg class="feature-icon feature-icon-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                                    </svg>
-                                </span>
-                                <h3 class="feature-title" data-i18n="landing.features.cards.alerts.title">Multi-Channel Alerts</h3>
-                            </div>
-                            <p class="feature-desc" data-i18n="landing.features.cards.alerts.body">
-                                Discord, Slack, E-Mail, Webhooks, Telegram – wähle deinen bevorzugten Kanal. Oder nutze alle gleichzeitig.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article class="feature-card">
-                        <div class="feature-index-col">
-                            <span class="feature-index">04</span>
-                            <span class="feature-index-rail is-alt" aria-hidden="true"></span>
-                        </div>
-                        <div class="feature-copy">
-                            <div class="feature-head">
-                                <span class="feature-icon-shell is-alt">
-                                    <svg class="feature-icon feature-icon-accent-alt" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                    </svg>
-                                </span>
-                                <h3 class="feature-title" data-i18n="landing.features.cards.ssl.title">SSL-Zertifikat Monitoring</h3>
-                            </div>
-                            <p class="feature-desc" data-i18n="landing.features.cards.ssl.body">
-                                Automatische Überwachung deiner SSL-Zertifikate. Werde rechtzeitig benachrichtigt, bevor ein Zertifikat abläuft.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article class="feature-card">
-                        <div class="feature-index-col">
-                            <span class="feature-index">05</span>
-                            <span class="feature-index-rail" aria-hidden="true"></span>
-                        </div>
-                        <div class="feature-copy">
-                            <div class="feature-head">
-                                <span class="feature-icon-shell">
-                                    <svg class="feature-icon feature-icon-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </span>
-                                <h3 class="feature-title" data-i18n="landing.features.cards.locations.title">Globale Monitoring-Standorte</h3>
-                            </div>
-                            <p class="feature-desc" data-i18n="landing.features.cards.locations.body">
-                                Überwache deine Services von mehreren Standorten weltweit. Erkenne regionale Ausfälle sofort.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article class="feature-card">
-                        <div class="feature-index-col">
-                            <span class="feature-index">06</span>
-                            <span class="feature-index-rail is-alt" aria-hidden="true"></span>
-                        </div>
-                        <div class="feature-copy">
-                            <div class="feature-head">
-                                <span class="feature-icon-shell is-alt">
-                                    <svg class="feature-icon feature-icon-accent-alt" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                                    </svg>
-                                </span>
-                                <h3 class="feature-title" data-i18n="landing.features.cards.public_status.title">Öffentliche Statusseite</h3>
-                            </div>
-                            <p class="feature-desc" data-i18n="landing.features.cards.public_status.body">
-                                Branded Statusseite für deine Kunden. Zeige Transparenz mit Echtzeit-Status und Incident-Updates.
-                            </p>
-                        </div>
-                    </article>
-                </div>
-            </div>
+      <section class="capabilities" id="funktionen"><div class="site-shell">
+        <header class="section-head split-head"><div><p class="section-label" data-i18n="landing.capabilities.kicker">Produktumfang</p><h2 data-i18n="landing.capabilities.title">Monitoring ohne Funktionsnebel.</h2></div><p data-i18n="landing.capabilities.lead">Nur Funktionen, die du heute tatsächlich verwenden kannst.</p></header>
+        <div class="capability-list">
+          <article class="capability-row"><span class="capability-index">01</span><h3 data-i18n="landing.capabilities.availability.title">Verfügbarkeit</h3><p data-i18n="landing.capabilities.availability.body">HTTP- und HTTPS-Prüfungen, Statuscodes, Antwortzeiten, Inhaltsprüfungen und Redirect-Kontrolle.</p><ul><li>HTTP(S)</li><li data-i18n="landing.capabilities.availability.assertions">Assertions</li><li data-i18n="landing.capabilities.availability.maintenance">Wartungen</li></ul></article>
+          <article class="capability-row"><span class="capability-index">02</span><h3 data-i18n="landing.capabilities.analysis.title">Verlauf & Analyse</h3><p data-i18n="landing.capabilities.analysis.body">Uptime, Antwortzeit, Incident-Verlauf, Tageswerte, SLO und Error-Budget in einer Ansicht.</p><ul><li>24H–365D</li><li>SLO</li><li>P50 / P95</li></ul></article>
+          <article class="capability-row"><span class="capability-index">03</span><h3 data-i18n="landing.capabilities.domain.title">Domain & Zertifikat</h3><p data-i18n="landing.capabilities.domain.body">Domainablauf über RDAP und SSL-Zertifikatsdaten direkt im Monitor einsehen.</p><ul><li>RDAP</li><li>SSL</li><li data-i18n="landing.capabilities.domain.location">Standort</li></ul></article>
+          <article class="capability-row"><span class="capability-index">04</span><h3 data-i18n="landing.capabilities.notifications.title">Benachrichtigungen</h3><p data-i18n="landing.capabilities.notifications.body">Statuswechsel über vier vorhandene Kanäle zustellen und jede Verbindung direkt testen.</p><ul><li>E-Mail</li><li>Discord</li><li>Slack</li><li>Webhook</li></ul></article>
         </div>
-    </section>
+      </div></section>
 
-    <!-- Why We Built This -->
-    <section id="about" class="landing-about py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
-        <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.about.h2">Warum wir PingMyServer gebaut haben</h2>
-                <p class="text-xl text-slate-300" data-i18n="landing.about.sub">Ein Azubi-Projekt aus eigener Erfahrung</p>
-            </div>
+      <section class="product-proof"><div class="site-shell proof-layout"><div class="proof-copy"><p class="section-label" data-i18n="landing.dashboard.kicker">Messwerte statt Vermutungen</p><h2 data-i18n="landing.dashboard.title">Sehen, was passiert ist – und wann.</h2><p data-i18n="landing.dashboard.body">Das Dashboard verbindet aktuellen Status, Uptime, Antwortzeiten, Incidents, Standorte und SLO in einer nachvollziehbaren Ansicht.</p><a class="text-link" href="/status" data-i18n="landing.dashboard.link">Öffentliche Statusseite öffnen <span aria-hidden="true">↗</span></a></div><figure class="dashboard-frame"><img src="/assets/dashboard-preview.png" alt="PingMyServer Dashboard mit Status- und Antwortzeitdaten" loading="lazy" /><figcaption data-i18n="landing.dashboard.caption">Bestehendes PingMyServer Dashboard</figcaption></figure></div></section>
 
-            <div class="max-w-4xl mx-auto">
-                <div class="landing-about-panel p-8 md:p-12">
-                    <div class="flex items-start space-x-4 mb-6">
-                        <img
-                            src="/assets/Me.jpg"
-                            alt="Ben Luca Pritzsche"
-                            class="w-16 h-16 rounded-full object-cover flex-shrink-0 ring-2 ring-cyan-400/60"
-                            width="64"
-                            height="64"
-                            loading="lazy"
-                            decoding="async"
-                        />
-                        <div>
-                            <p class="font-semibold text-lg">Ben Luca Pritzsche</p>
-                            <p class="text-slate-400" data-i18n="landing.about.founder_title">Gründer & Developer</p>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-4 text-slate-300 text-lg leading-relaxed">
-                        <p data-i18n="landing.about.story.p1">
-                            Nach dem Gymnasium bin ich jetzt in der Ausbildung und habe nebenbei angefangen, 
-                            eigene Web-Projekte zu bauen. Das Problem: Meine Seiten sind öfter mal ausgefallen, 
-                            ohne dass ich es mitbekommen habe. Erst wenn sich Nutzer gemeldet haben, wusste ich Bescheid – 
-                            und das war mir echt peinlich.
-                        </p>
-                        <p data-i18n="landing.about.story.p2">
-                            Die bestehenden Monitoring-Tools waren entweder zu teuer für mein Azubi-Budget oder 
-                            viel zu kompliziert für meine Bedürfnisse. Also habe ich PingMyServer gebaut: 
-                            Ein simples, zuverlässiges Tool, das genau das macht, was es soll – ohne Schnickschnack.
-                        </p>
-                        <p class="text-cyan-400 font-semibold" data-i18n="landing.about.story.p3">
-                            Jetzt will ich es mit anderen Azubis, Studenten und Developern teilen. 
-                            Feedback und Verbesserungsvorschläge sind herzlich willkommen!
-                        </p>
-                    </div>
+      <section class="community-section"><div class="site-shell community-grid"><div><p class="section-label" data-i18n="landing.community.kicker">Community-Probes</p><h2 data-i18n="landing.community.title">Ein Monitoring-Netzwerk, das mit seiner Community wächst.</h2></div><div class="community-copy"><p data-i18n="landing.community.body">Ein kleiner Docker-Agent führt freigegebene öffentliche HTTP(S)-Prüfungen aus. Ohne offene Ports und ohne eingehende Verbindung zu deinem Server.</p><dl><div><dt data-i18n="landing.community.security">Sicherheit</dt><dd data-i18n="landing.community.security_value">signierte, kurzlebige Aufträge</dd></div><div><dt data-i18n="landing.community.trust">Vertrauen</dt><dd data-i18n="landing.community.trust_value">Trustscore und Referenzprüfungen</dd></div><div><dt data-i18n="landing.community.benefit">Vorteil</dt><dd data-i18n="landing.community.benefit_value">3 Monitore bei aktiver Connection</dd></div></dl><a class="text-link" href="https://github.com/Der0Benson/PingMyServer.de/tree/main/docker/probe-agent" target="_blank" rel="noreferrer" data-i18n="landing.community.link">Technik auf GitHub ansehen <span aria-hidden="true">↗</span></a></div></div></section>
 
-                    <div class="mt-8 pt-8 border-t border-slate-700 grid md:grid-cols-3 gap-6">
-                        <div>
-                            <p class="text-cyan-400 font-semibold mb-2" data-i18n="landing.about.values.open.title">Open Development</p>
-                            <p class="text-sm text-slate-400" data-i18n="landing.about.values.open.body">Wir entwickeln transparent und hören auf unser Community-Feedback</p>
-                        </div>
-                        <div>
-                            <p class="text-cyan-400 font-semibold mb-2" data-i18n="landing.about.values.heart.title">Made with Herz</p>
-                            <p class="text-sm text-slate-400" data-i18n="landing.about.values.heart.body">Gebaut mit moderner Technologie und Leidenschaft fürs Detail</p>
-                        </div>
-                        <div>
-                            <p class="text-cyan-400 font-semibold mb-2" data-i18n="landing.about.values.join.title">Join Early</p>
-                            <p class="text-sm text-slate-400" data-i18n="landing.about.values.join.body">Sei dabei von Anfang an und forme die Zukunft des Tools mit</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <section class="tools-section"><div class="site-shell"><header class="section-head split-head"><div><p class="section-label" data-i18n="landing.tools.kicker">Ohne Anmeldung</p><h2 data-i18n="landing.tools.title">Zwei Werkzeuge für den schnellen Check.</h2></div><p data-i18n="landing.tools.note">Einzelprüfungen – kein dauerhaftes Monitoring.</p></header><div class="tools-list"><a href="/dns-lookup"><span>01</span><div><h3>DNS Lookup</h3><p data-i18n="landing.tools.dns">A-, AAAA-, CNAME-, MX-, NS-, SOA-, SRV- und TXT-Records abfragen.</p></div><b aria-hidden="true">↗</b></a><a href="/port-checker"><span>02</span><div><h3>TCP Port Checker</h3><p data-i18n="landing.tools.port">Prüfen, ob ein öffentlicher TCP-Port von außen erreichbar ist.</p></div><b aria-hidden="true">↗</b></a></div></div></section>
 
-            <div class="text-center mt-12">
-                <p class="text-slate-400 mb-4" data-i18n="landing.about.contact_prompt">Du hast Fragen oder Feedback?</p>
-                <a href="mailto:pritzsche.ben.luca@gmail.com" class="landing-contact-link px-6 py-3 font-semibold inline-flex items-center justify-center">
-                    <span data-i18n="landing.about.contact_cta">Kontakt per E-Mail →</span>
-                </a>
-            </div>
-        </div>
-    </section>
+      <section class="pricing" id="preise"><div class="site-shell"><header class="section-head split-head"><div><p class="section-label" data-i18n="landing.pricing.kicker">Einstieg</p><h2 data-i18n="landing.pricing.h2">Kostenlos anfangen.</h2></div><p data-i18n="landing.pricing.sub">Ein Monitor reicht, um PingMyServer mit einem echten Ziel zu testen.</p></header><div class="pricing-table"><div class="pricing-row pricing-head"><span data-i18n="landing.pricing.plan">Plan</span><strong>Free</strong><strong>Community</strong></div><div class="pricing-row"><span data-i18n="landing.pricing.monitors">Monitore</span><strong>1</strong><strong>3</strong></div><div class="pricing-row"><span data-i18n="landing.pricing.interval">Kürzestes Intervall</span><strong>60 s</strong><strong>60 s</strong></div><div class="pricing-row"><span data-i18n="landing.pricing.raw_data">Einzelmessungen</span><strong>24 h</strong><strong>7 Tage</strong></div><div class="pricing-row"><span data-i18n="landing.pricing.daily_data">Tageswerte</span><strong>30 Tage</strong><strong>180 Tage</strong></div><div class="pricing-row"><span data-i18n="landing.pricing.requirement">Voraussetzung</span><strong data-i18n="landing.pricing.none">keine</strong><strong data-i18n="landing.pricing.connection">aktive, vertrauenswürdige Connection</strong></div></div><div class="pricing-action"><a class="button button-light" href="/login?mode=register" data-landing-primary-cta data-i18n="landing.nav.cta">Kostenlos starten</a><span data-i18n="landing.pricing.no_cc">Keine Kreditkarte erforderlich.</span></div></div></section>
 
-    <!-- Pricing Section -->
-    <section id="preise" class="landing-pricing py-20 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.pricing.h2">Preise</h2>
-                <p class="text-xl text-slate-300" data-i18n="landing.pricing.sub">Starte kostenlos oder unterstütze das Probe-Netzwerk für zusätzliche Vorteile.</p>
-            </div>
+      <section class="rating-section" id="bewertungen"><div class="site-shell"><header class="section-head split-head"><div><p class="section-label" data-i18n="landing.rating.kicker">Rückmeldungen</p><h2 data-i18n="landing.rating.h2">Wie gefällt dir PingMyServer?</h2></div><div class="rating-score"><strong id="landing-rating-average">–</strong><span id="landing-rating-average-meta" data-i18n="landing.rating.loading">Bewertungen werden geladen …</span></div></header><div class="rating-layout"><div id="landing-rating-distribution" class="rating-distribution"></div><div class="rating-form-panel"><div id="landing-rating-guest-note" class="rating-guest"><span data-i18n="landing.rating.form.login_required">Zum Bewerten bitte anmelden.</span><a id="landing-rating-guest-login-link" href="/login" data-i18n="landing.rating.form.login_cta">Jetzt anmelden</a></div><button id="landing-rating-toggle" class="button button-outline" type="button" hidden data-i18n="landing.rating.form.open">Bewertung schreiben</button><form id="landing-rating-form" class="rating-form" hidden novalidate><label data-i18n="landing.rating.form.label">Deine Bewertung</label><div id="landing-rating-stars" class="rating-stars" role="radiogroup" aria-label="Bewertung in Sternen"><button type="button" data-value="1" aria-label="1 Stern">☆</button><button type="button" data-value="2" aria-label="2 Sterne">☆</button><button type="button" data-value="3" aria-label="3 Sterne">☆</button><button type="button" data-value="4" aria-label="4 Sterne">☆</button><button type="button" data-value="5" aria-label="5 Sterne">☆</button></div><label for="landing-rating-comment" data-i18n="landing.rating.form.comment_label">Optionales Feedback</label><textarea id="landing-rating-comment" maxlength="300" rows="3" data-i18n-placeholder="landing.rating.form.comment_placeholder" placeholder="Was gefällt dir? Was fehlt dir?"></textarea><div class="rating-actions"><button id="landing-rating-submit" class="button button-light" type="submit" data-i18n="landing.rating.form.submit">Bewertung senden</button><span id="landing-rating-message" aria-live="polite"></span></div></form></div></div><section class="recent-ratings"><h3 data-i18n="landing.rating.recent_title">Neueste Rückmeldungen</h3><div id="landing-rating-recent-shell"><div id="landing-rating-recent-list" class="recent-rating-list"></div></div><p id="landing-rating-empty" data-i18n="landing.rating.recent_empty">Noch keine Rückmeldungen.</p></section></div></section>
 
-            <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                <!-- Free Plan -->
-                <div class="pricing-plan is-current relative">
-                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <span class="bg-cyan-400 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
-                            Free
-                        </span>
-                    </div>
-                    <h3 class="text-2xl font-bold mb-2" data-i18n="landing.pricing.beta.name">Free</h3>
-                    <p class="text-slate-400 mb-6" data-i18n="landing.pricing.beta.tagline">Kostenlos starten</p>
-                    <div class="mb-6">
-                        <span class="text-4xl font-bold">0€</span>
-                        <span class="text-slate-400" data-i18n="landing.pricing.beta.per">/dauerhaft</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.beta.features.unlimited">1 Website-Monitor</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.beta.features.checks_60">60-Sekunden-Checks</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.beta.features.alert_channels">Alle Alert-Kanäle</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.beta.features.public_status">Öffentliche Statusseite</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.beta.features.ssl">SSL-Monitoring</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.beta.features.community">3 Monitore mit Live-Connection</span>
-                        </li>
-                    </ul>
-                    <a href="/login?mode=register" class="w-full bg-cyan-400 text-slate-900 py-3 rounded-lg font-bold hover:bg-cyan-300 transition inline-flex items-center justify-center">
-                        <span data-i18n="landing.pricing.beta.cta">Jetzt Beta-Zugang sichern</span>
-                    </a>
-                    <p class="text-center text-xs text-slate-400 mt-3" data-i18n="landing.pricing.beta.no_cc">Keine Kreditkarte erforderlich</p>
-                </div>
+      <section class="final-cta"><div class="site-shell final-grid"><h2 data-i18n="landing.cta.h2">Dein erster Check dauert weniger als eine Minute.</h2><div><p data-i18n="landing.cta.p1">Ziel hinzufügen, Prüfintervall wählen und Status verfolgen.</p><a class="button button-dark" href="/login?mode=register" data-landing-primary-cta data-i18n="landing.nav.cta">Kostenlos starten</a></div></div></section>
+    </main>
 
-                <!-- Starter Plan - Featured -->
-                <div class="pricing-plan is-planned relative">
-                    <div class="absolute top-4 right-4">
-                        <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
-                            <span data-i18n="landing.pricing.coming_soon">Kommt bald</span>
-                        </span>
-                    </div>
-                    <h3 class="text-2xl font-bold mb-2" data-i18n="landing.pricing.starter.name">Starter</h3>
-                    <p class="text-slate-400 mb-6" data-i18n="landing.pricing.starter.tagline">Geplant für später</p>
-                    <div class="mb-6">
-                        <span class="text-4xl font-bold">~5€</span>
-                        <span class="text-slate-400" data-i18n="landing.pricing.per_month">/Monat</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.starter.features.more_monitors">Mehr Monitore</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.starter.features.checks_30">Schnellere Checks (30s)</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.starter.features.stats">Erweiterte Statistiken</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.starter.features.api">API-Zugang</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.starter.features.support">Priority Support</span>
-                        </li>
-                    </ul>
-                    <button class="plan-unavailable w-full py-3 font-semibold cursor-not-allowed" disabled>
-                        <span data-i18n="landing.pricing.planned_button">In Planung</span>
-                    </button>
-                    <p class="text-center text-xs text-slate-400 mt-3" data-i18n="landing.pricing.coming_soon">Kommt bald</p>
-                </div>
-
-                <!-- Pro Plan -->
-                <div class="pricing-plan is-planned relative">
-                    <div class="absolute top-4 right-4">
-                        <span class="bg-slate-700 text-slate-400 px-3 py-1 rounded-full text-xs font-semibold">
-                            <span data-i18n="landing.pricing.coming_soon">Kommt bald</span>
-                        </span>
-                    </div>
-                    <h3 class="text-2xl font-bold mb-2" data-i18n="landing.pricing.pro.name">Pro / Team</h3>
-                    <p class="text-slate-400 mb-6" data-i18n="landing.pricing.pro.tagline">Für später</p>
-                    <div class="mb-6">
-                        <span class="text-4xl font-bold">~20€</span>
-                        <span class="text-slate-400" data-i18n="landing.pricing.per_month">/Monat</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.pro.features.unlimited">Unbegrenzte Monitore</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.pro.features.team">Team-Kollaboration</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.pro.features.branding">Custom Branding</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.pro.features.locations">Dedizierte Standorte</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-cyan-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span data-i18n="landing.pricing.pro.features.support">Premium Support</span>
-                        </li>
-                    </ul>
-                    <button class="plan-unavailable w-full py-3 font-semibold cursor-not-allowed" disabled>
-                        <span data-i18n="landing.pricing.planned_button">In Planung</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="text-center mt-12">
-                <p class="text-slate-400" data-i18n="landing.pricing.note">Community-Connections erhalten 3 kostenlose Monitore und nach Vertrauensprüfung 40 % Abo-Rabatt.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section id="faq" class="landing-faq py-20 px-4 sm:px-6 lg:px-8 bg-slate-900/50">
-        <div class="max-w-4xl mx-auto">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.faq.h2">Häufige Fragen</h2>
-                <p class="text-xl text-slate-300" data-i18n="landing.faq.sub">Alles, was du über PingMyServer wissen musst</p>
-            </div>
-
-            <div class="space-y-4">
-                <!-- FAQ Item 1 -->
-                <div class="faq-item">
-                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="1">
-                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.private.q">Kann ich auch private Webseiten monitoren?</h3>
-                        <svg id="faq-icon-1" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    <div id="faq-content-1" class="faq-content">
-                        <div class="px-6 pb-6">
-                            <p class="text-slate-300" data-i18n="landing.faq.items.private.a">
-                                Ja, über die Domain-, Direkte private- oder lokale IP-Ziele sind aus Sicherheitsgründen blockiert. 
-                                Du kannst aber HTTP-Authentifizierung nutzen oder Custom Headers setzen.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ Item 2 -->
-                <div class="faq-item">
-                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="2">
-                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.speed.q">Wie schnell wird ein Ausfall erkannt?</h3>
-                        <svg id="faq-icon-2" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    <div id="faq-content-2" class="faq-content">
-                        <div class="px-6 pb-6">
-                            <p class="text-slate-300" data-i18n="landing.faq.items.speed.a">
-                                Bei 60-Sekunden-Checks (Standard) innerhalb von rund einer Minute. Bei bezahlten Plänen kannst 
-                                du die Check-Intervalle auf bis zu 30 Sekunden reduzieren, sodass Ausfälle noch schneller erkannt werden.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ Item 3 -->
-                <div class="faq-item">
-                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="3">
-                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.share.q">Wie teile ich den Status mit Kunden?</h3>
-                        <svg id="faq-icon-3" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    <div id="faq-content-3" class="faq-content">
-                        <div class="px-6 pb-6">
-                            <p class="text-slate-300" data-i18n="landing.faq.items.share.a">
-                                Jeder Monitor hat eine öffentliche Statusseite, die direkt verlinkt werden kann. Die Seite zeigt 
-                                Echtzeit-Status, Uptime-Statistiken und vergangene Incidents. Du kannst sie auch mit deinem eigenen 
-                                Branding versehen (in bezahlten Plänen).
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ Item 4 -->
-                <div class="faq-item">
-                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="4">
-                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.gdpr.q">Ist PingMyServer DSGVO-konform?</h3>
-                        <svg id="faq-icon-4" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    <div id="faq-content-4" class="faq-content">
-                        <div class="px-6 pb-6">
-                            <p class="text-slate-300" data-i18n="landing.faq.items.gdpr.a">
-                                Ja, absolut. Alle Daten werden in der EU gehostet (Frankfurt, Deutschland). Wir sammeln nur 
-                                notwendige Monitoring-Daten und geben nichts an Dritte weiter. Du kannst deine Daten jederzeit 
-                                exportieren oder löschen.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ Item 5 -->
-                <div class="faq-item">
-                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="5">
-                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.cancel.q">Was passiert, wenn ich kündige?</h3>
-                        <svg id="faq-icon-5" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    <div id="faq-content-5" class="faq-content">
-                        <div class="px-6 pb-6">
-                            <p class="text-slate-300" data-i18n="landing.faq.items.cancel.a">
-                                Du kannst jederzeit mit einem Klick kündigen. Dein Account bleibt bis zum Ende der bezahlten 
-                                Periode aktiv. Danach werden deine Monitore deaktiviert, aber deine Daten bleiben für 90 Tage 
-                                gespeichert, falls du zurückkommen möchtest.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ Item 6 -->
-                <div class="faq-item">
-                    <button class="w-full p-6 text-left flex justify-between items-center hover:bg-slate-700/30 transition" data-faq-toggle="6">
-                        <h3 class="text-xl font-bold pr-8" data-i18n="landing.faq.items.api.q">Gibt es eine API?</h3>
-                        <svg id="faq-icon-6" class="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform duration-300 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    <div id="faq-content-6" class="faq-content">
-                        <div class="px-6 pb-6">
-                            <p class="text-slate-300" data-i18n="landing.faq.items.api.a">
-                                Ja! Ab dem Starter-Plan hast du Zugriff auf unsere REST API. Damit kannst du Monitore 
-                                programmgesteuert erstellen, Status abfragen und Incidents abrufen. Perfekt für CI/CD-Integration.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-<!-- Final CTA -->
-    <section class="landing-final-cta py-20 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto">
-            <div class="landing-final-cta-shell">
-                <div class="landing-final-cta-copy">
-                    <div class="landing-section-kicker">
-                        <span class="landing-section-line" aria-hidden="true"></span>
-                        <span data-i18n="landing.nav.cta">Kostenlos starten</span>
-                    </div>
-                    <h2 class="text-5xl font-bold mb-6" data-i18n="landing.cta.h2">Bereit, Teil der Community zu werden?</h2>
-                    <p class="text-xl text-slate-300">
-                        <span data-i18n="landing.cta.p1">Sichere dir jetzt deinen kostenlosen Beta-Zugang und hilf uns dabei,</span>
-                        <span data-i18n="landing.cta.p2">das beste Uptime-Monitoring-Tool für Developer zu bauen.</span>
-                    </p>
-                </div>
-                <div class="landing-final-cta-actions">
-                    <a href="/login?mode=register" class="landing-final-cta-primary bg-cyan-400 text-slate-900 px-10 py-4 font-bold text-lg inline-flex items-center justify-center">
-                        <span data-i18n="landing.cta.primary">Beta-Zugang sichern →</span>
-                    </a>
-                    <a href="/status" class="landing-final-cta-secondary inline-flex items-center justify-center">
-                        <span data-i18n="landing.cta.secondary">Statusseite ansehen</span>
-                    </a>
-                    <p class="landing-final-cta-note text-sm text-slate-400" data-i18n="landing.cta.note">Komplett kostenlos  •  Keine Kreditkarte  •  Made with Herz in Germany</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="bewertungen" class="landing-rating py-16 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-6xl mx-auto">
-            <div class="landing-rating-intro text-center mb-10">
-                <div class="landing-section-kicker landing-section-kicker-center">
-                    <span class="landing-section-line" aria-hidden="true"></span>
-                    <span data-i18n="landing.nav.customers">Kunden</span>
-                </div>
-                <h2 class="text-4xl font-bold mb-4" data-i18n="landing.rating.h2">Wie gefällt dir PingMyServer?</h2>
-            </div>
-
-            <div class="landing-rating-grid">
-                <article class="landing-rating-summary-card">
-                    <div class="landing-rating-kpi">
-                        <div class="landing-rating-average" id="landing-rating-average">--</div>
-                        <div class="landing-rating-average-meta" id="landing-rating-average-meta" data-i18n="landing.rating.loading">
-                            Bewertungen werden geladen ...
-                        </div>
-                    </div>
-                    <div class="landing-rating-distribution" id="landing-rating-distribution"></div>
-                </article>
-
-                <article class="landing-rating-form-panel">
-                    <div class="landing-rating-guest-note" id="landing-rating-guest-note">
-                        <span data-i18n="landing.rating.form.login_required">Zum Bewerten bitte anmelden.</span>
-                        <a
-                            id="landing-rating-guest-login-link"
-                            class="landing-rating-guest-link"
-                            href="/login"
-                            data-i18n="landing.rating.form.login_cta"
-                        >Jetzt anmelden</a>
-                    </div>
-                    <button
-                        class="landing-rating-toggle"
-                        id="landing-rating-toggle"
-                        type="button"
-                        hidden
-                        data-i18n="landing.rating.form.open"
-                    >
-                        Bewertung schreiben
-                    </button>
-                    <form class="landing-rating-form" id="landing-rating-form" novalidate hidden>
-                        <label class="landing-rating-label" data-i18n="landing.rating.form.label">Deine Bewertung</label>
-                        <div
-                            class="landing-star-row"
-                            id="landing-rating-stars"
-                            role="radiogroup"
-                            data-i18n-aria-label="landing.rating.form.stars_aria"
-                            aria-label="Bewertung in Sternen"
-                        >
-                            <button class="landing-star-btn" type="button" data-value="1" aria-label="1 star">☆</button>
-                            <button class="landing-star-btn" type="button" data-value="2" aria-label="2 stars">☆</button>
-                            <button class="landing-star-btn" type="button" data-value="3" aria-label="3 stars">☆</button>
-                            <button class="landing-star-btn" type="button" data-value="4" aria-label="4 stars">☆</button>
-                            <button class="landing-star-btn" type="button" data-value="5" aria-label="5 stars">☆</button>
-                        </div>
-
-                        <label class="landing-rating-comment-label" for="landing-rating-comment" data-i18n="landing.rating.form.comment_label">
-                            Optionales Feedback
-                        </label>
-                        <textarea
-                            id="landing-rating-comment"
-                            class="landing-rating-comment"
-                            maxlength="300"
-                            rows="3"
-                            data-i18n-placeholder="landing.rating.form.comment_placeholder"
-                            placeholder="Was gefällt dir? Was fehlt dir?"
-                        ></textarea>
-
-                        <div class="landing-rating-actions">
-                            <button class="landing-rating-submit" id="landing-rating-submit" type="submit" data-i18n="landing.rating.form.submit">
-                                Bewertung senden
-                            </button>
-                            <div class="landing-rating-message" id="landing-rating-message" aria-live="polite"></div>
-                        </div>
-                    </form>
-                </article>
-            </div>
-
-            <section class="landing-rating-recent">
-                <h3 class="text-2xl font-bold mb-4" data-i18n="landing.rating.recent_title">Neueste Rückmeldungen</h3>
-                <div class="landing-rating-recent-shell" id="landing-rating-recent-shell">
-                    <div class="landing-rating-recent-list" id="landing-rating-recent-list"></div>
-                </div>
-                <div class="landing-rating-empty" id="landing-rating-empty" data-i18n="landing.rating.recent_empty">Noch keine Rückmeldungen.</div>
-            </section>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="landing-footer border-t border-slate-700 py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto">
-            <div class="grid md:grid-cols-4 gap-8 mb-8">
-                <div>
-                    <a class="landing-brand footer-brand" href="/" aria-label="PingMyServer Startseite">
-                        <img class="landing-brand-logo" src="/assets/pingmyserverlogo.png" alt="PingMyServer" />
-                        <span class="landing-brand-name">PingMyServer.de</span>
-                    </a>
-                    <p class="text-slate-400 text-sm">
-                        <span data-i18n="landing.footer.pitch">Professionelles Uptime-Monitoring für Websites, APIs und Services.</span>
-                    </p>
-                </div>
-                <div>
-                    <h4 class="font-bold mb-4" data-i18n="landing.footer.product">Produkt</h4>
-                    <ul class="space-y-2 text-slate-400">
-                        <li><a href="#features" class="hover:text-cyan-400 transition" data-i18n="landing.nav.features">Features</a></li>
-                        <li><a href="#preise" class="hover:text-cyan-400 transition" data-i18n="landing.nav.pricing">Preise</a></li>
-                        <li><a href="/dns-lookup" class="hover:text-cyan-400 transition" data-i18n="landing.footer.dns_lookup">DNS Lookup</a></li>
-                        <li><a href="/port-checker" class="hover:text-cyan-400 transition" data-i18n="landing.footer.port_checker">Port Checker</a></li>
-                        <li><a href="/blog" class="hover:text-cyan-400 transition">Blog</a></li>
-                        <li><a href="/login" class="hover:text-cyan-400 transition" data-i18n="landing.footer.api_docs">API Docs</a></li>
-                        <li><a href="/status" class="hover:text-cyan-400 transition" data-i18n="landing.footer.status">Status</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-bold mb-4" data-i18n="landing.footer.company">Unternehmen</h4>
-                    <ul class="space-y-2 text-slate-400">
-                        <li><a href="#about" class="hover:text-cyan-400 transition" data-i18n="landing.footer.about">Über uns</a></li>
-                        <li><a href="https://github.com/Der0Benson/PingMyServer.de" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer">GitHub</a></li>
-                        <li><a href="https://github.com/Der0Benson/PingMyServer.de/commits/main" class="hover:text-cyan-400 transition" target="_blank" rel="noreferrer" data-i18n="landing.footer.commits">Commits</a></li>
-                        <li><a href="mailto:pritzsche.ben.luca@gmail.com" class="hover:text-cyan-400 transition" data-i18n="landing.footer.contact">Kontakt</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-bold mb-4" data-i18n="landing.footer.legal">Legal</h4>
-                    <ul class="space-y-2 text-slate-400">
-                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition" data-i18n="common.privacy">Datenschutz</a></li>
-                        <li><a href="/impressum" class="hover:text-cyan-400 transition" data-i18n="common.imprint">Impressum</a></li>
-                        <li><a href="/nutzungsbedingungen" class="hover:text-cyan-400 transition" data-i18n="landing.footer.terms_short">AGB</a></li>
-                        <li><a href="/datenschutz" class="hover:text-cyan-400 transition" data-i18n="landing.footer.gdpr">DSGVO</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="border-t border-slate-700 pt-8 flex flex-col md:flex-row justify-between items-center">
-                <p class="text-slate-400 text-sm">
-                    © 2026 PingMyServer – Ben Luca Pritzsche
-                </p>
-                <div class="flex space-x-6 mt-4 md:mt-0">
-                    <a href="mailto:pritzsche.ben.luca@gmail.com" class="text-slate-400 hover:text-cyan-400 transition" data-i18n="landing.footer.email">E-Mail</a>
-                    <a href="https://github.com/Der0Benson/PingMyServer.de" class="text-slate-400 hover:text-cyan-400 transition" target="_blank" rel="noreferrer">GitHub</a>
-                    <a href="/blog" class="text-slate-400 hover:text-cyan-400 transition">Blog</a>
-                    <a href="/status" class="text-slate-400 hover:text-cyan-400 transition" data-i18n="landing.footer.status">Status</a>
-                </div>
-            </div>
-        </div>
-    </footer>
+    <footer class="site-footer"><div class="site-shell footer-grid"><div class="footer-brand"><a class="brand" href="/"><img src="/assets/pingmyserverlogo.png" alt="" width="34" height="34" /><span>PingMyServer</span></a><p data-i18n="landing.footer.pitch">Uptime Monitoring für Websites und HTTP-Dienste.</p></div><div><h3 data-i18n="landing.footer.product">Produkt</h3><a href="#funktionen" data-i18n="landing.nav.features">Funktionen</a><a href="#preise" data-i18n="landing.nav.pricing">Preise</a><a href="/status" data-i18n="landing.footer.status">Status</a></div><div><h3 data-i18n="landing.tools.kicker">Werkzeuge</h3><a href="/dns-lookup">DNS Lookup</a><a href="/port-checker">Port Checker</a><a href="/blog">Blog</a></div><div><h3 data-i18n="landing.footer.legal">Rechtliches</h3><a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a><a href="/impressum" data-i18n="common.imprint">Impressum</a><a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a></div></div><div class="site-shell footer-bottom"><span>© 2026 PingMyServer · Ben Luca Pritzsche</span><a href="https://github.com/Der0Benson/PingMyServer.de" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
 
     <script src="/assets/i18n.js"></script>
-    <script type="module" src="/assets/landing-globe.js"></script>
+    <script src="/assets/landing-globe.js"></script>
     <script src="/assets/landing.js"></script>
-</body>
+  </body>
 </html>

@@ -1,170 +1,197 @@
 (() => {
-  const canvas = document.getElementById("landing-traffic-globe");
-  const globeWrap = canvas instanceof HTMLCanvasElement ? canvas.closest(".landing-traffic-globe-wrap") : null;
-  const pingElements = {
-    us: globeWrap instanceof HTMLElement ? globeWrap.querySelector(".landing-traffic-ping-us") : null,
-    de: globeWrap instanceof HTMLElement ? globeWrap.querySelector(".landing-traffic-ping-de") : null,
-    hk: globeWrap instanceof HTMLElement ? globeWrap.querySelector(".landing-traffic-ping-hk") : null,
-  };
+  "use strict";
 
-  if (!(canvas instanceof HTMLCanvasElement) || !(globeWrap instanceof HTMLElement)) {
+  const canvas = document.getElementById("landing-traffic-globe");
+  const wrap = canvas instanceof HTMLCanvasElement ? canvas.parentElement : null;
+  if (!(canvas instanceof HTMLCanvasElement) || !(wrap instanceof HTMLElement)) return;
+
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) {
+    canvas.classList.add("is-fallback");
     return;
   }
 
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const degToRad = Math.PI / 180;
-  const globeRadius = 0.8;
-  const globeScale = 1.04;
-  const globeOffset = [0, 0.02];
-  const regions = [
-    {
-      id: "de",
-      lat: 50.1109,
-      lon: 8.6821,
-    },
-    {
-      id: "hk",
-      lat: 22.3193,
-      lon: 114.1694,
-    },
-    {
-      id: "us",
-      lat: 37.4316,
-      lon: -78.6569,
-    },
-  ];
-  let globeInstance = null;
-
-  function renderWidth(devicePixelRatio) {
-    return Math.max(1, Math.round(globeWrap.clientWidth * devicePixelRatio));
-  }
-
-  function renderHeight(devicePixelRatio) {
-    return Math.max(1, Math.round(globeWrap.clientHeight * devicePixelRatio));
-  }
-
-  function normalizeAngle(angle) {
-    const fullTurn = Math.PI * 2;
-    return ((angle % fullTurn) + fullTurn) % fullTurn;
-  }
-
-  function focusPhiForLon(lon) {
-    return normalizeAngle((-90 - lon) * degToRad);
-  }
-
-  function projectRegion(region, phi, theta) {
-    const lat = region.lat * degToRad;
-    const lon = region.lon * degToRad;
-    const cosLat = Math.cos(lat);
-    const point = {
-      x: cosLat * Math.cos(lon),
-      y: Math.sin(lat),
-      z: -cosLat * Math.sin(lon),
-    };
-    const cosPhi = Math.cos(phi);
-    const sinPhi = Math.sin(phi);
-    const cosTheta = Math.cos(theta);
-    const sinTheta = Math.sin(theta);
-    const local = {
-      x: point.x * cosPhi + point.z * sinPhi,
-      y: point.x * sinPhi * sinTheta + point.y * cosTheta - point.z * cosPhi * sinTheta,
-      z: -point.x * sinPhi * cosTheta + point.y * sinTheta + point.z * cosPhi * cosTheta,
-    };
-    const width = Math.max(globeWrap.clientWidth, 1);
-    const height = Math.max(globeWrap.clientHeight, 1);
-    const offsetX = ((globeOffset[0] / width) || 0) * globeScale;
-    const offsetY = ((-globeOffset[1] / height) || 0) * globeScale;
-    const projectedX = local.x * globeRadius * globeScale + offsetX;
-    const projectedY = local.y * globeRadius * globeScale + offsetY;
-
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const smallScreen = window.matchMedia("(max-width: 767px)").matches;
+  const pointCount = smallScreen ? 92 : 164;
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const connections = [];
+  const points = Array.from({ length: pointCount }, (_, index) => {
+    const y = 1 - (index / (pointCount - 1)) * 2;
+    const radius = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = goldenAngle * index;
+    const seed = Math.sin((index + 1) * 183.13) * 43758.5453;
+    const random = seed - Math.floor(seed);
     return {
-      left: ((projectedX + 1) * 50),
-      top: ((1 - projectedY) * 50),
-      visible: local.z > -0.16,
+      x: Math.cos(theta) * radius,
+      y,
+      z: Math.sin(theta) * radius,
+      scatterX: random * 2.8 - 1.4,
+      scatterY: ((random * 7.31) % 1) * 2.8 - 1.4,
+      scatterZ: ((random * 13.17) % 1) * 2 - 1,
     };
+  });
+
+  for (let index = 0; index < pointCount; index += 1) {
+    connections.push([index, (index + 8) % pointCount]);
+    if (index % 4 === 0) connections.push([index, (index + 13) % pointCount]);
   }
 
-  function updatePingOverlay(phi, theta) {
-    regions.forEach((region) => {
-      const pingElement = pingElements[region.id];
+  let width = 1;
+  let height = 1;
+  let dpr = 1;
+  let frame = 0;
+  let stage = 0;
+  let visible = true;
+  const startedAt = performance.now();
+  let lastDrawAt = 0;
 
-      if (!(pingElement instanceof HTMLElement)) {
-        return;
-      }
+  function resize() {
+    const rect = wrap.getBoundingClientRect();
+    width = Math.max(1, Math.round(rect.width));
+    height = Math.max(1, Math.round(rect.height));
+    dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = Math.max(1, Math.round(height * dpr));
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 
-      const projected = projectRegion(region, phi, theta);
-      pingElement.style.left = `${projected.left}%`;
-      pingElement.style.top = `${projected.top}%`;
-      pingElement.style.display = projected.visible ? "block" : "none";
+  function easeOutQuart(value) {
+    return 1 - Math.pow(1 - value, 4);
+  }
+
+  function projectedPoints(now) {
+    const intro = reducedMotion ? 1 : Math.min(1, Math.max(0, (now - startedAt - 120) / 1350));
+    const formation = easeOutQuart(intro);
+    const rotation = reducedMotion ? -0.38 : -0.38 + Math.max(0, now - startedAt - 1250) * 0.000025;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const radius = Math.min(width, height) * (smallScreen ? 0.35 : 0.385);
+
+    return points.map((point) => {
+      const x = point.scatterX + (point.x - point.scatterX) * formation;
+      const y = point.scatterY + (point.y - point.scatterY) * formation;
+      const z = point.scatterZ + (point.z - point.scatterZ) * formation;
+      const rotatedX = x * cos - z * sin;
+      const rotatedZ = x * sin + z * cos;
+      const depth = 0.7 + (rotatedZ + 1) * 0.15;
+      return {
+        x: width / 2 + rotatedX * radius * depth,
+        y: height / 2 + y * radius * depth,
+        z: rotatedZ,
+        alpha: 0.22 + Math.max(0, rotatedZ + 0.25) * 0.42,
+      };
     });
   }
 
-  async function initGlobe() {
-    if (typeof window.WebGLRenderingContext !== "function") {
+  function drawRoute(activeStage) {
+    const center = { x: width * 0.5, y: height * 0.43 };
+    const probe = { x: width * 0.31, y: height * 0.51 };
+    const target = { x: width * 0.71, y: height * 0.56 };
+    const alert = { x: width * 0.28, y: height * 0.76 };
+    const route = [center, probe, target, center, alert];
+    const activeSegments = Math.max(0, Math.min(4, activeStage));
+
+    context.save();
+    context.lineWidth = 1.25;
+    context.strokeStyle = "rgba(255,255,255,.18)";
+    context.setLineDash([3, 7]);
+    for (let index = 0; index < route.length - 1; index += 1) {
+      context.beginPath();
+      context.moveTo(route[index].x, route[index].y);
+      context.lineTo(route[index + 1].x, route[index + 1].y);
+      context.stroke();
+    }
+    context.setLineDash([]);
+    for (let index = 0; index < activeSegments; index += 1) {
+      context.strokeStyle = "rgba(255,255,255,.88)";
+      context.beginPath();
+      context.moveTo(route[index].x, route[index].y);
+      context.lineTo(route[index + 1].x, route[index + 1].y);
+      context.stroke();
+    }
+    route.forEach((point, index) => {
+      const active = index <= activeSegments;
+      context.fillStyle = active ? "#ffffff" : "rgba(255,255,255,.32)";
+      context.beginPath();
+      context.arc(point.x, point.y, active ? 3.1 : 2.1, 0, Math.PI * 2);
+      context.fill();
+    });
+    context.restore();
+  }
+
+  function draw(now) {
+    frame = 0;
+    if (!visible || document.hidden) return;
+    if (!reducedMotion && now - lastDrawAt < 38) {
+      frame = window.requestAnimationFrame(draw);
       return;
     }
+    lastDrawAt = now;
+    context.clearRect(0, 0, width, height);
+    const projected = projectedPoints(now);
 
-    try {
-      const cobeModule = await import("/assets/vendor/cobe.esm.js");
-      const createGlobe = cobeModule && cobeModule.default;
-
-      if (typeof createGlobe !== "function") {
-        return;
-      }
-
-      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const rotationSpeed = 0.00007;
-      let lastFrameAt = performance.now();
-      let phi = focusPhiForLon(regions[0].lon);
-      const theta = 0.24;
-
-      globeInstance = createGlobe(canvas, {
-        devicePixelRatio,
-        width: renderWidth(devicePixelRatio),
-        height: renderHeight(devicePixelRatio),
-        phi,
-        theta,
-        dark: 1,
-        diffuse: 1.15,
-        mapSamples: 22000,
-        mapBrightness: 5.8,
-        mapBaseBrightness: 0.09,
-        baseColor: [0.03, 0.12, 0.2],
-        markerColor: [0.298, 0.788, 0.941],
-        glowColor: [0.16, 0.62, 0.9],
-        scale: 1.04,
-        offset: [0, 0.02],
-        opacity: 1,
-        markers: [],
-        onRender: (state) => {
-          state.width = renderWidth(devicePixelRatio);
-          state.height = renderHeight(devicePixelRatio);
-          state.phi = phi;
-          state.theta = theta;
-          updatePingOverlay(phi, theta);
-
-          if (prefersReducedMotion) {
-            return;
-          }
-
-          const now = performance.now();
-          const elapsed = Math.min(now - lastFrameAt, 48);
-          lastFrameAt = now;
-          phi = normalizeAngle(phi + elapsed * rotationSpeed);
-        },
-      });
-    } catch (error) {
-      canvas.classList.add("is-fallback");
-    }
+    context.lineWidth = 0.65;
+    connections.forEach(([from, to]) => {
+      const a = projected[from];
+      const b = projected[to];
+      if (!a || !b || a.z < -0.34 || b.z < -0.34) return;
+      context.strokeStyle = `rgba(255,255,255,${Math.min(a.alpha, b.alpha) * 0.2})`;
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    });
+    projected.slice().sort((a, b) => a.z - b.z).forEach((point) => {
+      const size = point.z > 0.25 ? 1.45 : 0.9;
+      context.fillStyle = `rgba(255,255,255,${Math.min(0.9, point.alpha)})`;
+      context.beginPath();
+      context.arc(point.x, point.y, size, 0, Math.PI * 2);
+      context.fill();
+    });
+    drawRoute(stage);
+    if (!reducedMotion) frame = window.requestAnimationFrame(draw);
   }
 
-  function cleanup() {
-    if (globeInstance && typeof globeInstance.destroy === "function") {
-      globeInstance.destroy();
-      globeInstance = null;
-    }
+  function start() {
+    if (frame || !visible || document.hidden) return;
+    frame = window.requestAnimationFrame(draw);
   }
 
-  initGlobe();
-  window.addEventListener("pagehide", cleanup, { once: true });
+  function stop() {
+    if (!frame) return;
+    window.cancelAnimationFrame(frame);
+    frame = 0;
+  }
+
+  const visibilityObserver = typeof IntersectionObserver === "function"
+    ? new IntersectionObserver(([entry]) => {
+        visible = !!entry?.isIntersecting;
+        if (visible) start();
+        else stop();
+      }, { rootMargin: "160px" })
+    : null;
+
+  if (visibilityObserver) visibilityObserver.observe(wrap);
+  window.addEventListener("resize", () => {
+    resize();
+    if (reducedMotion) draw(performance.now());
+  }, { passive: true });
+  window.addEventListener("pms:story-stage", (event) => {
+    stage = Number(event.detail?.stage || 0);
+    if (reducedMotion) draw(performance.now());
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop();
+    else start();
+  });
+  window.addEventListener("pagehide", () => {
+    stop();
+    visibilityObserver?.disconnect();
+  }, { once: true });
+
+  resize();
+  start();
 })();

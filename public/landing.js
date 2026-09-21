@@ -37,6 +37,10 @@
   const mobileMenu = document.getElementById("landing-mobile-menu");
   const mobileCompanyMenu = document.querySelector("[data-landing-mobile-product]");
   const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
+  const networkStage = document.querySelector("[data-network-stage]");
+  const storyDiagram = document.querySelector("[data-story-diagram]");
+  const storyCaption = document.querySelector("[data-story-caption]");
+  const storySteps = Array.from(document.querySelectorAll("[data-story-step]"));
   const ratingForm = document.getElementById("landing-rating-form");
   const ratingAverageEl = document.getElementById("landing-rating-average");
   const ratingAverageMetaEl = document.getElementById("landing-rating-average-meta");
@@ -50,7 +54,7 @@
   const ratingToggleEl = document.getElementById("landing-rating-toggle");
   const ratingGuestNoteEl = document.getElementById("landing-rating-guest-note");
   const ratingGuestLoginLinkEl = document.getElementById("landing-rating-guest-login-link");
-  const ratingStarButtons = Array.from(document.querySelectorAll("#landing-rating-stars .landing-star-btn"));
+  const ratingStarButtons = Array.from(document.querySelectorAll("#landing-rating-stars button"));
 
   let selectedLandingRating = 0;
   let isSubmittingLandingRating = false;
@@ -127,6 +131,45 @@
     window.addEventListener("resize", () => {
       if (window.innerWidth >= 768) closeMobileMenu();
     });
+  }
+
+  function initStory() {
+    if (!storySteps.length || !(storyDiagram instanceof HTMLElement)) return;
+
+    const captions = [
+      t("landing.story.stage0", null, "Ein Ziel. Ein klarer Status."),
+      t("landing.story.stage1", null, "Prüfung wird an einen Node gesendet."),
+      t("landing.story.stage2", null, "Das Ziel antwortet – oder nicht."),
+      t("landing.story.stage3", null, "Messwert und Ereignis werden gespeichert."),
+      t("landing.story.stage4", null, "Ein Statuswechsel löst die Meldung aus."),
+    ];
+
+    function activateStoryStage(value) {
+      const nextStage = Math.max(0, Math.min(storySteps.length - 1, Number(value) || 0));
+      storyDiagram.dataset.stage = String(nextStage);
+      if (networkStage instanceof HTMLElement) networkStage.dataset.networkStage = String(nextStage);
+      storySteps.forEach((step, index) => step.classList.toggle("is-active", index === nextStage));
+      if (storyCaption) {
+        storyCaption.setAttribute("data-i18n", `landing.story.stage${nextStage}`);
+        storyCaption.textContent = captions[nextStage] || captions[0];
+      }
+      window.dispatchEvent(new CustomEvent("pms:story-stage", { detail: { stage: nextStage } }));
+    }
+
+    activateStoryStage(0);
+    if (typeof window.IntersectionObserver !== "function" || prefersReducedMotion) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visibleEntry) return;
+        activateStoryStage(visibleEntry.target.dataset.storyStep);
+      },
+      { rootMargin: "-32% 0px -42% 0px", threshold: [0.1, 0.45, 0.8] }
+    );
+    storySteps.forEach((step) => observer.observe(step));
   }
 
   function initRevealAnimations() {
@@ -397,6 +440,7 @@
       liveOverall.textContent = t("landing.live.overall.no_data", null, "No monitor data available");
       setStateColorClass(liveOverall, "unknown");
       setDotColorClass("unknown");
+      networkStage?.classList.remove("is-online", "is-offline");
       return;
     }
 
@@ -405,6 +449,8 @@
       liveOverall.textContent = t("landing.live.overall.operational", null, "All systems operational");
       setStateColorClass(liveOverall, "online");
       setDotColorClass("online");
+      networkStage?.classList.add("is-online");
+      networkStage?.classList.remove("is-offline");
       return;
     }
 
@@ -415,6 +461,8 @@
     );
     setStateColorClass(liveOverall, "offline");
     setDotColorClass("offline");
+    networkStage?.classList.add("is-offline");
+    networkStage?.classList.remove("is-online");
   }
 
   function renderPrimaryMonitor(metrics) {
@@ -1020,30 +1068,13 @@
     return unique;
   }
 
-  function buildDemoPreviewMetric() {
-    return {
-      monitorId: "landing-demo-pingmyserver-de",
-      name: "pingmyserver.de",
-      target: "https://pingmyserver.de",
-      status: "online",
-      lastResponseMs: 28,
-      last24h: {
-        uptime: 99.98,
-        bars: Array.from({ length: previewBarCount }, () => ({ status: "ok" })),
-      },
-      incidents: {
-        items: [],
-      },
-    };
-  }
-
   async function loadPreviewData() {
     const isAuthenticated = await hasAuthenticatedSession();
     renderNavigationAuthState(isAuthenticated);
     setLandingRatingAuthState(isAuthenticated);
 
     const publicMetric = await loadPublicPreviewMetric();
-    const normalizedMetrics = uniqueMetrics([publicMetric || buildDemoPreviewMetric()]).slice(0, 1);
+    const normalizedMetrics = uniqueMetrics([publicMetric]).slice(0, 1);
 
     renderOverallStatus(normalizedMetrics);
     renderPrimaryMonitor(normalizedMetrics[0] || null);
@@ -1051,6 +1082,7 @@
     renderLatestAlert(normalizedMetrics);
   }
 
+  initStory();
   initLandingRatingSection();
   loadPreviewData();
   setInterval(loadPreviewData, previewPollIntervalMs);
