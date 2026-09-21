@@ -1,197 +1,187 @@
 (() => {
   "use strict";
-
   const canvas = document.getElementById("landing-traffic-globe");
-  const wrap = canvas instanceof HTMLCanvasElement ? canvas.parentElement : null;
-  if (!(canvas instanceof HTMLCanvasElement) || !(wrap instanceof HTMLElement)) return;
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return; // Copy and CTAs remain usable without canvas.
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  const mobile = matchMedia("(max-width: 767px)");
+  // Same 256×128 geographic land mask as the existing bundled COBE renderer.
+  // White = land, black = ocean; no photo texture or network dependency.
+  const landMask = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAACAAQAAAADMzoqnAAAAAXNSR0IArs4c6QAABA5JREFUeNrV179uHEUAx/Hf3JpbF+E2VASBsmVKTBcpKJs3SMEDcDwBiVJAAewYEBUivIHT0uUBIt0YCovKD0CRjUC4QfHYh8hYXu+P25vZ2Zm9c66gMd/GJ/tz82d3bk8GN4SrByYF2366FNTACIAkivVAAazQdnf3MvAlbNUQfOPAdQDvSAimMWhwy4I2g4SU+Kp04ISLpPBAKLxPyic3O/CCi+Y7rUJbiodcpDOFY7CgxCEXmdYD2EYK2s5lApOx5pEDDYCUwM1XdJUwBV11QQMg59kePSCaPAASQMEL2hwo6TJFgxpg+TgC2ymXPbuvc40awr3D1QCFfbH9kcoqAOkZozpQo0aqAGQRKCog/+tjkgbNFEtg2FffBvBGlSxHoAaAa1u6X4PBAwDiR8FFsrQgeUhfJTSALaB9jy5NCybJPn1SVFiWk7ywN+KzhH1aKAuydhGkbEF4lWohLXDXavlyFgHY7LBnLRdlAP6BS5Cc8RfVDXbkwN/oIvmY+6obbNeBP0JwTuMGu9gTzy1Q4RS/cWpfzszeYwd+CAFrtBW/Hur0gLbJGlD+/OjVwe/drfBxkbbg63dndEDfiEBlAd7ac0BPe1D6Jd8dfbLH+RI0OzseFB5s01/M+gMdAeluLOCAuaUA9Lezo/vSgXoCX9rtEiXnp7Q1W/CNyWcd8DXoS6jH/YZ5vAJEWY2dXFQe2TUgaFaNejCzJ98g6HnlVrsE58sDcYqg+9XY75fPqdoh/kRQWiXKg8MWlJQxUFMPjqnyujhFBE7UxIMjyszk0QwQlFsezImsyvUYYYVED2pk6m0Tg8T04Fwjk2kdAwSACqlM6gRRt3vQYAFGX0Ah7Ebx1H+MDRI5ui0QldH4j7FGcm90XdxD2Jg1AOEAVAKhEFXSn4cKUELurIAKwJ3MArypPscQaLhJFICJ0ohjDySAdH8AhDtCiTuMycH8CXzhH9jUACAO5uMhoAwA5i+T6WAKmmAqnLy80wxHqIPFYpqCwxGaYLt4Dyievg5kEoVEUAhs6pqKgFtDQYOuaXypaWKQfIuwwoGSZgfLsu/XAtI8cGN+h7Cc1A5oLOMhwlIPXuhu48AIvsSBkvtV9wsJRKCyYLfq5lTrQMFd1a262oqBck9K1V0YjQg0iEYYgpS1A9GlXQV5cykwm4A7BzVsxQqo7E+zCegO7Ma7yKgsuOcfKbMBwLC8wvVNYDsANYalEpOAa6zpWjTeMKGwEwC1CiQewJc5EKfgy7GmRAZA4vUVGwE2dPM/g0xuAInE/yG5aZ8ISxWGfYigUVbdyBElTHh2uCwGdfCkOLGgQVBh3Ewp+/QK4CDlR5Ws/Zf7yhCf8pH7vinWAvoVCQ6zz0NX5V/6GkAVV+2/5qsJ/gU8bsxpM8IeAQAAAABJRU5ErkJggg==";
+  const image = new Image();
+  const TAU = Math.PI * 2;
+  const rad = Math.PI / 180;
+  const locations = [
+    [50.1, 8.7], [40.7, -74], [51.5, -0.1], [1.35, 103.8],
+    [52.4, 4.9], [35.7, 139.7], [-23.6, -46.6], [-33.9, 18.4],
+    [19.1, 72.9], [37.8, -122.4], [-33.9, 151.2],
+  ];
+  const pairs = [[0, 1], [2, 3], [4, 5], [0, 7], [1, 6], [7, 8], [5, 10], [9, 4]];
+  let points = [];
+  let pixels;
+  let width = 1, height = 1, radius = 1, cx = 0, cy = 0;
+  let frame = 0, lastFrame = 0, elapsed = 0;
+  let visible = true, disposed = false;
 
-  const context = canvas.getContext("2d", { alpha: true });
-  if (!context) {
-    canvas.classList.add("is-fallback");
-    return;
+  function vector(lat, lon) {
+    const c = Math.cos(lat);
+    return [c * Math.sin(lon), Math.sin(lat), c * Math.cos(lon)];
   }
 
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const smallScreen = window.matchMedia("(max-width: 767px)").matches;
-  const pointCount = smallScreen ? 92 : 164;
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const connections = [];
-  const points = Array.from({ length: pointCount }, (_, index) => {
-    const y = 1 - (index / (pointCount - 1)) * 2;
-    const radius = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = goldenAngle * index;
-    const seed = Math.sin((index + 1) * 183.13) * 43758.5453;
-    const random = seed - Math.floor(seed);
-    return {
-      x: Math.cos(theta) * radius,
-      y,
-      z: Math.sin(theta) * radius,
-      scatterX: random * 2.8 - 1.4,
-      scatterY: ((random * 7.31) % 1) * 2.8 - 1.4,
-      scatterZ: ((random * 13.17) % 1) * 2 - 1,
-    };
-  });
-
-  for (let index = 0; index < pointCount; index += 1) {
-    connections.push([index, (index + 8) % pointCount]);
-    if (index % 4 === 0) connections.push([index, (index + 13) % pointCount]);
+  // Equal-area sampling retains continent silhouettes without polar clusters.
+  function sampleLand() {
+    const count = mobile.matches ? 8500 : 19000;
+    points = [];
+    for (let i = 0; i < count; i += 1) {
+      const lat = Math.asin(1 - 2 * (i + 0.5) / count);
+      const lon = ((i * Math.PI * (3 - Math.sqrt(5))) % TAU) - Math.PI;
+      const u = Math.min(255, Math.floor((lon / TAU + 0.5) * 256));
+      const v = Math.min(127, Math.floor((0.5 - lat / Math.PI) * 128));
+      if (pixels[(v * 256 + u) * 4] > 127) points.push(vector(lat, lon));
+    }
   }
-
-  let width = 1;
-  let height = 1;
-  let dpr = 1;
-  let frame = 0;
-  let stage = 0;
-  let visible = true;
-  const startedAt = performance.now();
-  let lastDrawAt = 0;
 
   function resize() {
-    const rect = wrap.getBoundingClientRect();
-    width = Math.max(1, Math.round(rect.width));
-    height = Math.max(1, Math.round(rect.height));
-    dpr = Math.min(window.devicePixelRatio || 1, 1.75);
-    canvas.width = Math.max(1, Math.round(width * dpr));
-    canvas.height = Math.max(1, Math.round(height * dpr));
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const box = canvas.parentElement.getBoundingClientRect();
+    width = Math.max(1, box.width);
+    height = Math.max(1, box.height);
+    const dpr = Math.min(devicePixelRatio || 1, mobile.matches ? 1.25 : 1.5);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    radius = Math.min(width * (mobile.matches ? 0.85 : 0.46), height * 0.77);
+    cx = width / 2;
+    cy = height * (mobile.matches ? 0.94 : 0.98);
+    if (pixels) sampleLand();
+    render();
   }
 
-  function easeOutQuart(value) {
-    return 1 - Math.pow(1 - value, 4);
+  function project(point, rotation) {
+    const x = point[0] * Math.cos(rotation) - point[2] * Math.sin(rotation);
+    const z = point[0] * Math.sin(rotation) + point[2] * Math.cos(rotation);
+    // Tilt toward the northern hemisphere without distorting geography.
+    const y = point[1] * Math.cos(0.28) - z * Math.sin(0.28);
+    const depth = point[1] * Math.sin(0.28) + z * Math.cos(0.28);
+    return { x: cx + x * radius, y: cy - y * radius, z: depth };
   }
 
-  function projectedPoints(now) {
-    const intro = reducedMotion ? 1 : Math.min(1, Math.max(0, (now - startedAt - 120) / 1350));
-    const formation = easeOutQuart(intro);
-    const rotation = reducedMotion ? -0.38 : -0.38 + Math.max(0, now - startedAt - 1250) * 0.000025;
-    const cos = Math.cos(rotation);
-    const sin = Math.sin(rotation);
-    const radius = Math.min(width, height) * (smallScreen ? 0.35 : 0.385);
-
-    return points.map((point) => {
-      const x = point.scatterX + (point.x - point.scatterX) * formation;
-      const y = point.scatterY + (point.y - point.scatterY) * formation;
-      const z = point.scatterZ + (point.z - point.scatterZ) * formation;
-      const rotatedX = x * cos - z * sin;
-      const rotatedZ = x * sin + z * cos;
-      const depth = 0.7 + (rotatedZ + 1) * 0.15;
-      return {
-        x: width / 2 + rotatedX * radius * depth,
-        y: height / 2 + y * radius * depth,
-        z: rotatedZ,
-        alpha: 0.22 + Math.max(0, rotatedZ + 0.25) * 0.42,
-      };
-    });
+  function arc(from, to, progress) {
+    const dot = Math.max(-1, Math.min(1, from.reduce((sum, val, i) => sum + val * to[i], 0)));
+    const angle = Math.acos(dot);
+    const denominator = Math.sin(angle) || 1;
+    const a = Math.sin((1 - progress) * angle) / denominator;
+    const b = Math.sin(progress * angle) / denominator;
+    const lift = 1 + Math.sin(progress * Math.PI) * 0.15;
+    return from.map((val, i) => (val * a + to[i] * b) * lift);
   }
 
-  function drawRoute(activeStage) {
-    const center = { x: width * 0.5, y: height * 0.43 };
-    const probe = { x: width * 0.31, y: height * 0.51 };
-    const target = { x: width * 0.71, y: height * 0.56 };
-    const alert = { x: width * 0.28, y: height * 0.76 };
-    const route = [center, probe, target, center, alert];
-    const activeSegments = Math.max(0, Math.min(4, activeStage));
-
-    context.save();
-    context.lineWidth = 1.25;
-    context.strokeStyle = "rgba(255,255,255,.18)";
-    context.setLineDash([3, 7]);
-    for (let index = 0; index < route.length - 1; index += 1) {
-      context.beginPath();
-      context.moveTo(route[index].x, route[index].y);
-      context.lineTo(route[index + 1].x, route[index + 1].y);
-      context.stroke();
+  function drawConnection(pair, phase, rotation, staticMode) {
+    const from = vector(...locations[pair[0]].map(v => v * rad));
+    const to = vector(...locations[pair[1]].map(v => v * rad));
+    const opacity = staticMode ? 0.5 : Math.min(1, phase / 0.18, (1 - phase) / 0.23) * 0.65;
+    if (opacity <= 0) return;
+    const head = staticMode ? 1 : Math.min(1, phase / 0.48);
+    ctx.strokeStyle = `rgba(230,230,228,${opacity})`;
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    let drawing = false;
+    for (let i = 0; i <= 64 * head; i += 1) {
+      const p = project(arc(from, to, i / 64), rotation);
+      if (p.z < 0.04) { drawing = false; continue; }
+      if (drawing) ctx.lineTo(p.x, p.y);
+      else ctx.moveTo(p.x, p.y);
+      drawing = true;
     }
-    context.setLineDash([]);
-    for (let index = 0; index < activeSegments; index += 1) {
-      context.strokeStyle = "rgba(255,255,255,.88)";
-      context.beginPath();
-      context.moveTo(route[index].x, route[index].y);
-      context.lineTo(route[index + 1].x, route[index + 1].y);
-      context.stroke();
-    }
-    route.forEach((point, index) => {
-      const active = index <= activeSegments;
-      context.fillStyle = active ? "#ffffff" : "rgba(255,255,255,.32)";
-      context.beginPath();
-      context.arc(point.x, point.y, active ? 3.1 : 2.1, 0, Math.PI * 2);
-      context.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    [from, to].forEach(v => {
+      const p = project(v, rotation);
+      if (p.z <= 0.04) return;
+      ctx.fillStyle = `rgba(245,245,242,${opacity})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, mobile.matches ? 2 : 2.6, 0, TAU);
+      ctx.fill();
     });
-    context.restore();
+    if (!staticMode && head < 1) {
+      const p = project(arc(from, to, head), rotation);
+      if (p.z > 0.04) {
+        ctx.fillStyle = `rgba(255,255,255,${opacity})`;
+        ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+      }
+    }
   }
 
-  function draw(now) {
+  function render() {
+    ctx.clearRect(0, 0, width, height);
+    const rotation = motion.matches ? 0.12 : 0.12 + elapsed * 0.000012;
+    const size = mobile.matches ? 1.1 : 1.2;
+    for (const point of points) {
+      const p = project(point, rotation);
+      if (p.z <= 0 || p.y < 0 || p.y > height) continue;
+      // Quiet limb, brighter land toward the camera. No glow or overlay box.
+      const alpha = (0.08 + p.z * 0.4) * (mobile.matches ? 0.8 : 1);
+      ctx.fillStyle = `rgba(205,205,201,${alpha})`;
+      ctx.fillRect(p.x, p.y, size, size);
+    }
+    for (let slot = 0; slot < 2; slot += 1) {
+      const cycle = elapsed / 14000 + slot * 0.5;
+      const pair = pairs[(Math.floor(cycle) * 3 + slot) % pairs.length];
+      drawConnection(pair, motion.matches ? 0.5 : cycle % 1, rotation, motion.matches);
+    }
+  }
+
+  function tick(now) {
     frame = 0;
-    if (!visible || document.hidden) return;
-    if (!reducedMotion && now - lastDrawAt < 38) {
-      frame = window.requestAnimationFrame(draw);
-      return;
+    if (disposed || !visible || document.hidden || motion.matches) return;
+    if (now - lastFrame >= 48) { // At most ~20 fps; no per-frame DOM/layout reads.
+      elapsed += lastFrame ? Math.min(100, now - lastFrame) : 0;
+      lastFrame = now;
+      render();
     }
-    lastDrawAt = now;
-    context.clearRect(0, 0, width, height);
-    const projected = projectedPoints(now);
-
-    context.lineWidth = 0.65;
-    connections.forEach(([from, to]) => {
-      const a = projected[from];
-      const b = projected[to];
-      if (!a || !b || a.z < -0.34 || b.z < -0.34) return;
-      context.strokeStyle = `rgba(255,255,255,${Math.min(a.alpha, b.alpha) * 0.2})`;
-      context.beginPath();
-      context.moveTo(a.x, a.y);
-      context.lineTo(b.x, b.y);
-      context.stroke();
-    });
-    projected.slice().sort((a, b) => a.z - b.z).forEach((point) => {
-      const size = point.z > 0.25 ? 1.45 : 0.9;
-      context.fillStyle = `rgba(255,255,255,${Math.min(0.9, point.alpha)})`;
-      context.beginPath();
-      context.arc(point.x, point.y, size, 0, Math.PI * 2);
-      context.fill();
-    });
-    drawRoute(stage);
-    if (!reducedMotion) frame = window.requestAnimationFrame(draw);
+    frame = requestAnimationFrame(tick);
   }
 
-  function start() {
-    if (frame || !visible || document.hidden) return;
-    frame = window.requestAnimationFrame(draw);
-  }
-
-  function stop() {
-    if (!frame) return;
-    window.cancelAnimationFrame(frame);
+  function resume() {
+    if (disposed || !pixels) return;
+    if (frame) cancelAnimationFrame(frame);
     frame = 0;
+    lastFrame = 0;
+    render();
+    if (visible && !document.hidden && !motion.matches) frame = requestAnimationFrame(tick);
   }
 
-  const visibilityObserver = typeof IntersectionObserver === "function"
-    ? new IntersectionObserver(([entry]) => {
-        visible = !!entry?.isIntersecting;
-        if (visible) start();
-        else stop();
-      }, { rootMargin: "160px" })
-    : null;
-
-  if (visibilityObserver) visibilityObserver.observe(wrap);
-  window.addEventListener("resize", () => {
-    resize();
-    if (reducedMotion) draw(performance.now());
-  }, { passive: true });
-  window.addEventListener("pms:story-stage", (event) => {
-    stage = Number(event.detail?.stage || 0);
-    if (reducedMotion) draw(performance.now());
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stop();
-    else start();
-  });
+  const observer = typeof IntersectionObserver === "function" ? new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    resume();
+  }) : null;
+  observer?.observe(canvas.parentElement);
+  const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null;
+  resizeObserver?.observe(canvas.parentElement);
+  window.addEventListener("resize", resize, { passive: true });
+  document.addEventListener("visibilitychange", resume);
+  motion.addEventListener("change", resume);
+  mobile.addEventListener("change", resize);
   window.addEventListener("pagehide", () => {
-    stop();
-    visibilityObserver?.disconnect();
-  }, { once: true });
-
-  resize();
-  start();
+    disposed = true;
+    cancelAnimationFrame(frame);
+    frame = 0;
+  });
+  window.addEventListener("pageshow", () => {
+    disposed = false;
+    resume();
+  });
+  image.onload = () => {
+    const mask = document.createElement("canvas");
+    mask.width = 256;
+    mask.height = 128;
+    const maskContext = mask.getContext("2d", { willReadFrequently: true });
+    if (!maskContext) return;
+    maskContext.drawImage(image, 0, 0);
+    pixels = maskContext.getImageData(0, 0, 256, 128).data;
+    resize();
+    resume();
+  };
+  image.src = landMask;
 })();

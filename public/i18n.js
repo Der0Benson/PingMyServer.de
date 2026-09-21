@@ -336,19 +336,19 @@
         hero: {
           badge: "Uptime Monitoring · Made in Germany",
           h1: {
-            line1: "Wissen, wenn",
-            highlight: "etwas ausfällt.",
+            line1: "Wissen, wenn deine",
+            highlight: "Website ausfällt.",
             line2: "Bevor es jemand meldet.",
           },
           lead:
-            "PingMyServer prüft Websites und HTTP-Dienste fortlaufend, speichert Antwortzeiten und meldet Statuswechsel per E-Mail, Discord, Slack oder Webhook.",
+            "PingMyServer überwacht deine Websites und HTTP-Dienste. Du bekommst eine Nachricht, wenn etwas nicht stimmt.",
           benefit: {
             setup: "Setup in unter 60 Sekunden",
             no_cc: "Keine Kreditkarte erforderlich",
             public_status: "Öffentliche Statusseite inklusive",
           },
           cta_primary: "Kostenlos starten",
-          cta_secondary: "Live-Status ansehen ↗",
+          cta_secondary: "So funktioniert es ↓",
           note: "Komplett kostenlos während Early Access • Made in Germany",
           fact: {
             monitor: "Monitor",
@@ -2161,19 +2161,19 @@
         hero: {
           badge: "Uptime monitoring · Made in Germany",
           h1: {
-            line1: "Know when",
-            highlight: "something goes down.",
-            line2: "Before somebody reports it.",
+            line1: "Know when your site",
+            highlight: "goes down.",
+            line2: "Before someone tells you.",
           },
           lead:
-            "PingMyServer checks websites and HTTP services continuously, stores response times and reports status changes via email, Discord, Slack or webhook.",
+            "PingMyServer monitors your websites and HTTP services. Get notified when something goes wrong.",
           benefit: {
             setup: "Setup in under 60 seconds",
             no_cc: "No credit card required",
             public_status: "Public status page included",
           },
           cta_primary: "Start for free",
-          cta_secondary: "View live status ↗",
+          cta_secondary: "See how it works ↓",
           note: "Completely free during early access • Made in Germany",
           fact: {
             monitor: "Monitor",
