@@ -23,6 +23,68 @@
   let width = 1, height = 1, radius = 1, cx = 0, cy = 0;
   let frame = 0, lastFrame = 0, elapsed = 0;
   let visible = true, disposed = false;
+  let focusRotation = null;
+  let selectedPair = pairs[0];
+
+  function inStory() {
+    return !!window.PMS_CHECK_STORY?.enabled && window.PMS_CHECK_STORY.progress > 0;
+  }
+
+  function drawCheck(rotation) {
+    const model = window.PMS_CHECK_STORY;
+    const s = model.state(model.progress);
+    const g = model.layout(width, height);
+    const from = vector(...locations[selectedPair[0]].map(v => v * rad));
+    const to = vector(...locations[selectedPair[1]].map(v => v * rad));
+    function point(t) {
+      const world = project(arc(from, to, t), rotation);
+      const flat = model.routePoint(t, g.source, g.target, g.mobile);
+      return { x: world.x + (flat.x - world.x) * s.focus,
+        y: world.y + (flat.y - world.y) * s.focus };
+    }
+    function dot(p, opacity, size = 3) {
+      ctx.fillStyle = "rgba(244,244,242," + opacity + ")";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(220,220,216," + (.3 + s.focus * .35) + ")";
+    ctx.setLineDash(s.failure > .5 ? [3, 12] : []);
+    ctx.beginPath();
+    for (let i = 0; i <= 80; i++) {
+      const t = i / 80, p = point(t);
+      // A visible break appears only after the failed check.
+      if (i === 0 || (s.failure > .5 && t >= .46 && t <= .55)) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    dot(point(0), .85);
+    dot(point(1), .85 * (1 - s.notify * .6));
+    if (s.stage === 1) dot(point(s.request), 1, 4);
+    if (s.stage === 2) dot(point(1 - s.response), 1, 4);
+    if (s.notify > 0) {
+      g.channels.forEach((end, index) => {
+        const amount = model.clamp((s.notify - index * .12) / .55);
+        if (amount === 0) return;
+        ctx.strokeStyle = "rgba(220,220,216," + amount * .65 + ")";
+        ctx.beginPath();
+        for (let i = 0; i <= 48 * amount; i++) {
+          const t = i / 48;
+          // On mobile, branch out sideways before passing the target node.
+          const bend = g.mobile ? Math.sin(t * Math.PI) * (end.x < g.source.x ? -width * .22 : width * .22) : 0;
+          const p = { x: g.source.x + (end.x - g.source.x) * t + bend,
+            y: g.source.y + (end.y - g.source.y) * t };
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+        if (amount > .95) dot(end, amount, 2.5);
+      });
+    }
+  }
 
   function vector(lat, lon) {
     const c = Math.cos(lat);
@@ -79,6 +141,10 @@
   function drawConnection(pair, phase, rotation, staticMode) {
     const from = vector(...locations[pair[0]].map(v => v * rad));
     const to = vector(...locations[pair[1]].map(v => v * rad));
+    if (!inStory() && phase > .2 && phase < .75 &&
+        project(from, rotation).z > .04 && project(to, rotation).z > .04) {
+      selectedPair = pair;
+    }
     const opacity = staticMode ? 0.5 : Math.min(1, phase / 0.18, (1 - phase) / 0.23) * 0.65;
     if (opacity <= 0) return;
     const head = staticMode ? 1 : Math.min(1, phase / 0.48);
@@ -115,9 +181,14 @@
 
   function render() {
     ctx.clearRect(0, 0, width, height);
-    const rotation = motion.matches ? 0.12 : 0.12 + elapsed * 0.000012;
+    const active = inStory();
+    if (!active) focusRotation = null;
+    else if (focusRotation === null) focusRotation = 0.12 + elapsed * 0.000012;
+    const rotation = motion.matches ? 0.12 : focusRotation ?? 0.12 + elapsed * 0.000012;
+    const focus = active ? window.PMS_CHECK_STORY.state(window.PMS_CHECK_STORY.progress).focus : 0;
+    ctx.globalAlpha = 1 - focus;
     const size = mobile.matches ? 1.1 : 1.2;
-    for (const point of points) {
+    if (focus < 1) for (const point of points) {
       const p = project(point, rotation);
       if (p.z <= 0 || p.y < 0 || p.y > height) continue;
       // Quiet limb, brighter land toward the camera. No glow or overlay box.
@@ -125,16 +196,18 @@
       ctx.fillStyle = `rgba(205,205,201,${alpha})`;
       ctx.fillRect(p.x, p.y, size, size);
     }
-    for (let slot = 0; slot < 2; slot += 1) {
+    for (let slot = 0; focus < 1 && slot < 2; slot += 1) {
       const cycle = elapsed / 14000 + slot * 0.5;
       const pair = pairs[(Math.floor(cycle) * 3 + slot) % pairs.length];
       drawConnection(pair, motion.matches ? 0.5 : cycle % 1, rotation, motion.matches);
     }
+    ctx.globalAlpha = 1;
+    if (active) drawCheck(rotation);
   }
 
   function tick(now) {
     frame = 0;
-    if (disposed || !visible || document.hidden || motion.matches) return;
+    if (disposed || !visible || document.hidden || motion.matches || inStory()) return;
     if (now - lastFrame >= 48) { // At most ~20 fps; no per-frame DOM/layout reads.
       elapsed += lastFrame ? Math.min(100, now - lastFrame) : 0;
       lastFrame = now;
@@ -148,8 +221,9 @@
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
     lastFrame = 0;
+    if (!visible || document.hidden) return;
     render();
-    if (visible && !document.hidden && !motion.matches) frame = requestAnimationFrame(tick);
+    if (visible && !document.hidden && !motion.matches && !inStory()) frame = requestAnimationFrame(tick);
   }
 
   const observer = typeof IntersectionObserver === "function" ? new IntersectionObserver(([entry]) => {
@@ -160,6 +234,7 @@
   const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null;
   resizeObserver?.observe(canvas.parentElement);
   window.addEventListener("resize", resize, { passive: true });
+  window.addEventListener("pms:check-progress", resume);
   document.addEventListener("visibilitychange", resume);
   motion.addEventListener("change", resume);
   mobile.addEventListener("change", resize);

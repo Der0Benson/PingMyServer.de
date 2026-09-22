@@ -22,9 +22,6 @@
   const mobileMenu = document.getElementById("landing-mobile-menu");
   const mobileCompanyMenu = document.querySelector("[data-landing-mobile-product]");
   const mobileMenuLinks = document.querySelectorAll("[data-landing-mobile-link]");
-  const storyDiagram = document.querySelector("[data-story-diagram]");
-  const storyCaption = document.querySelector("[data-story-caption]");
-  const storySteps = Array.from(document.querySelectorAll("[data-story-step]"));
   const ratingForm = document.getElementById("landing-rating-form");
   const ratingAverageEl = document.getElementById("landing-rating-average");
   const ratingAverageMetaEl = document.getElementById("landing-rating-average-meta");
@@ -113,43 +110,6 @@
     window.addEventListener("resize", () => {
       if (window.innerWidth >= 768) closeMobileMenu();
     });
-  }
-
-  function initStory() {
-    if (!storySteps.length || !(storyDiagram instanceof HTMLElement)) return;
-
-    const captions = [
-      t("landing.story.stage0", null, "Ein Ziel. Ein klarer Status."),
-      t("landing.story.stage1", null, "Prüfung wird an einen Node gesendet."),
-      t("landing.story.stage2", null, "Das Ziel antwortet – oder nicht."),
-      t("landing.story.stage3", null, "Messwert und Ereignis werden gespeichert."),
-      t("landing.story.stage4", null, "Ein Statuswechsel löst die Meldung aus."),
-    ];
-
-    function activateStoryStage(value) {
-      const nextStage = Math.max(0, Math.min(storySteps.length - 1, Number(value) || 0));
-      storyDiagram.dataset.stage = String(nextStage);
-      storySteps.forEach((step, index) => step.classList.toggle("is-active", index === nextStage));
-      if (storyCaption) {
-        storyCaption.setAttribute("data-i18n", `landing.story.stage${nextStage}`);
-        storyCaption.textContent = captions[nextStage] || captions[0];
-      }
-    }
-
-    activateStoryStage(0);
-    if (typeof window.IntersectionObserver !== "function" || prefersReducedMotion) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleEntry = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visibleEntry) return;
-        activateStoryStage(visibleEntry.target.dataset.storyStep);
-      },
-      { rootMargin: "-32% 0px -42% 0px", threshold: [0.1, 0.45, 0.8] }
-    );
-    storySteps.forEach((step) => observer.observe(step));
   }
 
   function initRevealAnimations() {
@@ -793,7 +753,6 @@
 
   }
 
-  initStory();
   initLandingRatingSection();
   refreshAuthState();
   setInterval(refreshAuthState, previewPollIntervalMs);

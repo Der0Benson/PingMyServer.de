@@ -368,6 +368,32 @@
           alerts: "E-Mail · Discord · Slack · Webhook",
           status: "Öffentliche Statusseite",
         },
+        check: {
+          "title": "Ein Check, vom Ziel bis zur Meldung.",
+          "example": "Ein beispielhafter Ablauf · keine Live-Daten",
+          "target": "Deine Website",
+          "focus": {
+            "title": "Eine Verbindung. Dein Ziel.",
+            "body": "Aus dem Netzwerk wird ein einzelner Check."
+          },
+          "request": {
+            "title": "Eine Anfrage geht raus.",
+            "body": "PingMyServer ruft deine Website über HTTP auf."
+          },
+          "response": {
+            "title": "Die Antwort kommt zurück.",
+            "body": "Status und Antwortzeit werden gemessen und im Verlauf gespeichert."
+          },
+          "failure": {
+            "title": "Beim nächsten Check: keine Antwort.",
+            "body": "Ein Timeout wird erkannt und als Vorfall festgehalten."
+          },
+          "notify": {
+            "title": "Du erfährst davon.",
+            "body": "Die Meldung geht an deine eingerichteten Kanäle."
+          },
+          "static": "HTTP GET → 200 OK · 184 ms. Beim nächsten Check: TIMEOUT → Meldung per E-Mail, Discord, Slack oder Webhook."
+        },
         story: {
           kicker: "Vom Ziel bis zur Meldung",
           title: "Was bei jeder Prüfung passiert.",
@@ -2188,6 +2214,32 @@
           incidents: "Incident history",
           alerts: "Email · Discord · Slack · Webhook",
           status: "Public status page",
+        },
+        check: {
+          "title": "One check, from target to notification.",
+          "example": "Illustrative sequence · not live data",
+          "target": "Your website",
+          "focus": {
+            "title": "One connection. Your target.",
+            "body": "From the network to a single check."
+          },
+          "request": {
+            "title": "A request goes out.",
+            "body": "PingMyServer requests your website over HTTP."
+          },
+          "response": {
+            "title": "The response comes back.",
+            "body": "Status and response time are measured and stored in the history."
+          },
+          "failure": {
+            "title": "Next check: no response.",
+            "body": "A timeout is detected and recorded as an incident."
+          },
+          "notify": {
+            "title": "You hear about it.",
+            "body": "The notification goes to your configured channels."
+          },
+          "static": "HTTP GET → 200 OK · 184 ms. Next check: TIMEOUT → notification via email, Discord, Slack or webhook."
         },
         story: {
           kicker: "From target to notification",

@@ -6,7 +6,7 @@ const vm = require("node:vm");
 const publicDir = path.join(__dirname, "..", "public");
 const source = fs.readFileSync(path.join(publicDir, "landing-globe.js"), "utf8");
 
-function globeHarness({ reduced = false, width = 1440, contextAvailable = true } = {}) {
+function globeHarness({ reduced = false, width = 1440, contextAvailable = true, story = null } = {}) {
   const frames = new Map(), events = {}, mediaEvents = {};
   let nextFrame = 0, dots = 0, visibility;
   const context = {
@@ -38,7 +38,7 @@ function globeHarness({ reduced = false, width = 1440, contextAvailable = true }
   vm.runInNewContext(source, {
     HTMLCanvasElement: Canvas,
     document,
-    window: { addEventListener: (name, fn) => { events[name] = fn; } },
+    window: { PMS_CHECK_STORY: story, addEventListener: (name, fn) => { events[name] = fn; } },
     matchMedia: query => query.includes("reduced") ? motion : { matches: width < 768, addEventListener() {} },
     devicePixelRatio: 3,
     Image: class { set src(value) { assert.match(value, /^data:image\/png;base64,/); this.onload(); } },
@@ -56,7 +56,8 @@ test("hero contains only background earth, copy and two actions", () => {
   const hero = html.match(/<section class="hero"[^]*?<\/section>/)[0];
   assert.equal((hero.match(/<a /g) || []).length, 2);
   assert.match(hero, /href="#so-funktioniert-es"/);
-  assert.match(hero, /class="hero-earth" aria-hidden="true"/);
+  assert.match(html, /class="journey-scene" aria-hidden="true"/);
+  assert.equal((html.match(/id="landing-traffic-globe"/g) || []).length, 1);
   assert.doesNotMatch(hero, /hero-grid|network-stage|live-readout|hero-facts|badge|<dl/);
 });
 
@@ -101,4 +102,21 @@ test("animation pauses offscreen, in hidden tabs and across page navigation", ()
 
 test("missing canvas context does not prevent text and actions from loading", () => {
   assert.doesNotThrow(() => globeHarness({ contextAvailable: false }));
+});
+
+test("shared canvas draws each scroll state without an autonomous animation loop", () => {
+  const model = require("../public/landing-story");
+  for (const width of [320, 390, 768, 1440]) {
+    const story = { ...model, enabled: true, progress: 0 };
+    const h = globeHarness({ width, story });
+    assert.equal(h.frames.size, 1);
+    for (const progress of [.1, .25, .5, .65, .8, 1, .8, .5, .1]) {
+      story.progress = progress;
+      h.events["pms:check-progress"]();
+      assert.equal(h.frames.size, 0, "scroll, not time, drives the check");
+    }
+    story.progress = 0;
+    h.events["pms:check-progress"]();
+    assert.equal(h.frames.size, 1, "hero resumes on returning to the top");
+  }
 });

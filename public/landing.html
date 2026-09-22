@@ -76,10 +76,20 @@
     </header>
 
     <main id="main">
-      <section class="hero" id="produkt">
-        <div class="hero-earth" aria-hidden="true">
-          <canvas id="landing-traffic-globe" width="1600" height="1000"></canvas>
+      <div class="monitoring-journey">
+        <div class="journey-scene" aria-hidden="true">
+          <div class="hero-earth"><canvas id="landing-traffic-globe" width="1600" height="1000"></canvas></div>
+          <div class="check-labels">
+            <span data-check-label="source">PingMyServer</span>
+            <span data-check-label="target" data-i18n="landing.check.target">Deine Website</span>
+            <span data-check-label="message">HTTP GET</span>
+            <span data-check-label="channel0">E-Mail</span>
+            <span data-check-label="channel1">Discord</span>
+            <span data-check-label="channel2">Slack</span>
+            <span data-check-label="channel3">Webhook</span>
+          </div>
         </div>
+      <section class="hero" id="produkt">
         <div class="site-shell hero-composition">
           <h1><span data-i18n="landing.hero.h1.line1">Wissen, wenn deine</span> <span data-i18n="landing.hero.h1.highlight">Website ausfällt.</span><span class="quiet" data-i18n="landing.hero.h1.line2">Bevor es jemand meldet.</span></h1>
           <p class="hero-lead" data-i18n="landing.hero.lead">PingMyServer überwacht deine Websites und HTTP-Dienste. Du bekommst eine Nachricht, wenn etwas nicht stimmt.</p>
@@ -87,27 +97,21 @@
         </div>
       </section>
 
-      <section class="proof-strip" aria-label="Produktumfang"><div class="site-shell proof-grid"><span>HTTP / HTTPS</span><span data-i18n="landing.proof.history">Antwortzeiten & Verlauf</span><span data-i18n="landing.proof.incidents">Incident-Historie</span><span data-i18n="landing.proof.alerts">E-Mail · Discord · Slack · Webhook</span><span data-i18n="landing.proof.status">Öffentliche Statusseite</span></div></section>
-
-      <section class="story" id="so-funktioniert-es">
-        <div class="site-shell story-layout">
-          <div class="story-visual" aria-hidden="true"><div class="story-diagram" data-story-diagram>
-            <div class="diagram-node diagram-product">PMS</div><div class="diagram-node diagram-probe">NODE</div><div class="diagram-node diagram-target">HTTP</div><div class="diagram-node diagram-store">LOG</div><div class="diagram-node diagram-alert">!</div>
-            <svg viewBox="0 0 600 600" preserveAspectRatio="none"><path class="diagram-line line-dispatch" d="M300 135 L178 275" /><path class="diagram-line line-check" d="M198 300 L402 300" /><path class="diagram-line line-result" d="M420 320 L330 455" /><path class="diagram-line line-alert" d="M310 470 L175 505" /></svg>
-            <span class="diagram-caption" data-story-caption data-i18n="landing.story.stage0">Ein Ziel. Ein klarer Status.</span>
-          </div></div>
-          <div class="story-copy">
-            <header class="section-head"><p class="section-label" data-i18n="landing.story.kicker">Vom Ziel bis zur Meldung</p><h2 data-i18n="landing.story.title">Was bei jeder Prüfung passiert.</h2></header>
-            <ol class="story-steps">
-              <li class="story-step is-active" data-story-step="0"><span>01</span><div><h3 data-i18n="landing.story.steps.add.title">Ziel hinzufügen</h3><p data-i18n="landing.story.steps.add.body">Website oder HTTP-Endpunkt eintragen und Prüfintervall festlegen.</p></div></li>
-              <li class="story-step" data-story-step="1"><span>02</span><div><h3 data-i18n="landing.story.steps.dispatch.title">Prüfung ausführen</h3><p data-i18n="landing.story.steps.dispatch.body">PingMyServer oder ein freigegebener Community-Node ruft das Ziel ab.</p></div></li>
-              <li class="story-step" data-story-step="2"><span>03</span><div><h3 data-i18n="landing.story.steps.measure.title">Antwort messen</h3><p data-i18n="landing.story.steps.measure.body">Statuscode, Antwortzeit und konfigurierte HTTP-Assertions werden ausgewertet.</p></div></li>
-              <li class="story-step" data-story-step="3"><span>04</span><div><h3 data-i18n="landing.story.steps.store.title">Verlauf speichern</h3><p data-i18n="landing.story.steps.store.body">Messwerte, Ausfälle und Wiederherstellungen bleiben nachvollziehbar.</p></div></li>
-              <li class="story-step" data-story-step="4"><span>05</span><div><h3 data-i18n="landing.story.steps.alert.title">Statuswechsel melden</h3><p data-i18n="landing.story.steps.alert.body">E-Mail, Discord, Slack oder Webhook informieren dich bei Ausfall und Wiederherstellung.</p></div></li>
-            </ol>
-          </div>
+      <section class="check-story" id="so-funktioniert-es" aria-labelledby="check-story-title">
+        <div class="check-stage site-shell">
+          <h2 id="check-story-title" class="sr-only" data-i18n="landing.check.title">Ein Check, vom Ziel bis zur Meldung.</h2>
+          <p class="check-example" data-i18n="landing.check.example">Ein beispielhafter Ablauf · keine Live-Daten</p>
+          <ol class="check-captions">
+            <li data-check-step="0"><h3 data-i18n="landing.check.focus.title">Eine Verbindung. Dein Ziel.</h3><p data-i18n="landing.check.focus.body">Aus dem Netzwerk wird ein einzelner Check.</p></li>
+            <li data-check-step="1"><h3 data-i18n="landing.check.request.title">Eine Anfrage geht raus.</h3><p data-i18n="landing.check.request.body">PingMyServer ruft deine Website über HTTP auf.</p></li>
+            <li data-check-step="2"><h3 data-i18n="landing.check.response.title">Die Antwort kommt zurück.</h3><p data-i18n="landing.check.response.body">Status und Antwortzeit werden gemessen und im Verlauf gespeichert.</p></li>
+            <li data-check-step="3"><h3 data-i18n="landing.check.failure.title">Beim nächsten Check: keine Antwort.</h3><p data-i18n="landing.check.failure.body">Ein Timeout wird erkannt und als Vorfall festgehalten.</p></li>
+            <li data-check-step="4"><h3 data-i18n="landing.check.notify.title">Du erfährst davon.</h3><p data-i18n="landing.check.notify.body">Die Meldung geht an deine eingerichteten Kanäle.</p></li>
+          </ol>
+          <p class="check-static-detail" data-i18n="landing.check.static">HTTP GET → 200 OK · 184 ms. Beim nächsten Check: TIMEOUT → Meldung per E-Mail, Discord, Slack oder Webhook.</p>
         </div>
       </section>
+      </div>
 
       <section class="capabilities" id="funktionen"><div class="site-shell">
         <header class="section-head split-head"><div><p class="section-label" data-i18n="landing.capabilities.kicker">Produktumfang</p><h2 data-i18n="landing.capabilities.title">Monitoring ohne Funktionsnebel.</h2></div><p data-i18n="landing.capabilities.lead">Nur Funktionen, die du heute tatsächlich verwenden kannst.</p></header>
@@ -135,6 +139,7 @@
     <footer class="site-footer"><div class="site-shell footer-grid"><div class="footer-brand"><a class="brand" href="/"><img src="/assets/pingmyserverlogo.png" alt="" width="34" height="34" /><span>PingMyServer</span></a><p data-i18n="landing.footer.pitch">Uptime Monitoring für Websites und HTTP-Dienste.</p></div><div><h3 data-i18n="landing.footer.product">Produkt</h3><a href="#funktionen" data-i18n="landing.nav.features">Funktionen</a><a href="#preise" data-i18n="landing.nav.pricing">Preise</a><a href="/status" data-i18n="landing.footer.status">Status</a></div><div><h3 data-i18n="landing.tools.kicker">Werkzeuge</h3><a href="/dns-lookup">DNS Lookup</a><a href="/port-checker">Port Checker</a><a href="/blog">Blog</a></div><div><h3 data-i18n="landing.footer.legal">Rechtliches</h3><a href="/datenschutz" data-i18n="common.privacy">Datenschutz</a><a href="/impressum" data-i18n="common.imprint">Impressum</a><a href="/nutzungsbedingungen" data-i18n="common.terms">Nutzungsbedingungen</a></div></div><div class="site-shell footer-bottom"><span>© 2026 PingMyServer · Ben Luca Pritzsche</span><a href="https://github.com/Der0Benson/PingMyServer.de" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
 
     <script src="/assets/i18n.js"></script>
+    <script src="/assets/landing-story.js"></script>
     <script src="/assets/landing-globe.js"></script>
     <script src="/assets/landing.js"></script>
   </body>
